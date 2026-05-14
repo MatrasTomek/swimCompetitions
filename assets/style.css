@@ -1,0 +1,483 @@
+/* ===============================
+   Variables and reset
+   =============================== */
+:root {
+    --black:      #000000;
+    --dark:       #111111;
+    --dark-mid:   #1a1a1a;
+    --dark-card:  #161616;
+    --gold:       #f0a800;
+    --gold-light: #f5c040;
+    --gold-pale:  #2e2000;
+    --white:      #f2f2f2;
+    --gray:       #888888;
+    --gray-light: #2a2a2a;
+    --success:    #4caf50;
+    --success-bg: #1a2e1a;
+    --error:      #e53935;
+    --error-bg:   #2e1a1a;
+    --shadow:     0 2px 12px rgba(0,0,0,0.6);
+    --radius:     8px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--white);
+    background: var(--black);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main { flex: 1; }
+
+a { color: var(--gold-light); text-decoration: none; }
+a:hover { text-decoration: underline; color: var(--gold); }
+
+/* ===============================
+   Layout
+   =============================== */
+.container {
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+/* ===============================
+   Header
+   =============================== */
+.site-header {
+    background: var(--dark);
+    border-bottom: 2px solid var(--gold);
+    padding: 0.8rem 0;
+}
+
+.site-header .container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.site-logo {
+    display: flex;
+    align-items: center;
+}
+
+.site-logo-img {
+    height: 34px;
+    width: auto;
+    display: block;
+}
+
+.site-nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.site-nav a {
+    color: rgba(242,242,242,0.7);
+    font-size: 0.9rem;
+    transition: color 0.15s;
+}
+
+.site-nav a:hover,
+.site-nav a.active { color: var(--gold); text-decoration: none; }
+
+/* ===============================
+   Hero
+   =============================== */
+.hero {
+    padding: 2.5rem 0 1.5rem;
+    text-align: center;
+}
+
+.hero h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--gold);
+    margin-bottom: 0.4rem;
+    text-shadow: 0 0 30px rgba(201,152,42,0.3);
+}
+
+.hero p {
+    color: var(--gray);
+    font-size: 1.05rem;
+}
+
+/* ===============================
+   Competition cards (index.php)
+   =============================== */
+.zawody-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.25rem;
+    padding: 1rem 0 3rem;
+}
+
+.zawody-card {
+    background: var(--dark-card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border-top: 3px solid var(--gold);
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.zawody-card:hover {
+    box-shadow: 0 6px 24px rgba(201,152,42,0.2);
+    transform: translateY(-2px);
+}
+
+.zawody-card-body {
+    padding: 1.25rem 1.25rem 1rem;
+    flex: 1;
+}
+
+.zawody-meta {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.badge-date, .badge-city {
+    font-size: 0.78rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.badge-date {
+    background: var(--gold-pale);
+    color: var(--gold-light);
+    border: 1px solid var(--gold);
+}
+
+.badge-city {
+    background: var(--gray-light);
+    color: #bbb;
+}
+
+.zawody-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--gold);
+    margin-bottom: 0.3rem;
+    line-height: 1.3;
+}
+
+.zawody-klub {
+    font-size: 0.88rem;
+    color: var(--gray);
+}
+
+.zawody-card-footer {
+    padding: 0 1.25rem 1.25rem;
+}
+
+/* ===============================
+   Results (wyniki.php)
+   =============================== */
+.wyniki-header {
+    padding: 2rem 0 1.25rem;
+}
+
+.wyniki-header h1 {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--gold);
+    margin-bottom: 0.4rem;
+}
+
+.wyniki-meta {
+    color: var(--gray);
+    font-size: 0.95rem;
+}
+
+.blok {
+    background: var(--dark-card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 1.75rem;
+    overflow: hidden;
+    max-width: 100%;
+}
+
+.blok-header {
+    background: var(--dark-mid);
+    border-left: 4px solid var(--gold);
+    color: var(--white);
+    padding: 0.85rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.blok-header h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--gold);
+    margin: 0;
+}
+
+.blok-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: #aaa;
+    flex-wrap: wrap;
+}
+
+.table-wrapper {
+    /* no horizontal scroll — table switches to cards on mobile */
+}
+
+.tabela-wynikow {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.tabela-wynikow th {
+    background: var(--dark-mid);
+    color: var(--gold);
+    font-weight: 700;
+    text-align: left;
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid var(--gold);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.tabela-wynikow td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid #2a2a2a;
+    vertical-align: middle;
+    color: var(--white);
+}
+
+.tabela-wynikow tbody tr:last-child td { border-bottom: none; }
+.tabela-wynikow tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+.tabela-wynikow tbody tr:hover { background: var(--gold-pale); }
+
+.tabela-wynikow .zawodnik { font-weight: 600; color: var(--white); vertical-align: middle; }
+
+.tabela-wynikow .zawodnik .nazwisko {
+    display: block;
+    font-weight: 400;
+}
+
+.tabela-wynikow .zawodnik .imie {
+    display: block;
+    font-weight: 700;
+}
+
+.tabela-wynikow .czas {
+    font-family: monospace;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--gold-light);
+}
+.text-center { text-align: center; }
+
+/* ===============================
+   Compact table on mobile
+   =============================== */
+@media (max-width: 680px) {
+    .tabela-wynikow {
+        font-size: 0.75rem;
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    /* Column widths: Athlete | Event | Heat | Time | Lane */
+    .tabela-wynikow th:nth-child(1),
+    .tabela-wynikow td:nth-child(1) { width: 32%; }
+
+    .tabela-wynikow th:nth-child(2),
+    .tabela-wynikow td:nth-child(2) { width: 24%; }
+
+    .tabela-wynikow th:nth-child(3),
+    .tabela-wynikow td:nth-child(3) { width: 20%; }
+
+    .tabela-wynikow th:nth-child(4),
+    .tabela-wynikow td:nth-child(4) { width: 16%; }
+
+    .tabela-wynikow th:nth-child(5),
+    .tabela-wynikow td:nth-child(5) { width: 8%; }
+
+    .tabela-wynikow th {
+        padding: 0.4rem 0.3rem;
+        font-size: 0.65rem;
+        white-space: nowrap;
+    }
+
+    .tabela-wynikow td {
+        padding: 0.4rem 0.3rem;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* Smaller font in the Event column */
+    .tabela-wynikow td:nth-child(2) {
+        font-size: 0.68rem;
+    }
+
+    /* Time must not wrap */
+    .tabela-wynikow td:nth-child(4) {
+        white-space: nowrap;
+    }
+}
+
+.back-link { padding: 1rem 0 2.5rem; }
+
+/* ===============================
+   Buttons
+   =============================== */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.55rem 1.2rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 2px solid transparent;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.btn-primary {
+    background: var(--gold);
+    color: var(--black);
+    border-color: var(--gold);
+}
+.btn-primary:hover {
+    background: var(--gold-light);
+    border-color: var(--gold-light);
+    color: var(--black);
+    text-decoration: none;
+}
+
+.btn-outline {
+    background: transparent;
+    color: var(--gold);
+    border-color: var(--gold);
+}
+.btn-outline:hover {
+    background: var(--gold-pale);
+    text-decoration: none;
+    color: var(--gold-light);
+}
+
+.btn-sm { padding: 0.3rem 0.75rem; font-size: 0.8rem; }
+
+.btn-full { width: 100%; }
+
+.btn-wkrotce {
+    display: inline-block;
+    padding: 0.55rem 1.25rem;
+    font-size: 0.9rem;
+    font-style: italic;
+    color: #888;
+    border: 1px dashed #ccc;
+    border-radius: 6px;
+    letter-spacing: 0.03em;
+}
+
+/* ===============================
+   Alerts
+   =============================== */
+.alert {
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius);
+    margin-bottom: 1.25rem;
+    font-size: 0.9rem;
+}
+
+.alert ul { margin: 0.25rem 0 0 1.2rem; }
+
+.alert-success {
+    background: var(--success-bg);
+    color: var(--success);
+    border: 1px solid #2e5c2e;
+}
+.alert-error {
+    background: var(--error-bg);
+    color: #f88;
+    border: 1px solid #5c2e2e;
+}
+
+/* ===============================
+   Empty state
+   =============================== */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--gray);
+    font-size: 1rem;
+}
+
+/* ===============================
+   Footer
+   =============================== */
+.site-footer {
+    background: var(--dark);
+    border-top: 1px solid #2a2a2a;
+    color: #555;
+    text-align: center;
+    padding: 1rem;
+    font-size: 0.85rem;
+    margin-top: auto;
+}
+
+.site-footer a {
+    color: var(--gold);
+    text-decoration: none;
+}
+
+.site-footer a:hover {
+    color: var(--gold-light);
+    text-decoration: underline;
+}
+
+.footer-madeby {
+    font-size: 0.75rem;
+    margin-top: 0.2rem;
+    color: #444;
+}
+
+/* ===============================
+   Responsive
+   =============================== */
+@media (max-width: 600px) {
+    .hero h1 { font-size: 1.5rem; }
+    .zawody-grid { grid-template-columns: 1fr; }
+    .blok-header { flex-direction: column; align-items: flex-start; }
+    .tabela-wynikow { font-size: 0.82rem; }
+    .tabela-wynikow th,
+    .tabela-wynikow td { padding: 0.5rem 0.65rem; }
+}
+
+@media print {
+    body { background: #fff; color: #000; }
+    .site-header, .site-footer, .back-link, .site-nav { display: none; }
+    .blok { box-shadow: none; border: 1px solid #ccc; }
+    .blok-header { background: #eee; border-left: 3px solid #333; }
+    .blok-header h2, .tabela-wynikow th { color: #000; }
+    .tabela-wynikow .czas { color: #000; }
+}

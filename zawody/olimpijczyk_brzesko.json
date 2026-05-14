@@ -1,0 +1,49 @@
+{
+  "nazwa": "Arena Grand Prix",
+  "miejsce": "Oświęcim",
+  "data": "9-10/5/2026",
+  "klub": "Olimpijczyk Brzesko",
+  "bloki": [
+    {
+      "blok": "I",
+      "data": "9/5/2026",
+      "godz_start": "8:30",
+      "starty": [
+        { "imie": "Wąs Amelia",        "konkurencja_nr": 3,  "konkurencja": "Kobiet, 400m zmienny",    "seria": "1 z 5",   "godz": "8:41",  "tor": 6, "czas": "5:23.71" },
+        { "imie": "Wąs Amelia",        "konkurencja_nr": 5,  "konkurencja": "Kobiet, 50m klasyczny",   "seria": "2 z 8",   "godz": "9:20",  "tor": 7, "czas": "35.33"   },
+        { "imie": "Wolnik Aleksandra", "konkurencja_nr": 7,  "konkurencja": "Kobiet, 100m motylkowy",  "seria": "5 z 9",   "godz": "9:38",  "tor": 2, "czas": "1:13.30" },
+        { "imie": "Jurek Hanna",       "konkurencja_nr": 11, "konkurencja": "Kobiet, 200m grzbietowy", "seria": "3 z 6",   "godz": "10:23", "tor": 8, "czas": "2:47.29" },
+        { "imie": "Matras Natalia",    "konkurencja_nr": 11, "konkurencja": "Kobiet, 200m grzbietowy", "seria": "4 z 6",   "godz": "10:27", "tor": 3, "czas": "2:49.53" },
+        { "imie": "Wolnik Aleksandra", "konkurencja_nr": 1,  "konkurencja": "Kobiet, 50m dowolny",     "seria": "11 z 20", "godz": "10:57", "tor": 2, "czas": "31.61"   },
+        { "imie": "Matras Natalia",    "konkurencja_nr": 1,  "konkurencja": "Kobiet, 50m dowolny",     "seria": "12 z 20", "godz": "10:58", "tor": 4, "czas": "31.69"   },
+        { "imie": "Jurek Hanna",       "konkurencja_nr": 1,  "konkurencja": "Kobiet, 50m dowolny",     "seria": "15 z 20", "godz": "11:01", "tor": 7, "czas": "33.71"   }
+      ]
+    },
+    {
+      "blok": "II",
+      "data": "9/5/2026",
+      "godz_start": "16:00",
+      "starty": [
+        { "imie": "Jurek Hanna",       "konkurencja_nr": 15, "konkurencja": "Kobiet, 100m grzbietowy", "seria": "3 z 8",   "godz": "16:15", "tor": 8, "czas": "1:17.76" },
+        { "imie": "Matras Natalia",    "konkurencja_nr": 15, "konkurencja": "Kobiet, 100m grzbietowy", "seria": "4 z 8",   "godz": "16:17", "tor": 3, "czas": "1:19.13" },
+        { "imie": "Wąs Amelia",        "konkurencja_nr": 17, "konkurencja": "Kobiet, 100m klasyczny",  "seria": "1 z 8",   "godz": "16:30", "tor": 8, "czas": "1:15.77" },
+        { "imie": "Wąs Amelia",        "konkurencja_nr": 19, "konkurencja": "Kobiet, 200m zmienny",    "seria": "1 z 8",   "godz": "16:49", "tor": 1, "czas": "2:30.33" },
+        { "imie": "Jurek Hanna",       "konkurencja_nr": 19, "konkurencja": "Kobiet, 200m zmienny",    "seria": "5 z 8",   "godz": "17:02", "tor": 1, "czas": "2:54.22" },
+        { "imie": "Matras Natalia",    "konkurencja_nr": 19, "konkurencja": "Kobiet, 200m zmienny",    "seria": "5 z 8",   "godz": "17:02", "tor": 5, "czas": "2:49.85" },
+        { "imie": "Wolnik Aleksandra", "konkurencja_nr": 13, "konkurencja": "Kobiet, 50m motylkowy",   "seria": "7 z 14",  "godz": "17:54", "tor": 3, "czas": "32.06"   },
+        { "imie": "Matras Natalia",    "konkurencja_nr": 13, "konkurencja": "Kobiet, 50m motylkowy",   "seria": "10 z 14", "godz": "17:57", "tor": 2, "czas": "35.61"   },
+        { "imie": "Wolnik Aleksandra", "konkurencja_nr": 21, "konkurencja": "Kobiet, 400m dowolny",    "seria": "4 z 11",  "godz": "19:22", "tor": 7, "czas": "5:02.35" }
+      ]
+    },
+    {
+      "blok": "III",
+      "data": "10/5/2026",
+      "godz_start": "9:00",
+      "starty": [
+        { "imie": "Jurek Hanna",    "konkurencja_nr": 27, "konkurencja": "Kobiet, 50m grzbietowy",  "seria": "5 z 9", "godz": "9:53",  "tor": 1, "czas": "36.22"   },
+        { "imie": "Wąs Amelia",     "konkurencja_nr": 29, "konkurencja": "Kobiet, 200m klasyczny",  "seria": "1 z 6", "godz": "10:01", "tor": 8, "czas": "2:44.06" },
+        { "imie": "Matras Natalia", "konkurencja_nr": 27, "konkurencja": "Kobiet, 50m grzbietowy",  "seria": "6 z 9", "godz": "12:15", "tor": 6, "czas": "37.30"   }
+      ]
+    }
+  ]
+}

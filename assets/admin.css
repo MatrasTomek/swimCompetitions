@@ -1,0 +1,381 @@
+/* ===============================
+   Admin — layout and header
+   =============================== */
+.admin-header {
+    background: #000000;
+    border-bottom: 2px solid #f0a800;
+    padding: 0;
+}
+
+.admin-header .container {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 52px;
+    flex-wrap: wrap;
+}
+
+.admin-logo {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #666;
+}
+
+.admin-header nav {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    flex-wrap: wrap;
+}
+
+.admin-header nav a {
+    color: rgba(242,242,242,0.55);
+    font-size: 0.85rem;
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    border-bottom: 3px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    text-decoration: none;
+}
+
+.admin-header nav a:hover,
+.admin-header nav a.active {
+    color: #f0a800;
+    border-bottom-color: #f0a800;
+}
+
+/* ===============================
+   Page header
+   =============================== */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 2rem 0 1.25rem;
+    flex-wrap: wrap;
+}
+
+.page-header h1 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #f0a800;
+}
+
+/* ===============================
+   Admin table
+   =============================== */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    background: #1e1e1e;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+}
+
+.admin-table th {
+    background: #242424;
+    color: #f0a800;
+    padding: 0.7rem 1rem;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    border-bottom: 1px solid #f0a800;
+}
+
+.admin-table td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid #2a2a2a;
+    vertical-align: middle;
+    color: #f2f2f2;
+}
+
+.admin-table code {
+    font-size: 0.8rem;
+    color: #aaa;
+    background: #2a2a2a;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+}
+
+.admin-table tbody tr:last-child td { border-bottom: none; }
+.admin-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+.admin-table tbody tr:hover { background: #3a2e10; }
+
+.actions {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+/* ===============================
+   Admin form
+   =============================== */
+.admin-form {
+    background: #1e1e1e;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    padding: 1.75rem;
+    max-width: 680px;
+}
+
+.form-group { margin-bottom: 1.25rem; }
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: #f0a800;
+    margin-bottom: 0.35rem;
+    letter-spacing: 0.02em;
+}
+
+.form-group input[type="text"],
+.form-group input[type="date"],
+.form-group input[type="password"],
+.form-group input[type="file"] {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    border: 1.5px solid #3a3a3a;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: #f2f2f2;
+    background: #111;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="date"]:focus,
+.form-group input[type="password"]:focus {
+    outline: none;
+    border-color: #f0a800;
+    box-shadow: 0 0 0 3px rgba(201,152,42,0.15);
+}
+
+.form-hint {
+    display: block;
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.3rem;
+}
+
+.form-hint code {
+    background: #2a2a2a;
+    color: #aaa;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.78rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding-top: 0.5rem;
+}
+
+hr { border: none; border-top: 1px solid #2a2a2a; margin: 1.25rem 0; }
+
+/* ===============================
+   Extra buttons (admin)
+   =============================== */
+.btn-secondary {
+    background: #333;
+    color: #f2f2f2;
+    border-color: #444;
+}
+.btn-secondary:hover {
+    background: #444;
+    border-color: #555;
+    text-decoration: none;
+    color: #fff;
+}
+
+.btn-danger {
+    background: #7a1a1a;
+    color: #fff;
+    border-color: #7a1a1a;
+}
+.btn-danger:hover {
+    background: #a02020;
+    border-color: #a02020;
+    text-decoration: none;
+    color: #fff;
+}
+
+/* ===============================
+   Login page
+   =============================== */
+.login-page {
+    background: #0d0d0d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1rem;
+}
+
+.login-box {
+    background: #111111;
+    border-radius: 10px;
+    border: 1px solid #f0a800;
+    box-shadow: 0 0 40px rgba(201,152,42,0.12);
+    padding: 2.5rem 2rem;
+    width: 100%;
+    max-width: 380px;
+}
+
+.login-logo {
+    text-align: center;
+    margin-bottom: 1.25rem;
+}
+
+.login-logo img {
+    height: 70px;
+    width: auto;
+    border-radius: 6px;
+}
+
+.login-box h1 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #f0a800;
+    margin-bottom: 0.25rem;
+    text-align: center;
+}
+
+.login-subtitle {
+    text-align: center;
+    color: #666;
+    font-size: 0.88rem;
+    margin-bottom: 1.5rem;
+}
+
+/* ===============================
+   Delete confirmation
+   =============================== */
+.delete-confirm {
+    background: #1e1e1e;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    padding: 2rem;
+    max-width: 520px;
+    margin-top: 2rem;
+}
+
+.delete-confirm h1 {
+    font-size: 1.4rem;
+    color: #e53935;
+    margin-bottom: 1rem;
+}
+
+.delete-confirm p { color: #ccc; margin-bottom: 0.5rem; }
+
+.warning-text {
+    color: #f88 !important;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem !important;
+}
+
+/* ===============================
+   Form select
+   =============================== */
+.form-select {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    border: 1.5px solid #3a3a3a;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: #f2f2f2;
+    background: #111;
+    transition: border-color 0.15s;
+}
+.form-select:focus {
+    outline: none;
+    border-color: #f0a800;
+    box-shadow: 0 0 0 3px rgba(201,152,42,0.15);
+}
+
+/* ===============================
+   Alert
+   =============================== */
+.alert {
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+.alert-success { background: #1a2e1a; color: #aed581; border: 1px solid #2e5a2e; }
+.alert-error   { background: #2e1a1a; color: #ef9a9a; border: 1px solid #5a2e2e; }
+
+/* ===============================
+   Live status
+   =============================== */
+.live-status {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: #1a1a1a;
+    border: 1px solid #c62828;
+    border-radius: 8px;
+    padding: 0.9rem 1.1rem;
+    flex-wrap: wrap;
+}
+.live-badge {
+    background: #c62828;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+    padding: .3rem .65rem;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+.live-info { flex: 1; font-size: 0.88rem; line-height: 1.5; color: #ccc; }
+.live-info strong { color: #f2f2f2; }
+
+.btn-live {
+    background: #1b5e20;
+    color: #aed581;
+    border-color: #2e7d32;
+}
+.btn-live:hover {
+    background: #2e7d32;
+    color: #ccff90;
+    text-decoration: none;
+}
+
+/* ===============================
+   Responsive admin
+   =============================== */
+@media (max-width: 600px) {
+    .form-row { grid-template-columns: 1fr; }
+    .admin-table { font-size: 0.82rem; }
+    .admin-table th,
+    .admin-table td { padding: 0.5rem 0.65rem; }
+    .actions { flex-direction: column; }
+    .page-header { flex-direction: column; align-items: flex-start; }
+    .admin-header .container { flex-direction: column; min-height: auto; }
+    .admin-header nav { width: 100%; }
+    .admin-header nav a { padding: 0.6rem 0.75rem; }
+}
