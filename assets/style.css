@@ -113,6 +113,36 @@ a:hover { text-decoration: underline; color: var(--gold); }
 }
 
 /* ===============================
+   Search bar (index.php)
+   =============================== */
+.search-bar {
+    margin: 0 0 1.25rem;
+}
+
+.search-bar input[type="search"] {
+    width: 100%;
+    max-width: 480px;
+    display: block;
+    margin: 0 auto;
+    padding: 0.6rem 1rem;
+    background: var(--dark-card);
+    border: 1px solid var(--gray-light);
+    border-radius: 6px;
+    color: var(--white);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.search-bar input[type="search"]:focus {
+    border-color: var(--gold);
+}
+
+.search-bar input[type="search"]::placeholder {
+    color: var(--gray);
+}
+
+/* ===============================
    Competition cards (index.php)
    =============================== */
 .zawody-grid {

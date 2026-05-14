@@ -30,14 +30,20 @@ $zawody = load_all_zawody();
         <p>Listy startowe zawodów klubu Olimpijczyk Proszówki</p>
     </section>
 
+    <?php if (!empty($zawody)): ?>
+    <div class="search-bar">
+        <input type="search" id="szukaj" placeholder="Szukaj zawodów..." autocomplete="off">
+    </div>
+    <?php endif; ?>
+
     <?php if (empty($zawody)): ?>
         <div class="empty-state">
             <p>Brak zawodów. Wyniki pojawią się tutaj po dodaniu plików JSON.</p>
         </div>
     <?php else: ?>
-        <div class="zawody-grid">
+        <div class="zawody-grid" id="zawodyGrid">
             <?php foreach ($zawody as $z): ?>
-            <article class="zawody-card">
+            <article class="zawody-card" data-search="<?= h(mb_strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub'])) ?>">
                 <div class="zawody-card-body">
                     <div class="zawody-meta">
                         <?php if ($z['data']): ?>
@@ -66,6 +72,32 @@ $zawody = load_all_zawody();
         </div>
     <?php endif; ?>
 </main>
+
+<script>
+(function () {
+    var input = document.getElementById('szukaj');
+    if (!input) return;
+    input.addEventListener('input', function () {
+        var q = this.value.toLowerCase().trim();
+        var cards = document.querySelectorAll('#zawodyGrid .zawody-card');
+        var visible = 0;
+        cards.forEach(function (card) {
+            var match = !q || card.dataset.search.indexOf(q) !== -1;
+            card.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
+        var empty = document.getElementById('searchEmpty');
+        if (!empty) {
+            empty = document.createElement('p');
+            empty.id = 'searchEmpty';
+            empty.className = 'empty-state';
+            empty.textContent = 'Brak wyników dla podanej frazy.';
+            document.getElementById('zawodyGrid').after(empty);
+        }
+        empty.style.display = (q && visible === 0) ? '' : 'none';
+    });
+})();
+</script>
 
 <footer class="site-footer">
     <div class="container">
