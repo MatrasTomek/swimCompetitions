@@ -73,34 +73,6 @@ swimCompetitions/
 
 Each competition is a single `.json` file in the `zawody/` directory. The required field is `bloki`.
 
-```json
-{
-	"nazwa": "Brzesko County Championships 2026",
-	"miejsce": "Brzesko",
-	"data": "10/5/2026",
-	"klub": "Olimpijczyk Proszówki",
-	"basen": "25m",
-	"bloki": [
-		{
-			"blok": "A",
-			"data": "10/5/2026",
-			"godz_start": "9:00",
-			"starty": [
-				{
-					"imie": "Wąs Amelia",
-					"konkurencja": "Kobiet, 400m zmienny",
-					"konkurencja_nr": 3,
-					"seria": "1",
-					"godz": "9:15",
-					"tor": 4,
-					"czas": "5:10.00"
-				}
-			]
-		}
-	]
-}
-```
-
 After a result is fetched from livetiming.pl, the following fields are added to the entry:
 
 - `czas_result` — official race time
