@@ -55,6 +55,35 @@ $is_live     = !empty($live_config['aktywna']) && ($live_config['json_file'] ?? 
         </div>
     </div>
 
+    <?php if (!empty($bloki)): ?>
+    <div class="search-bar">
+        <input type="search" id="zawodnik-search"
+               placeholder="Szukaj zawodnika lub startu…"
+               autocomplete="off" spellcheck="false">
+    </div>
+
+    <section id="search-results" hidden>
+        <h2 style="margin-bottom:.75rem">Wyniki wyszukiwania</h2>
+        <div class="table-wrapper">
+            <table class="tabela-wynikow">
+                <thead>
+                    <tr>
+                        <th>Zawodnik</th>
+                        <th>Konk.</th>
+                        <th>Blok</th>
+                        <th>Seria</th>
+                        <th class="text-center">Godz.</th>
+                        <th class="text-center col-tor">T</th>
+                        <th class="text-center">Wynik</th>
+                    </tr>
+                </thead>
+                <tbody id="search-tbody"></tbody>
+            </table>
+        </div>
+        <p id="search-empty" class="empty-state" hidden>Brak wyników.</p>
+    </section>
+    <?php endif; ?>
+
     <?php if (empty($bloki)): ?>
         <p class="empty-state">Brak bloków startowych w pliku.</p>
     <?php else: ?>
@@ -88,8 +117,11 @@ $is_live     = !empty($live_config['aktywna']) && ($live_config['json_file'] ?? 
                         $nazwisko = $czesci[0];
                         $imie     = $czesci[1] ?? '';
                         $fetched  = !empty($s['result_fetched']);
+                        $search_key = mb_strtolower(
+                            $s['imie'] . ' ' . format_konkurencja($s['konkurencja'], (int)$s['konkurencja_nr'])
+                        );
                     ?>
-                        <tr>
+                        <tr data-search="<?= h($search_key) ?>" data-blok="<?= h($blok['blok']) ?>">
                             <td class="zawodnik" data-label="Zawodnik">
                                 <span class="nazwisko"><?= h($nazwisko) ?></span>
                                 <?php if ($imie): ?>
@@ -135,6 +167,92 @@ $is_live     = !empty($live_config['aktywna']) && ($live_config['json_file'] ?? 
         <p class="footer-madeby">made by <a href="https://www.nd-soft.pl" target="_blank" rel="noopener">nd-soft</a></p>
     </div>
 </footer>
+
+<script>
+(function () {
+    var input   = document.getElementById('zawodnik-search');
+    var section = document.getElementById('search-results');
+    var tbody   = document.getElementById('search-tbody');
+    var empty   = document.getElementById('search-empty');
+    var blocks  = document.querySelectorAll('section.blok');
+
+    if (!input) return;
+
+    var allRows = Array.from(document.querySelectorAll('section.blok tr[data-search]'));
+
+    function buildCell(row, colIndex) {
+        var cell = row.cells[colIndex];
+        return cell ? cell.innerHTML : '';
+    }
+
+    input.addEventListener('input', function () {
+        var q = this.value.trim().toLowerCase();
+
+        if (!q) {
+            section.hidden = true;
+            blocks.forEach(function (b) { b.hidden = false; });
+            return;
+        }
+
+        blocks.forEach(function (b) { b.hidden = true; });
+        section.hidden = false;
+
+        var matched = allRows.filter(function (r) {
+            return r.dataset.search.indexOf(q) !== -1;
+        });
+
+        tbody.innerHTML = '';
+        if (matched.length === 0) {
+            empty.hidden = false;
+        } else {
+            empty.hidden = true;
+            matched.forEach(function (r) {
+                var tr = document.createElement('tr');
+                /* Zawodnik */
+                var tdZ = document.createElement('td');
+                tdZ.setAttribute('data-label', 'Zawodnik');
+                tdZ.innerHTML = buildCell(r, 0);
+                tr.appendChild(tdZ);
+                /* Konk. */
+                var tdK = document.createElement('td');
+                tdK.setAttribute('data-label', 'Konk.');
+                tdK.innerHTML = buildCell(r, 1);
+                tr.appendChild(tdK);
+                /* Blok */
+                var tdB = document.createElement('td');
+                tdB.setAttribute('data-label', 'Blok');
+                tdB.textContent = r.dataset.blok;
+                tr.appendChild(tdB);
+                /* Seria */
+                var tdS = document.createElement('td');
+                tdS.setAttribute('data-label', 'Seria');
+                tdS.innerHTML = buildCell(r, 2);
+                tr.appendChild(tdS);
+                /* Godz. */
+                var tdG = document.createElement('td');
+                tdG.className = 'text-center';
+                tdG.setAttribute('data-label', 'Godz.');
+                tdG.innerHTML = buildCell(r, 3);
+                tr.appendChild(tdG);
+                /* Tor */
+                var tdT = document.createElement('td');
+                tdT.className = 'text-center';
+                tdT.setAttribute('data-label', 'Tor');
+                tdT.innerHTML = buildCell(r, 4);
+                tr.appendChild(tdT);
+                /* Wynik */
+                var tdW = document.createElement('td');
+                tdW.className = 'text-center';
+                tdW.setAttribute('data-label', 'Wynik');
+                tdW.innerHTML = buildCell(r, 5);
+                tr.appendChild(tdW);
+
+                tbody.appendChild(tr);
+            });
+        }
+    });
+})();
+</script>
 
 <?php if ($is_live): ?>
 <script>
