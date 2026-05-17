@@ -39,129 +39,28 @@ $json_slug = basename($filepath, '.json');
 
 <main class="container">
     <div class="results-header">
-        <div class="results-header-row">
-            <div>
-                <h1><?= h($json['nazwa'] ?? 'Lista startowa') ?></h1>
-                <div class="results-meta">
-                    <?php
-                    $parts = array_filter([
-                        $json['klub']    ?? '',
-                        $json['miejsce'] ?? '',
-                        $json['data']    ?? '',
-                    ]);
-                    echo h(implode(' · ', $parts));
-                    ?>
-                </div>
-            </div>
-            <?php if (!empty($bloki)): ?>
-            <div class="view-toggle" id="view-toggle">
-                <button class="view-toggle-btn active" data-view="blocks">⊞ Bloki</button>
-                <button class="view-toggle-btn" data-view="table">☰ Tabela</button>
-            </div>
-            <?php endif; ?>
+        <h1><?= h($json['nazwa'] ?? 'Lista startowa') ?></h1>
+        <div class="results-meta">
+            <?php
+            $parts = array_filter([
+                $json['klub']    ?? '',
+                $json['miejsce'] ?? '',
+                $json['data']    ?? '',
+            ]);
+            echo h(implode(' · ', $parts));
+            ?>
         </div>
-    </div>
-
-    <div id="view-blocks">
-        <?php if (!empty($bloki)): ?>
-        <div class="search-bar">
-            <input type="search" id="athlete-search"
-                   placeholder="Szukaj zawodnika lub startu…"
-                   autocomplete="off" spellcheck="false">
-        </div>
-
-        <section id="search-results" hidden>
-            <h2 style="margin-bottom:.75rem">Wyniki wyszukiwania</h2>
-            <div class="table-wrapper">
-                <table class="results-table">
-                    <thead>
-                        <tr>
-                            <th>Zawodnik</th>
-                            <th>Konk.</th>
-                            <th>Blok</th>
-                            <th>Seria</th>
-                            <th class="text-center">Godz.</th>
-                            <th class="text-center col-tor">T</th>
-                        </tr>
-                    </thead>
-                    <tbody id="search-tbody"></tbody>
-                </table>
-            </div>
-            <p id="search-empty" class="empty-state" hidden>Brak wyników.</p>
-        </section>
-        <?php endif; ?>
-
-        <?php if (empty($bloki)): ?>
-            <p class="empty-state">Brak bloków startowych w pliku.</p>
-        <?php else: ?>
-            <?php foreach ($bloki as $blok): ?>
-            <section class="block">
-                <div class="block-header">
-                    <h2>Blok <?= h($blok['blok']) ?></h2>
-                    <div class="block-meta">
-                        <span>📅 <?= h($blok['data']) ?></span>
-                        <span>🕐 Start: <?= h($blok['godz_start']) ?></span>
-                        <span><?= count($blok['starty'] ?? []) ?> startów</span>
-                    </div>
-                </div>
-
-                <?php if (!empty($blok['starty'])): ?>
-                <div class="table-wrapper">
-                    <table class="results-table">
-                        <thead>
-                            <tr>
-                                <th>Zawodnik</th>
-                                <th>Konk.</th>
-                                <th>Seria</th>
-                                <th class="text-center">Godz.</th>
-                                <th class="text-center col-tor">T</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        <?php foreach ($blok['starty'] as $s):
-                            $czesci   = explode(' ', trim($s['imie']), 2);
-                            $nazwisko = $czesci[0];
-                            $imie     = $czesci[1] ?? '';
-                            $fetched  = !empty($s['result_fetched']);
-                            $search_key = mb_strtolower(
-                                $s['imie'] . ' ' . format_konkurencja($s['konkurencja'], (int)$s['konkurencja_nr'])
-                            );
-                        ?>
-                            <tr data-search="<?= h($search_key) ?>" data-blok="<?= h($blok['blok']) ?>">
-                                <td class="athlete" data-label="Zawodnik">
-                                    <span class="last-name"><?= h($nazwisko) ?></span>
-                                    <?php if ($imie): ?>
-                                        <span class="first-name"><?= h($imie) ?></span>
-                                    <?php endif; ?>
-                                    <?php if ($fetched): ?>
-                                        <button class="btn-show-time"
-                                            data-czas="<?= h($s['czas'] ?? '') ?>"
-                                            data-czas-result="<?= h($s['czas_result']) ?>"
-                                            data-punkty="<?= h((string)($s['punkty'] ?? '')) ?>"
-                                            data-type="result">Pokaż czas</button>
-                                    <?php elseif (!empty($s['czas'])): ?>
-                                        <button class="btn-show-time" data-czas="<?= h($s['czas']) ?>" data-type="seed">Pokaż czas</button>
-                                    <?php endif; ?>
-                                </td>
-                                <td data-label="Konk."><?= h(format_konkurencja($s['konkurencja'], (int)$s['konkurencja_nr'])) ?></td>
-                                <td data-label="Seria"><?= h($s['seria']) ?></td>
-                                <td class="text-center" data-label="Godz."><?= h($s['godz']) ?></td>
-                                <td class="text-center" data-label="Tor"><?= h((string)$s['tor']) ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-                <?php else: ?>
-                    <p class="empty-state" style="padding:1rem 1.25rem">Brak startów w tym bloku.</p>
-                <?php endif; ?>
-            </section>
-            <?php endforeach; ?>
-        <?php endif; ?>
     </div>
 
     <?php if (!empty($bloki)): ?>
-    <div id="view-table" hidden>
+    <div class="search-bar">
+        <input type="search" id="athlete-search"
+               placeholder="Szukaj zawodnika lub startu…"
+               autocomplete="off" spellcheck="false">
+    </div>
+
+    <section id="search-results" hidden>
+        <h2 style="margin-bottom:.75rem">Wyniki wyszukiwania</h2>
         <div class="table-wrapper">
             <table class="results-table">
                 <thead>
@@ -174,40 +73,79 @@ $json_slug = basename($filepath, '.json');
                         <th class="text-center col-tor">T</th>
                     </tr>
                 </thead>
-                <tbody>
-                <?php foreach ($bloki as $blok): foreach ($blok['starty'] ?? [] as $s):
-                    $czesci   = explode(' ', trim($s['imie']), 2);
-                    $nazwisko = $czesci[0];
-                    $imie     = $czesci[1] ?? '';
-                    $fetched  = !empty($s['result_fetched']);
-                ?>
-                    <tr>
-                        <td class="athlete" data-label="Zawodnik">
-                            <span class="last-name"><?= h($nazwisko) ?></span>
-                            <?php if ($imie): ?>
-                                <span class="first-name"><?= h($imie) ?></span>
-                            <?php endif; ?>
-                            <?php if ($fetched): ?>
-                                <button class="btn-show-time"
-                                    data-czas="<?= h($s['czas'] ?? '') ?>"
-                                    data-czas-result="<?= h($s['czas_result']) ?>"
-                                    data-punkty="<?= h((string)($s['punkty'] ?? '')) ?>"
-                                    data-type="result">Pokaż czas</button>
-                            <?php elseif (!empty($s['czas'])): ?>
-                                <button class="btn-show-time" data-czas="<?= h($s['czas']) ?>" data-type="seed">Pokaż czas</button>
-                            <?php endif; ?>
-                        </td>
-                        <td data-label="Konk."><?= h(format_konkurencja($s['konkurencja'], (int)$s['konkurencja_nr'])) ?></td>
-                        <td data-label="Blok"><?= h($blok['blok']) ?></td>
-                        <td data-label="Seria"><?= h($s['seria']) ?></td>
-                        <td class="text-center" data-label="Godz."><?= h($s['godz']) ?></td>
-                        <td class="text-center" data-label="Tor"><?= h((string)$s['tor']) ?></td>
-                    </tr>
-                <?php endforeach; endforeach; ?>
-                </tbody>
+                <tbody id="search-tbody"></tbody>
             </table>
         </div>
-    </div>
+        <p id="search-empty" class="empty-state" hidden>Brak wyników.</p>
+    </section>
+    <?php endif; ?>
+
+    <?php if (empty($bloki)): ?>
+        <p class="empty-state">Brak bloków startowych w pliku.</p>
+    <?php else: ?>
+        <?php foreach ($bloki as $blok): ?>
+        <section class="block">
+            <div class="block-header">
+                <h2>Blok <?= h($blok['blok']) ?></h2>
+                <div class="block-meta">
+                    <span>📅 <?= h($blok['data']) ?></span>
+                    <span>🕐 Start: <?= h($blok['godz_start']) ?></span>
+                    <span><?= count($blok['starty'] ?? []) ?> startów</span>
+                </div>
+            </div>
+
+            <?php if (!empty($blok['starty'])): ?>
+            <div class="table-wrapper">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Zawodnik</th>
+                            <th>Konk.</th>
+                            <th>Seria</th>
+                            <th class="text-center">Godz.</th>
+                            <th class="text-center col-tor">T</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($blok['starty'] as $s):
+                        $czesci   = explode(' ', trim($s['imie']), 2);
+                        $nazwisko = $czesci[0];
+                        $imie     = $czesci[1] ?? '';
+                        $fetched  = !empty($s['result_fetched']);
+                        $search_key = mb_strtolower(
+                            $s['imie'] . ' ' . format_konkurencja($s['konkurencja'], (int)$s['konkurencja_nr'])
+                        );
+                    ?>
+                        <tr data-search="<?= h($search_key) ?>" data-blok="<?= h($blok['blok']) ?>">
+                            <td class="athlete" data-label="Zawodnik">
+                                <span class="last-name"><?= h($nazwisko) ?></span>
+                                <?php if ($imie): ?>
+                                    <span class="first-name"><?= h($imie) ?></span>
+                                <?php endif; ?>
+                                <?php if ($fetched): ?>
+                                    <button class="btn-show-time"
+                                        data-czas="<?= h($s['czas'] ?? '') ?>"
+                                        data-czas-result="<?= h($s['czas_result']) ?>"
+                                        data-punkty="<?= h((string)($s['punkty'] ?? '')) ?>"
+                                        data-type="result">Pokaż czas</button>
+                                <?php elseif (!empty($s['czas'])): ?>
+                                    <button class="btn-show-time" data-czas="<?= h($s['czas']) ?>" data-type="seed">Pokaż czas</button>
+                                <?php endif; ?>
+                            </td>
+                            <td data-label="Konk."><?= h(format_konkurencja($s['konkurencja'], (int)$s['konkurencja_nr'])) ?></td>
+                            <td data-label="Seria"><?= h($s['seria']) ?></td>
+                            <td class="text-center" data-label="Godz."><?= h($s['godz']) ?></td>
+                            <td class="text-center" data-label="Tor"><?= h((string)$s['tor']) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php else: ?>
+                <p class="empty-state" style="padding:1rem 1.25rem">Brak startów w tym bloku.</p>
+            <?php endif; ?>
+        </section>
+        <?php endforeach; ?>
     <?php endif; ?>
 
     <div class="back-link" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
@@ -263,80 +201,36 @@ $json_slug = basename($filepath, '.json');
             empty.hidden = true;
             matched.forEach(function (r) {
                 var tr = document.createElement('tr');
-                /* Athlete */
                 var tdZ = document.createElement('td');
                 tdZ.setAttribute('data-label', 'Zawodnik');
                 tdZ.innerHTML = buildCell(r, 0);
                 tr.appendChild(tdZ);
-                /* Event */
                 var tdK = document.createElement('td');
                 tdK.setAttribute('data-label', 'Konk.');
                 tdK.innerHTML = buildCell(r, 1);
                 tr.appendChild(tdK);
-                /* Block */
                 var tdB = document.createElement('td');
                 tdB.setAttribute('data-label', 'Blok');
                 tdB.textContent = r.dataset.blok;
                 tr.appendChild(tdB);
-                /* Heat */
                 var tdS = document.createElement('td');
                 tdS.setAttribute('data-label', 'Seria');
                 tdS.innerHTML = buildCell(r, 2);
                 tr.appendChild(tdS);
-                /* Time */
                 var tdG = document.createElement('td');
                 tdG.className = 'text-center';
                 tdG.setAttribute('data-label', 'Godz.');
                 tdG.innerHTML = buildCell(r, 3);
                 tr.appendChild(tdG);
-                /* Lane */
                 var tdT = document.createElement('td');
                 tdT.className = 'text-center';
                 tdT.setAttribute('data-label', 'Tor');
                 tdT.innerHTML = buildCell(r, 4);
                 tr.appendChild(tdT);
-
                 tbody.appendChild(tr);
             });
         }
     });
-})();
-
-/* View toggle: blocks vs flat table */
-(function () {
-    var toggle     = document.getElementById('view-toggle');
-    var viewBlocks = document.getElementById('view-blocks');
-    var viewTable  = document.getElementById('view-table');
-    if (!toggle || !viewBlocks || !viewTable) return;
-
-    var KEY = 'swim-list-view';
-
-    function setView(v) {
-        viewBlocks.hidden = (v === 'table');
-        viewTable.hidden  = (v === 'blocks');
-        toggle.querySelectorAll('.view-toggle-btn').forEach(function (b) {
-            b.classList.toggle('active', b.dataset.view === v);
-        });
-        if (v === 'blocks') {
-            var input = document.getElementById('athlete-search');
-            if (input && input.value) {
-                input.value = '';
-                input.dispatchEvent(new Event('input'));
-            }
-        }
-        try { localStorage.setItem(KEY, v); } catch (e) {}
-    }
-
-    toggle.addEventListener('click', function (e) {
-        var btn = e.target.closest('.view-toggle-btn');
-        if (btn) setView(btn.dataset.view);
-    });
-
-    try {
-        setView(localStorage.getItem(KEY) || 'blocks');
-    } catch (e) {
-        setView('blocks');
-    }
 })();
 
 document.addEventListener('click', function (e) {

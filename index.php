@@ -32,7 +32,7 @@ $zawody = load_all_zawody();
 
     <?php if (!empty($zawody)): ?>
     <div class="view-controls">
-        <div class="view-controls-search">
+        <div class="search-bar">
             <input type="search" id="search" placeholder="Szukaj zawodów..." autocomplete="off">
         </div>
         <div class="view-toggle" id="view-toggle">
