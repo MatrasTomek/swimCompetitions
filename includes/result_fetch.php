@@ -15,11 +15,34 @@ function save_live_config(array $config): void {
 }
 
 /**
- * Derives the LENEX download URL from a livetiming.pl contest URL.
- * E.g. "https://livetiming.pl/contest/UUID" → "https://livetiming.pl/contest/UUID/results.lxf"
+ * Fetches the livetiming.pl contest page and extracts the .lxf download URL from its HTML.
+ * Falls back to appending /results.lxf if extraction fails.
+ * Returns ['url' => string, 'source' => 'page'|'fallback'].
  */
-function lenex_url_from_contest(string $contest_url): string {
-    return rtrim($contest_url, '/') . '/results.lxf';
+function resolve_lenex_url(string $contest_url): array {
+    $ctx = stream_context_create([
+        'http' => [
+            'header'  => "User-Agent: Mozilla/5.0 SwimResults/1.0\r\n",
+            'timeout' => 10,
+        ],
+        'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
+    ]);
+    $html = @file_get_contents(rtrim($contest_url, '/'), false, $ctx);
+    if ($html !== false && $html !== '') {
+        if (preg_match_all('/href=["\']([^"\']*\.lxf)["\']/', $html, $matches)) {
+            foreach ($matches[1] as $href) {
+                if (stripos($href, 'result') !== false) {
+                    $url = (str_starts_with($href, 'http')) ? $href : 'https://livetiming.pl' . $href;
+                    return ['url' => $url, 'source' => 'page'];
+                }
+            }
+            // Any .lxf link is better than nothing
+            $href = $matches[1][0];
+            $url  = (str_starts_with($href, 'http')) ? $href : 'https://livetiming.pl' . $href;
+            return ['url' => $url, 'source' => 'page'];
+        }
+    }
+    return ['url' => rtrim($contest_url, '/') . '/results.lxf', 'source' => 'fallback'];
 }
 
 /**
@@ -64,8 +87,9 @@ function fetch_and_apply_lenex(string $contest_url = '', string $json_file = '')
         return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Błąd odczytu JSON zawodów.']];
     }
 
-    $lxf_url = lenex_url_from_contest($contest_url);
-    $lenex   = lenex_download($lxf_url);
+    $resolved = resolve_lenex_url($contest_url);
+    $lxf_url  = $resolved['url'];
+    $lenex    = lenex_download($lxf_url);
     if (!$lenex['ok']) {
         return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Błąd pobierania LENEX: ' . ($lenex['error'] ?? '')]];
     }

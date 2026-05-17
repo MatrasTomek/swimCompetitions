@@ -128,8 +128,8 @@ $has_config = !empty($config['contest_url']) && !empty($config['json_file']);
         <?php endif; ?>
 
         <p style="font-size:.875rem;color:#888;margin-bottom:1rem">
-            LENEX zostanie pobrany z:<br>
-            <code style="color:#aaa;font-size:.8rem"><?= h(lenex_url_from_contest($config['contest_url'])) ?></code>
+            Link .lxf zostanie wyciągnięty automatycznie ze strony zawodów.<br>
+            <code style="color:#aaa;font-size:.8rem"><?= h($config['contest_url']) ?></code>
         </p>
 
         <button id="btn-fetch" class="btn btn-primary">Pobierz wyniki LENEX</button>

@@ -78,14 +78,29 @@ function lenex_parse_xml(string $xml): array {
     $athletes = [];
     $results  = [];
     foreach ($dom->MEETS->MEET as $meet) {
-        foreach ($meet->ATHLETES->ATHLETE as $ath) {
-            $id = (string)$ath['athleteid'];
-            if ($id === '') continue;
-            $athletes[$id] = [
-                'lastname'  => (string)$ath['lastname'],
-                'firstname' => (string)$ath['firstname'],
-                'birthdate' => (string)($ath['birthdate'] ?? ''),
-            ];
+        // LENEX 3.0: athletes live under CLUBS > CLUB > ATHLETES
+        foreach ($meet->CLUBS->CLUB as $club) {
+            foreach ($club->ATHLETES->ATHLETE as $ath) {
+                $id = (string)$ath['athleteid'];
+                if ($id === '') continue;
+                $athletes[$id] = [
+                    'lastname'  => (string)$ath['lastname'],
+                    'firstname' => (string)$ath['firstname'],
+                    'birthdate' => (string)($ath['birthdate'] ?? ''),
+                ];
+            }
+        }
+        // LENEX 2.x fallback: athletes directly under MEET > ATHLETES
+        if (empty($athletes)) {
+            foreach ($meet->ATHLETES->ATHLETE as $ath) {
+                $id = (string)$ath['athleteid'];
+                if ($id === '') continue;
+                $athletes[$id] = [
+                    'lastname'  => (string)$ath['lastname'],
+                    'firstname' => (string)$ath['firstname'],
+                    'birthdate' => (string)($ath['birthdate'] ?? ''),
+                ];
+            }
         }
         foreach ($meet->SESSIONS->SESSION as $session) {
             foreach ($session->EVENTS->EVENT as $event) {
