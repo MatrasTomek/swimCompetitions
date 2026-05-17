@@ -96,7 +96,7 @@ unset($_SESSION['flash']);
     <div style="background:#1e2030;border:1px solid #333;border-radius:8px;padding:2rem;width:min(520px,95vw);position:relative">
         <button id="modal-close" style="position:absolute;top:.75rem;right:1rem;background:none;border:none;color:#888;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
         <h2 style="margin:0 0 .25rem;font-size:1.1rem;color:#eee">Pobierz wyniki LENEX</h2>
-        <p id="modal-nazwa" style="margin:0 0 1.25rem;font-size:.85rem;color:#888"></p>
+        <p id="modal-name" style="margin:0 0 1.25rem;font-size:.85rem;color:#888"></p>
         <label for="modal-url" style="display:block;margin-bottom:.4rem;font-size:.875rem;color:#ccc">Link do zawodów (livetiming.pl)</label>
         <input id="modal-url" type="url"
             placeholder="https://livetiming.pl/contest/4b7c8861-…"
@@ -119,7 +119,7 @@ unset($_SESSION['flash']);
 
     function openModal(slug, nazwa) {
         currentSlug = slug;
-        document.getElementById('modal-nazwa').textContent = nazwa;
+        document.getElementById('modal-name').textContent = nazwa;
         urlInput.value = '';
         status.textContent = '';
         status.style.color = '#aaa';

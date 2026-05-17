@@ -35,19 +35,19 @@ foreach ($bloki as $blok) {
     <title>Wyniki — <?= h($zawody['nazwa'] ?? '') ?></title>
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/style.css?v=<?= CSS_VERSION ?>">
     <style>
-        .wyniki-toolbar { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; margin:1rem 0; }
+        .results-toolbar { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; margin:1rem 0; }
         .progress-bar { flex:1; height:6px; background:#2a2a2a; border-radius:3px; min-width:120px; }
         .progress-fill { height:100%; background:#f0a800; border-radius:3px; }
-        .blok-section { margin-bottom:2rem; }
-        .wyniki-footer { margin-top:1.5rem; display:flex; gap:1rem; flex-wrap:wrap; align-items:center; }
+        .block-section { margin-bottom:2rem; }
+        .results-footer { margin-top:1.5rem; display:flex; gap:1rem; flex-wrap:wrap; align-items:center; }
         .start-meta { font-size:.78rem; color:#888; margin-top:.18rem; }
         .start-meta strong { color:#bbb; }
         .start-result { margin-top:.3rem; font-size:.85rem; display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; }
-        .czas-seed  { color:#888; }
-        .czas-arrow { color:#555; }
-        .czas-result-val { font-weight:700; color:#4caf50; }
-        .czas-pending { color:#555; font-style:italic; }
-        .pkt-val { color:#f0a800; font-size:.8rem; }
+        .time-seed  { color:#888; }
+        .time-arrow { color:#555; }
+        .time-result-val { font-weight:700; color:#4caf50; }
+        .time-pending { color:#555; font-style:italic; }
+        .points-val { color:#f0a800; font-size:.8rem; }
     </style>
 </head>
 <body>
@@ -63,9 +63,9 @@ foreach ($bloki as $blok) {
 </header>
 
 <main class="container">
-    <div class="wyniki-header">
+    <div class="results-header">
         <h1><?= h($zawody['nazwa'] ?? 'Wyniki') ?></h1>
-        <div class="wyniki-meta">
+        <div class="results-meta">
             <?php
             $parts = array_filter([$zawody['klub'] ?? '', $zawody['miejsce'] ?? '', $zawody['data'] ?? '']);
             echo h(implode(' · ', $parts));
@@ -73,7 +73,7 @@ foreach ($bloki as $blok) {
         </div>
     </div>
 
-    <div class="wyniki-toolbar">
+    <div class="results-toolbar">
         <span style="font-size:.9rem;color:#aaa">
             Wyniki: <strong style="color:#f0a800"><?= $fetched_starts ?></strong> / <?= $total_starts ?>
         </span>
@@ -88,10 +88,10 @@ foreach ($bloki as $blok) {
         <p class="empty-state">Brak danych startowych.</p>
     <?php else: ?>
         <?php foreach ($bloki as $blok): ?>
-        <section class="blok blok-section">
-            <div class="blok-header">
+        <section class="block block-section">
+            <div class="block-header">
                 <h2>Blok <?= h($blok['blok']) ?></h2>
-                <div class="blok-meta">
+                <div class="block-meta">
                     <span><?= h($blok['data']) ?></span>
                     <span>Start: <?= h($blok['godz_start']) ?></span>
                     <span><?= count($blok['starty'] ?? []) ?> startów</span>
@@ -100,7 +100,7 @@ foreach ($bloki as $blok) {
 
             <?php if (!empty($blok['starty'])): ?>
             <div class="table-wrapper">
-                <table class="tabela-wynikow">
+                <table class="results-table">
                     <thead>
                         <tr>
                             <th>Zawodnik</th>
@@ -118,24 +118,24 @@ foreach ($bloki as $blok) {
                         $czas_s   = h($s['czas'] ?? '');
                     ?>
                         <tr>
-                            <td class="zawodnik" data-label="Zawodnik">
-                                <span class="nazwisko"><?= h($nazwisko) ?></span>
-                                <?php if ($imie): ?><span class="imie"><?= h($imie) ?></span><?php endif; ?>
+                            <td class="athlete" data-label="Zawodnik">
+                                <span class="last-name"><?= h($nazwisko) ?></span>
+                                <?php if ($imie): ?><span class="first-name"><?= h($imie) ?></span><?php endif; ?>
                                 <div class="start-meta">
                                     <strong><?= $konk ?></strong>
                                     <?php if ($godz): ?> · <?= $godz ?><?php endif; ?>
                                 </div>
                                 <div class="start-result">
-                                    <?php if ($czas_s): ?><span class="czas-seed"><?= $czas_s ?></span><?php endif; ?>
+                                    <?php if ($czas_s): ?><span class="time-seed"><?= $czas_s ?></span><?php endif; ?>
                                     <?php if ($fetched): ?>
-                                        <?php if ($czas_s): ?><span class="czas-arrow">→</span><?php endif; ?>
-                                        <span class="czas-result-val"><?= h($s['czas_result']) ?></span>
+                                        <?php if ($czas_s): ?><span class="time-arrow">→</span><?php endif; ?>
+                                        <span class="time-result-val"><?= h($s['czas_result']) ?></span>
                                         <?php if (!empty($s['punkty'])): ?>
-                                            <span class="pkt-val"><?= h((string)$s['punkty']) ?> pkt</span>
+                                            <span class="points-val"><?= h((string)$s['punkty']) ?> pkt</span>
                                         <?php endif; ?>
                                     <?php else: ?>
-                                        <?php if ($czas_s): ?><span class="czas-arrow">→</span><?php endif; ?>
-                                        <span class="czas-pending">brak wyniku</span>
+                                        <?php if ($czas_s): ?><span class="time-arrow">→</span><?php endif; ?>
+                                        <span class="time-pending">brak wyniku</span>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -150,7 +150,7 @@ foreach ($bloki as $blok) {
         <?php endforeach; ?>
     <?php endif; ?>
 
-    <div class="wyniki-footer">
+    <div class="results-footer">
         <a href="<?= BASE_URL ?>/index.php" class="btn btn-outline">← Wróć do listy zawodów</a>
     </div>
 </main>

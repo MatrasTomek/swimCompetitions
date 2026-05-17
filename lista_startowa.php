@@ -38,9 +38,9 @@ $json_slug = basename($filepath, '.json');
 </header>
 
 <main class="container">
-    <div class="wyniki-header">
+    <div class="results-header">
         <h1><?= h($json['nazwa'] ?? 'Lista startowa') ?></h1>
-        <div class="wyniki-meta">
+        <div class="results-meta">
             <?php
             $parts = array_filter([
                 $json['klub']    ?? '',
@@ -54,7 +54,7 @@ $json_slug = basename($filepath, '.json');
 
     <?php if (!empty($bloki)): ?>
     <div class="search-bar">
-        <input type="search" id="zawodnik-search"
+        <input type="search" id="athlete-search"
                placeholder="Szukaj zawodnika lub startu…"
                autocomplete="off" spellcheck="false">
     </div>
@@ -62,7 +62,7 @@ $json_slug = basename($filepath, '.json');
     <section id="search-results" hidden>
         <h2 style="margin-bottom:.75rem">Wyniki wyszukiwania</h2>
         <div class="table-wrapper">
-            <table class="tabela-wynikow">
+            <table class="results-table">
                 <thead>
                     <tr>
                         <th>Zawodnik</th>
@@ -84,10 +84,10 @@ $json_slug = basename($filepath, '.json');
         <p class="empty-state">Brak bloków startowych w pliku.</p>
     <?php else: ?>
         <?php foreach ($bloki as $blok): ?>
-        <section class="blok">
-            <div class="blok-header">
+        <section class="block">
+            <div class="block-header">
                 <h2>Blok <?= h($blok['blok']) ?></h2>
-                <div class="blok-meta">
+                <div class="block-meta">
                     <span>📅 <?= h($blok['data']) ?></span>
                     <span>🕐 Start: <?= h($blok['godz_start']) ?></span>
                     <span><?= count($blok['starty'] ?? []) ?> startów</span>
@@ -96,7 +96,7 @@ $json_slug = basename($filepath, '.json');
 
             <?php if (!empty($blok['starty'])): ?>
             <div class="table-wrapper">
-                <table class="tabela-wynikow">
+                <table class="results-table">
                     <thead>
                         <tr>
                             <th>Zawodnik</th>
@@ -117,19 +117,19 @@ $json_slug = basename($filepath, '.json');
                         );
                     ?>
                         <tr data-search="<?= h($search_key) ?>" data-blok="<?= h($blok['blok']) ?>">
-                            <td class="zawodnik" data-label="Zawodnik">
-                                <span class="nazwisko"><?= h($nazwisko) ?></span>
+                            <td class="athlete" data-label="Zawodnik">
+                                <span class="last-name"><?= h($nazwisko) ?></span>
                                 <?php if ($imie): ?>
-                                    <span class="imie"><?= h($imie) ?></span>
+                                    <span class="first-name"><?= h($imie) ?></span>
                                 <?php endif; ?>
                                 <?php if ($fetched): ?>
-                                    <button class="btn-pokaz-czas"
+                                    <button class="btn-show-time"
                                         data-czas="<?= h($s['czas'] ?? '') ?>"
                                         data-czas-result="<?= h($s['czas_result']) ?>"
                                         data-punkty="<?= h((string)($s['punkty'] ?? '')) ?>"
                                         data-type="result">Pokaż czas</button>
                                 <?php elseif (!empty($s['czas'])): ?>
-                                    <button class="btn-pokaz-czas" data-czas="<?= h($s['czas']) ?>" data-type="seed">Pokaż czas</button>
+                                    <button class="btn-show-time" data-czas="<?= h($s['czas']) ?>" data-type="seed">Pokaż czas</button>
                                 <?php endif; ?>
                             </td>
                             <td data-label="Konk."><?= h(format_konkurencja($s['konkurencja'], (int)$s['konkurencja_nr'])) ?></td>
@@ -163,15 +163,15 @@ $json_slug = basename($filepath, '.json');
 
 <script>
 (function () {
-    var input   = document.getElementById('zawodnik-search');
+    var input   = document.getElementById('athlete-search');
     var section = document.getElementById('search-results');
     var tbody   = document.getElementById('search-tbody');
     var empty   = document.getElementById('search-empty');
-    var blocks  = document.querySelectorAll('section.blok');
+    var blocks  = document.querySelectorAll('section.block');
 
     if (!input) return;
 
-    var allRows = Array.from(document.querySelectorAll('section.blok tr[data-search]'));
+    var allRows = Array.from(document.querySelectorAll('section.block tr[data-search]'));
 
     function buildCell(row, colIndex) {
         var cell = row.cells[colIndex];
@@ -201,33 +201,33 @@ $json_slug = basename($filepath, '.json');
             empty.hidden = true;
             matched.forEach(function (r) {
                 var tr = document.createElement('tr');
-                /* Zawodnik */
+                /* Athlete */
                 var tdZ = document.createElement('td');
                 tdZ.setAttribute('data-label', 'Zawodnik');
                 tdZ.innerHTML = buildCell(r, 0);
                 tr.appendChild(tdZ);
-                /* Konk. */
+                /* Event */
                 var tdK = document.createElement('td');
                 tdK.setAttribute('data-label', 'Konk.');
                 tdK.innerHTML = buildCell(r, 1);
                 tr.appendChild(tdK);
-                /* Blok */
+                /* Block */
                 var tdB = document.createElement('td');
                 tdB.setAttribute('data-label', 'Blok');
                 tdB.textContent = r.dataset.blok;
                 tr.appendChild(tdB);
-                /* Seria */
+                /* Heat */
                 var tdS = document.createElement('td');
                 tdS.setAttribute('data-label', 'Seria');
                 tdS.innerHTML = buildCell(r, 2);
                 tr.appendChild(tdS);
-                /* Godz. */
+                /* Time */
                 var tdG = document.createElement('td');
                 tdG.className = 'text-center';
                 tdG.setAttribute('data-label', 'Godz.');
                 tdG.innerHTML = buildCell(r, 3);
                 tr.appendChild(tdG);
-                /* Tor */
+                /* Lane */
                 var tdT = document.createElement('td');
                 tdT.className = 'text-center';
                 tdT.setAttribute('data-label', 'Tor');
@@ -242,16 +242,16 @@ $json_slug = basename($filepath, '.json');
 
 document.addEventListener('click', function (e) {
     var btn = e.target;
-    if (!btn.classList.contains('btn-pokaz-czas')) return;
+    if (!btn.classList.contains('btn-show-time')) return;
 
     var text;
     var cls;
     if (btn.dataset.type === 'result') {
-        cls = 'czas-wynik czas-result';
+        cls = 'time-display time-result';
         var parts = [btn.dataset.czas, btn.dataset.czasResult, btn.dataset.punkty].filter(Boolean);
         text = parts.join(' ⇒ ');
     } else {
-        cls = 'czas-wynik czas-seed';
+        cls = 'time-display time-seed';
         text = btn.dataset.czas;
     }
 
@@ -266,7 +266,7 @@ document.addEventListener('click', function (e) {
 
     var colspan = tr.cells.length;
     var newTr = document.createElement('tr');
-    newTr.className = 'tr-czas-wynik';
+    newTr.className = 'tr-time-display';
     var td = document.createElement('td');
     td.colSpan = colspan;
     var span = document.createElement('span');

@@ -145,14 +145,14 @@ a:hover { text-decoration: underline; color: var(--gold); }
 /* ===============================
    Competition cards (index.php)
    =============================== */
-.zawody-grid {
+.competitions-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1.25rem;
     padding: 1rem 0 3rem;
 }
 
-.zawody-card {
+.competition-card {
     background: var(--dark-card);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
@@ -162,17 +162,17 @@ a:hover { text-decoration: underline; color: var(--gold); }
     transition: box-shadow 0.2s, transform 0.2s;
 }
 
-.zawody-card:hover {
+.competition-card:hover {
     box-shadow: 0 6px 24px rgba(201,152,42,0.2);
     transform: translateY(-2px);
 }
 
-.zawody-card-body {
+.competition-card-body {
     padding: 1.25rem 1.25rem 1rem;
     flex: 1;
 }
 
-.zawody-meta {
+.competition-meta {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
@@ -197,7 +197,7 @@ a:hover { text-decoration: underline; color: var(--gold); }
     color: #bbb;
 }
 
-.zawody-name {
+.competition-name {
     font-size: 1.15rem;
     font-weight: 700;
     color: var(--gold);
@@ -205,35 +205,35 @@ a:hover { text-decoration: underline; color: var(--gold); }
     line-height: 1.3;
 }
 
-.zawody-klub {
+.competition-club {
     font-size: 0.88rem;
     color: var(--gray);
 }
 
-.zawody-card-footer {
+.competition-card-footer {
     padding: 0 1.25rem 1.25rem;
 }
 
 /* ===============================
    Results (wyniki.php)
    =============================== */
-.wyniki-header {
+.results-header {
     padding: 2rem 0 1.25rem;
 }
 
-.wyniki-header h1 {
+.results-header h1 {
     font-size: 1.75rem;
     font-weight: 800;
     color: var(--gold);
     margin-bottom: 0.4rem;
 }
 
-.wyniki-meta {
+.results-meta {
     color: var(--gray);
     font-size: 0.95rem;
 }
 
-.blok {
+.block {
     background: var(--dark-card);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
@@ -242,7 +242,7 @@ a:hover { text-decoration: underline; color: var(--gold); }
     max-width: 100%;
 }
 
-.blok-header {
+.block-header {
     background: var(--dark-mid);
     border-left: 4px solid var(--gold);
     color: var(--white);
@@ -254,14 +254,14 @@ a:hover { text-decoration: underline; color: var(--gold); }
     gap: 0.5rem;
 }
 
-.blok-header h2 {
+.block-header h2 {
     font-size: 1.05rem;
     font-weight: 700;
     color: var(--gold);
     margin: 0;
 }
 
-.blok-meta {
+.block-meta {
     display: flex;
     gap: 1rem;
     font-size: 0.85rem;
@@ -273,13 +273,13 @@ a:hover { text-decoration: underline; color: var(--gold); }
     /* no horizontal scroll — table switches to cards on mobile */
 }
 
-.tabela-wynikow {
+.results-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
 }
 
-.tabela-wynikow th {
+.results-table th {
     background: var(--dark-mid);
     color: var(--gold);
     font-weight: 700;
@@ -291,30 +291,30 @@ a:hover { text-decoration: underline; color: var(--gold); }
     letter-spacing: 0.04em;
 }
 
-.tabela-wynikow td {
+.results-table td {
     padding: 0.6rem 1rem;
     border-bottom: 1px solid #2a2a2a;
     vertical-align: middle;
     color: var(--white);
 }
 
-.tabela-wynikow tbody tr:last-child td { border-bottom: none; }
-.tabela-wynikow tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
-.tabela-wynikow tbody tr:hover { background: var(--gold-pale); }
+.results-table tbody tr:last-child td { border-bottom: none; }
+.results-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+.results-table tbody tr:hover { background: var(--gold-pale); }
 
-.tabela-wynikow .zawodnik { font-weight: 600; color: var(--white); vertical-align: middle; }
+.results-table .athlete { font-weight: 600; color: var(--white); vertical-align: middle; }
 
-.tabela-wynikow .zawodnik .nazwisko {
+.results-table .athlete .last-name {
     display: block;
     font-weight: 400;
 }
 
-.tabela-wynikow .zawodnik .imie {
+.results-table .athlete .first-name {
     display: block;
     font-weight: 700;
 }
 
-.tabela-wynikow .czas {
+.results-table .time {
     font-family: monospace;
     font-size: 0.95rem;
     font-weight: 700;
@@ -326,74 +326,74 @@ a:hover { text-decoration: underline; color: var(--gold); }
    Compact table on mobile
    =============================== */
 @media (max-width: 680px) {
-    .tabela-wynikow {
+    .results-table {
         font-size: 0.75rem;
         table-layout: fixed;
         width: 100%;
     }
 
     /* Column widths: Athlete | Event | Heat | Time | Lane */
-    .tabela-wynikow th:nth-child(1),
-    .tabela-wynikow td:nth-child(1) { width: 32%; }
+    .results-table th:nth-child(1),
+    .results-table td:nth-child(1) { width: 32%; }
 
-    .tabela-wynikow th:nth-child(2),
-    .tabela-wynikow td:nth-child(2) { width: 24%; }
+    .results-table th:nth-child(2),
+    .results-table td:nth-child(2) { width: 24%; }
 
-    .tabela-wynikow th:nth-child(3),
-    .tabela-wynikow td:nth-child(3) { width: 20%; }
+    .results-table th:nth-child(3),
+    .results-table td:nth-child(3) { width: 20%; }
 
-    .tabela-wynikow th:nth-child(4),
-    .tabela-wynikow td:nth-child(4) { width: 16%; }
+    .results-table th:nth-child(4),
+    .results-table td:nth-child(4) { width: 16%; }
 
-    .tabela-wynikow th:nth-child(5),
-    .tabela-wynikow td:nth-child(5) { width: 8%; }
+    .results-table th:nth-child(5),
+    .results-table td:nth-child(5) { width: 8%; }
 
-    .tabela-wynikow th {
+    .results-table th {
         padding: 0.4rem 0.3rem;
         font-size: 0.65rem;
         white-space: nowrap;
     }
 
-    .tabela-wynikow td {
+    .results-table td {
         padding: 0.4rem 0.3rem;
         word-break: break-word;
         overflow-wrap: break-word;
     }
 
     /* Smaller font in the Event column */
-    .tabela-wynikow td:nth-child(2) {
+    .results-table td:nth-child(2) {
         font-size: 0.68rem;
     }
 
     /* Time must not wrap */
-    .tabela-wynikow td:nth-child(4) {
+    .results-table td:nth-child(4) {
         white-space: nowrap;
     }
 
-    /* Search results table has 6 cols: Zawodnik | Konk. | Blok | Seria | Godz. | T */
-    #search-results .tabela-wynikow th:nth-child(1),
-    #search-results .tabela-wynikow td:nth-child(1) { width: 28%; }
+    /* Search results table has 6 cols: Athlete | Event | Block | Heat | Time | Lane */
+    #search-results .results-table th:nth-child(1),
+    #search-results .results-table td:nth-child(1) { width: 28%; }
 
-    #search-results .tabela-wynikow th:nth-child(2),
-    #search-results .tabela-wynikow td:nth-child(2) { width: 22%; }
+    #search-results .results-table th:nth-child(2),
+    #search-results .results-table td:nth-child(2) { width: 22%; }
 
-    #search-results .tabela-wynikow th:nth-child(3),
-    #search-results .tabela-wynikow td:nth-child(3) { width: 8%; }
+    #search-results .results-table th:nth-child(3),
+    #search-results .results-table td:nth-child(3) { width: 8%; }
 
-    #search-results .tabela-wynikow th:nth-child(4),
-    #search-results .tabela-wynikow td:nth-child(4) { width: 18%; }
+    #search-results .results-table th:nth-child(4),
+    #search-results .results-table td:nth-child(4) { width: 18%; }
 
-    #search-results .tabela-wynikow th:nth-child(5),
-    #search-results .tabela-wynikow td:nth-child(5) { width: 16%; white-space: nowrap; }
+    #search-results .results-table th:nth-child(5),
+    #search-results .results-table td:nth-child(5) { width: 16%; white-space: nowrap; }
 
-    #search-results .tabela-wynikow th:nth-child(6),
-    #search-results .tabela-wynikow td:nth-child(6) { width: 8%; }
+    #search-results .results-table th:nth-child(6),
+    #search-results .results-table td:nth-child(6) { width: 8%; }
 }
 
 /* ===============================
    Show-time button (lista_startowa.php)
    =============================== */
-.btn-pokaz-czas {
+.btn-show-time {
     display: inline-block;
     margin-top: 0.25rem;
     padding: 0.12rem 0.45rem;
@@ -408,11 +408,11 @@ a:hover { text-decoration: underline; color: var(--gold); }
     transition: background 0.15s, color 0.15s;
 }
 
-.btn-pokaz-czas:hover {
+.btn-show-time:hover {
     background: var(--gold-pale);
 }
 
-.czas-wynik {
+.time-display {
     display: inline-block;
     margin-top: 0.25rem;
     font-family: monospace;
@@ -420,10 +420,10 @@ a:hover { text-decoration: underline; color: var(--gold); }
     font-weight: 700;
 }
 
-.czas-result { color: var(--success); }
-.czas-seed   { color: var(--gray); }
+.time-result { color: var(--success); }
+.time-seed   { color: var(--gray); }
 
-.tr-czas-wynik td {
+.tr-time-display td {
     padding-top: 0;
     padding-bottom: 0.5rem;
     border-top: none;
@@ -476,7 +476,7 @@ a:hover { text-decoration: underline; color: var(--gold); }
 
 .btn-full { width: 100%; }
 
-.btn-wkrotce {
+.btn-coming-soon {
     display: inline-block;
     padding: 0.55rem 1.25rem;
     font-size: 0.9rem;
@@ -554,18 +554,18 @@ a:hover { text-decoration: underline; color: var(--gold); }
    =============================== */
 @media (max-width: 600px) {
     .hero h1 { font-size: 1.5rem; }
-    .zawody-grid { grid-template-columns: 1fr; }
-    .blok-header { flex-direction: column; align-items: flex-start; }
-    .tabela-wynikow { font-size: 0.82rem; }
-    .tabela-wynikow th,
-    .tabela-wynikow td { padding: 0.5rem 0.65rem; }
+    .competitions-grid { grid-template-columns: 1fr; }
+    .block-header { flex-direction: column; align-items: flex-start; }
+    .results-table { font-size: 0.82rem; }
+    .results-table th,
+    .results-table td { padding: 0.5rem 0.65rem; }
 }
 
 @media print {
     body { background: #fff; color: #000; }
     .site-header, .site-footer, .back-link, .site-nav { display: none; }
-    .blok { box-shadow: none; border: 1px solid #ccc; }
-    .blok-header { background: #eee; border-left: 3px solid #333; }
-    .blok-header h2, .tabela-wynikow th { color: #000; }
-    .tabela-wynikow .czas { color: #000; }
+    .block { box-shadow: none; border: 1px solid #ccc; }
+    .block-header { background: #eee; border-left: 3px solid #333; }
+    .block-header h2, .results-table th { color: #000; }
+    .results-table .time { color: #000; }
 }

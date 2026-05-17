@@ -32,7 +32,7 @@ $zawody = load_all_zawody();
 
     <?php if (!empty($zawody)): ?>
     <div class="search-bar">
-        <input type="search" id="szukaj" placeholder="Szukaj zawodów..." autocomplete="off">
+        <input type="search" id="search" placeholder="Szukaj zawodów..." autocomplete="off">
     </div>
     <?php endif; ?>
 
@@ -41,11 +41,11 @@ $zawody = load_all_zawody();
             <p>Brak zawodów. Wyniki pojawią się tutaj po dodaniu plików JSON.</p>
         </div>
     <?php else: ?>
-        <div class="zawody-grid" id="zawodyGrid">
+        <div class="competitions-grid" id="competitions-grid">
             <?php foreach ($zawody as $z): ?>
-            <article class="zawody-card" data-search="<?= h(mb_strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub'])) ?>">
-                <div class="zawody-card-body">
-                    <div class="zawody-meta">
+            <article class="competition-card" data-search="<?= h(mb_strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub'])) ?>">
+                <div class="competition-card-body">
+                    <div class="competition-meta">
                         <?php if ($z['data']): ?>
                             <span class="badge-date"><?= h($z['data']) ?></span>
                         <?php endif; ?>
@@ -53,18 +53,18 @@ $zawody = load_all_zawody();
                             <span class="badge-city"><?= h($z['miejsce']) ?></span>
                         <?php endif; ?>
                     </div>
-                    <h2 class="zawody-name"><?= h($z['nazwa']) ?></h2>
+                    <h2 class="competition-name"><?= h($z['nazwa']) ?></h2>
                     <?php if ($z['klub']): ?>
-                        <p class="zawody-klub"><?= h($z['klub']) ?></p>
+                        <p class="competition-club"><?= h($z['klub']) ?></p>
                     <?php endif; ?>
                 </div>
-                <div class="zawody-card-footer">
+                <div class="competition-card-footer">
                     <?php if ($z['has_file']): ?>
                         <a href="<?= BASE_URL ?>/lista_startowa.php?f=<?= urlencode($z['file']) ?>" class="btn btn-primary">
                             Lista startowa →
                         </a>
                     <?php else: ?>
-                        <span class="btn-wkrotce">wkrótce</span>
+                        <span class="btn-coming-soon">wkrótce</span>
                     <?php endif; ?>
                 </div>
             </article>
@@ -75,11 +75,11 @@ $zawody = load_all_zawody();
 
 <script>
 (function () {
-    var input = document.getElementById('szukaj');
+    var input = document.getElementById('search');
     if (!input) return;
     input.addEventListener('input', function () {
         var q = this.value.toLowerCase().trim();
-        var cards = document.querySelectorAll('#zawodyGrid .zawody-card');
+        var cards = document.querySelectorAll('#competitions-grid .competition-card');
         var visible = 0;
         cards.forEach(function (card) {
             var match = !q || card.dataset.search.indexOf(q) !== -1;
@@ -92,7 +92,7 @@ $zawody = load_all_zawody();
             empty.id = 'searchEmpty';
             empty.className = 'empty-state';
             empty.textContent = 'Brak wyników dla podanej frazy.';
-            document.getElementById('zawodyGrid').after(empty);
+            document.getElementById('competitions-grid').after(empty);
         }
         empty.style.display = (q && visible === 0) ? '' : 'none';
     });

@@ -105,33 +105,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
 
             <div class="form-group">
-                <label for="nazwa">Nazwa zawodów *</label>
-                <input type="text" id="nazwa" name="nazwa" maxlength="255" required
+                <label for="comp-name">Nazwa zawodów *</label>
+                <input type="text" id="comp-name" name="nazwa" maxlength="255" required
                        value="<?= h($_POST['nazwa'] ?? '') ?>">
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label for="miejsce">Miejscowość</label>
-                    <input type="text" id="miejsce" name="miejsce" maxlength="100"
+                    <label for="comp-location">Miejscowość</label>
+                    <input type="text" id="comp-location" name="miejsce" maxlength="100"
                            value="<?= h($_POST['miejsce'] ?? '') ?>">
                 </div>
                 <div class="form-group">
-                    <label for="data">Data (np. 9-10/5/2026)</label>
-                    <input type="text" id="data" name="data" maxlength="30"
+                    <label for="comp-date">Data (np. 9-10/5/2026)</label>
+                    <input type="text" id="comp-date" name="data" maxlength="30"
                            value="<?= h($_POST['data'] ?? '') ?>">
                 </div>
             </div>
             <div class="form-group">
-                <label for="klub">Klub</label>
-                <input type="text" id="klub" name="klub" maxlength="255"
+                <label for="comp-club">Klub</label>
+                <input type="text" id="comp-club" name="klub" maxlength="255"
                        value="<?= h($_POST['klub'] ?? '') ?>">
             </div>
 
             <hr style="border:none;border-top:1px solid #e5e8ec;margin:1.25rem 0">
 
             <div class="form-group">
-                <label for="plik">Plik wyników (JSON) — opcjonalnie</label>
-                <input type="file" id="plik" name="plik" accept=".json,application/json">
+                <label for="comp-file">Plik wyników (JSON) — opcjonalnie</label>
+                <input type="file" id="comp-file" name="plik" accept=".json,application/json">
                 <small class="form-hint">Max 5 MB. Plik musi zawierać pole "bloki". Jeśli nie wgrasz pliku, zawody pojawią się jako zapowiedź.</small>
             </div>
             <div class="form-actions">
