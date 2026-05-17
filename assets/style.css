@@ -423,6 +423,12 @@ a:hover { text-decoration: underline; color: var(--gold); }
 .czas-result { color: var(--success); }
 .czas-seed   { color: var(--gray); }
 
+.tr-czas-wynik td {
+    padding-top: 0;
+    padding-bottom: 0.5rem;
+    border-top: none;
+}
+
 .back-link { padding: 1rem 0 2.5rem; }
 
 /* ===============================

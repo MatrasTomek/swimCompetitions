@@ -243,16 +243,38 @@ $json_slug = basename($filepath, '.json');
 document.addEventListener('click', function (e) {
     var btn = e.target;
     if (!btn.classList.contains('btn-pokaz-czas')) return;
-    var span = document.createElement('span');
+
+    var text;
+    var cls;
     if (btn.dataset.type === 'result') {
-        span.className = 'czas-wynik czas-result';
+        cls = 'czas-wynik czas-result';
         var parts = [btn.dataset.czas, btn.dataset.czasResult, btn.dataset.punkty].filter(Boolean);
-        span.textContent = parts.join(' ⇒ ');
+        text = parts.join(' ⇒ ');
     } else {
-        span.className = 'czas-wynik czas-seed';
-        span.textContent = btn.dataset.czas;
+        cls = 'czas-wynik czas-seed';
+        text = btn.dataset.czas;
     }
-    btn.replaceWith(span);
+
+    btn.remove();
+
+    var tr = e.target.closest('tr') || (function () {
+        var el = e.target;
+        while (el && el.tagName !== 'TR') el = el.parentElement;
+        return el;
+    })();
+    if (!tr) return;
+
+    var colspan = tr.cells.length;
+    var newTr = document.createElement('tr');
+    newTr.className = 'tr-czas-wynik';
+    var td = document.createElement('td');
+    td.colSpan = colspan;
+    var span = document.createElement('span');
+    span.className = cls;
+    span.textContent = text;
+    td.appendChild(span);
+    newTr.appendChild(td);
+    tr.insertAdjacentElement('afterend', newTr);
 });
 </script>
 
