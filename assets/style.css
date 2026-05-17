@@ -420,8 +420,10 @@ a:hover { text-decoration: underline; color: var(--gold); }
     font-weight: 700;
 }
 
-.time-result { color: var(--success); }
+.time-result { color: var(--white); }
 .time-seed   { color: var(--gray); }
+.time-better { color: var(--success); }
+.time-worse  { color: var(--error); }
 
 .tr-time-display td {
     padding-top: 0;

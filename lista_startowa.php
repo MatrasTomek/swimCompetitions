@@ -244,31 +244,44 @@ document.addEventListener('click', function (e) {
     var btn = e.target;
     if (!btn.classList.contains('btn-show-time')) return;
 
-    var text;
-    var cls;
-    if (btn.dataset.type === 'result') {
-        cls = 'time-display time-result';
-        var parts = [btn.dataset.czas, btn.dataset.czasResult, btn.dataset.punkty].filter(Boolean);
-        text = parts.join(' ⇒ ');
-    } else {
-        cls = 'time-display time-seed';
-        text = btn.dataset.czas;
-    }
-
-    btn.remove();
-
-    var tr = e.target.closest('tr') || (function () {
-        var el = e.target;
-        while (el && el.tagName !== 'TR') el = el.parentElement;
-        return el;
-    })();
+    var tr = btn.closest('tr');
     if (!tr) return;
 
-    var colspan = tr.cells.length;
+    var nextTr = tr.nextElementSibling;
+    if (nextTr && nextTr.classList.contains('tr-time-display')) {
+        nextTr.remove();
+        btn.textContent = 'Pokaż czas';
+        return;
+    }
+
+    var text, cls;
+    if (btn.dataset.type === 'result') {
+        var czas       = btn.dataset.czas       || '';
+        var czasResult = btn.dataset.czasResult  || '';
+        var punkty     = btn.dataset.punkty      || '';
+
+        text = [czas, czasResult, punkty].filter(Boolean).join(' ⇒ ');
+
+        if (czas && czasResult) {
+            var seedSec = parseSwimTime(czas);
+            var resSec  = parseSwimTime(czasResult);
+            cls = (seedSec > 0 && resSec > 0)
+                ? (resSec <= seedSec ? 'time-display time-better' : 'time-display time-worse')
+                : 'time-display time-result';
+        } else {
+            cls = 'time-display time-result';
+        }
+    } else {
+        text = btn.dataset.czas;
+        cls  = 'time-display time-seed';
+    }
+
+    btn.textContent = 'Ukryj czas';
+
     var newTr = document.createElement('tr');
     newTr.className = 'tr-time-display';
     var td = document.createElement('td');
-    td.colSpan = colspan;
+    td.colSpan = tr.cells.length;
     var span = document.createElement('span');
     span.className = cls;
     span.textContent = text;
@@ -276,6 +289,13 @@ document.addEventListener('click', function (e) {
     newTr.appendChild(td);
     tr.insertAdjacentElement('afterend', newTr);
 });
+
+function parseSwimTime(t) {
+    if (!t) return 0;
+    var m = t.match(/^(\d+):(\d+(?:\.\d+)?)$/);
+    if (m) return parseInt(m[1], 10) * 60 + parseFloat(m[2]);
+    return parseFloat(t) || 0;
+}
 </script>
 
 </body>
