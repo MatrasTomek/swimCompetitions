@@ -24,10 +24,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['akcja'])) {
         $pdf_url = $base . 'ResultList_' . $nr . '.pdf';
         $pdf     = pdf_download($pdf_url);
         if ($pdf === false || $pdf === '') {
-            $pdf_test = ['url' => $pdf_url, 'ok' => false, 'text' => ''];
+            $pdf_test = ['url' => $pdf_url, 'ok' => false, 'text' => '', 'streams' => []];
         } else {
-            $text = pdf_extract_text($pdf);
-            $pdf_test = ['url' => $pdf_url, 'ok' => true, 'text' => $text, 'bytes' => strlen($pdf)];
+            $streams = pdf_iter_streams($pdf);
+            $text    = '';
+            foreach ($streams as $s) { $text .= pdf_bt_et($s['decoded']); }
+            $pdf_test = [
+                'url'     => $pdf_url,
+                'ok'      => true,
+                'bytes'   => strlen($pdf),
+                'text'    => $text,
+                'streams' => $streams,
+            ];
         }
     }
 }
@@ -107,11 +115,40 @@ $base_url_preview = !empty($config['url']) ? get_base_pdf_url($config['url']) : 
                     <span class="status-not_found">Błąd pobierania</span>
                 <?php endif; ?>
             </p>
+            <?php if ($pdf_test['ok'] && !empty($pdf_test['streams'])): ?>
+                <p style="margin:.75rem 0 .25rem;font-size:.8rem;color:#aaa">Strumienie PDF (<?= count($pdf_test['streams']) ?>):</p>
+                <table class="diag" style="width:100%;border-collapse:collapse;margin-bottom:.75rem">
+                    <thead><tr style="border-bottom:1px solid #333">
+                        <th>#</th><th>Raw (B)</th><th>FlateDecode</th><th>Dekompresja</th><th>Decoded (B)</th><th>Tekst (znaki)</th>
+                    </tr></thead>
+                    <tbody>
+                    <?php foreach ($pdf_test['streams'] as $i => $s):
+                        $bt_text = pdf_bt_et($s['decoded']);
+                    ?>
+                        <tr style="border-bottom:1px solid #222">
+                            <td><?= $i + 1 ?></td>
+                            <td><?= $s['raw_len'] ?></td>
+                            <td><?= $s['is_flat'] ? '<span class="status-done">TAK</span>' : 'nie' ?></td>
+                            <td><?php
+                                if ($s['decomp_ok'] === true)  echo '<span class="status-done">OK</span>';
+                                elseif ($s['decomp_ok'] === false) echo '<span class="status-not_found">BŁĄD</span>';
+                                else echo '—';
+                            ?></td>
+                            <td><?= $s['decoded_len'] ?></td>
+                            <td><?= mb_strlen($bt_text) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php elseif ($pdf_test['ok']): ?>
+                <p style="color:#ff7043">W PDF nie znaleziono żadnych strumieni.</p>
+            <?php endif; ?>
+
             <?php if ($pdf_test['ok'] && $pdf_test['text']): ?>
                 <p style="margin:.5rem 0 .25rem;font-size:.8rem;color:#aaa">Wyekstrahowany tekst (pierwsze 3000 znaków):</p>
                 <pre><?= h(substr($pdf_test['text'], 0, 3000)) ?></pre>
             <?php elseif ($pdf_test['ok']): ?>
-                <p style="color:#ff7043">PDF pobrany, ale ekstrakcja tekstu nie zwróciła nic.</p>
+                <p style="color:#ff7043">Ekstrakcja tekstu nie zwróciła nic — sprawdź tabelę strumieni powyżej.</p>
             <?php endif; ?>
         <?php endif; ?>
     </div>

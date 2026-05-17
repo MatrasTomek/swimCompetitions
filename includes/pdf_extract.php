@@ -33,11 +33,22 @@ function pdf_extract_text(string $pdf_data): string {
 }
 
 function pdf_extract_text_php(string $pdf_data): string {
-    $text   = '';
-    $offset = 0;
+    $text = '';
+    foreach (pdf_iter_streams($pdf_data) as $s) {
+        $text .= pdf_bt_et($s['decoded']);
+    }
+    return $text;
+}
+
+/**
+ * Iterates over all PDF streams, yielding decoded content and metadata.
+ * Used by both text extraction and diagnostics.
+ */
+function pdf_iter_streams(string $pdf_data): array {
+    $streams = [];
+    $offset  = 0;
 
     while (($stream_pos = strpos($pdf_data, 'stream', $offset)) !== false) {
-        // Ensure a newline follows 'stream' (real stream marker)
         $skip = $stream_pos + 6;
         if (isset($pdf_data[$skip]) && $pdf_data[$skip] === "\r") $skip++;
         if (!isset($pdf_data[$skip]) || $pdf_data[$skip] !== "\n") {
@@ -49,25 +60,38 @@ function pdf_extract_text_php(string $pdf_data): string {
         $end_pos = strpos($pdf_data, "\nendstream", $skip);
         if ($end_pos === false) break;
 
-        $raw    = substr($pdf_data, $skip, $end_pos - $skip);
+        // Strip trailing \r that appears when stream ends with \r\n before endstream
+        $raw    = rtrim(substr($pdf_data, $skip, $end_pos - $skip), "\r\n");
         $offset = $end_pos + 10;
 
-        // Check if the object uses FlateDecode
-        $header_chunk = substr($pdf_data, max(0, $stream_pos - 300), 300);
+        // Check if the object uses FlateDecode — use 1000-char lookback
+        $header_chunk = substr($pdf_data, max(0, $stream_pos - 1000), 1000);
         $is_flat = strpos($header_chunk, 'FlateDecode') !== false;
 
-        $decoded = $raw;
-        if ($is_flat) {
+        $decoded   = $raw;
+        $decomp_ok = null;
+        if ($is_flat && strlen($raw) > 0) {
             $d = @gzuncompress($raw);
             if ($d === false) $d = @gzinflate($raw);
             if ($d === false) $d = @gzinflate(substr($raw, 2));
-            if ($d !== false) $decoded = $d;
+            if ($d !== false) {
+                $decoded   = $d;
+                $decomp_ok = true;
+            } else {
+                $decomp_ok = false;
+            }
         }
 
-        $text .= pdf_bt_et($decoded);
+        $streams[] = [
+            'raw_len'    => strlen($raw),
+            'is_flat'    => $is_flat,
+            'decomp_ok'  => $decomp_ok,
+            'decoded_len'=> strlen($decoded),
+            'decoded'    => $decoded,
+        ];
     }
 
-    return $text;
+    return $streams;
 }
 
 function pdf_bt_et(string $data): string {
