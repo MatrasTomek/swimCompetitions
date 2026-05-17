@@ -640,8 +640,44 @@ a:hover { text-decoration: underline; color: var(--gold); }
     .results-table { font-size: 0.82rem; }
     .results-table th,
     .results-table td { padding: 0.5rem 0.65rem; }
-    .index-table { table-layout: auto; }
     .view-controls { gap: 0.5rem; }
+
+    .index-table thead { display: none; }
+    .index-table tbody tr {
+        display: block;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        padding: 0.65rem 0.5rem;
+    }
+    .index-table tbody tr:last-child { border-bottom: none; }
+    /* data, miejsce, klub — inline w jednej linii */
+    .index-table tbody td {
+        display: inline;
+        padding: 0;
+        border: none;
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        white-space: normal;
+    }
+    /* separator między data · miejsce · klub */
+    .index-table tbody td:nth-child(3)::before,
+    .index-table tbody td:nth-child(4)::before { content: ' · '; }
+    /* nazwa — pełna szerokość, zawija się */
+    .index-table tbody td:first-child {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--white);
+        margin-bottom: 0.2rem;
+        white-space: normal;
+        word-break: break-word;
+    }
+    /* przycisk lista — nowa linia */
+    .index-table tbody td:last-child {
+        display: block;
+        margin-top: 0.45rem;
+    }
 }
 
 @media print {
