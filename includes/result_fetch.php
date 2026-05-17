@@ -23,7 +23,7 @@ function save_live_config(array $config): void {
  *  → "https://live.livetiming.pl/zak/2026/05_10_oswiecim/"
  */
 function get_base_pdf_url(string $index_url): string {
-    return preg_replace('/[^\/]+$/', '', rtrim($index_url, '/') . '/');
+    return preg_replace('/[^\/]+$/', '', rtrim($index_url, '/'));
 }
 
 /**
@@ -76,18 +76,26 @@ function fetch_result_from_pdf(string $pdf_url, string $athlete_name): array {
  * Iterates over all entries in the active competition and fetches results
  * for those that started more than 5 minutes ago and have no result yet.
  * Returns the number of updated entries.
+ * When $log is passed by reference, it receives per-entry diagnostic info.
  */
-function process_pending_results(): int {
+function process_pending_results(array &$log = null): int {
     $config = load_live_config();
     if (empty($config['aktywna']) || empty($config['url']) || empty($config['json_file'])) {
+        if ($log !== null) $log[] = ['status' => 'skip', 'reason' => 'Brak aktywnej konfiguracji live'];
         return 0;
     }
 
     $zawody_path = safe_json_path($config['json_file'] . '.json');
-    if (!$zawody_path) return 0;
+    if (!$zawody_path) {
+        if ($log !== null) $log[] = ['status' => 'skip', 'reason' => 'Nieprawidłowy plik zawodów'];
+        return 0;
+    }
 
     $zawody = json_decode(file_get_contents($zawody_path), true);
-    if (!$zawody) return 0;
+    if (!$zawody) {
+        if ($log !== null) $log[] = ['status' => 'skip', 'reason' => 'Błąd odczytu JSON zawodów'];
+        return 0;
+    }
 
     $base_url   = get_base_pdf_url($config['url']);
     $now        = time();
@@ -102,17 +110,40 @@ function process_pending_results(): int {
     foreach ($zawody['bloki'] as &$blok) {
         $blok_data = $blok['data'] ?? '';
         foreach ($blok['starty'] as &$start) {
-            if (!empty($start['result_fetched'])) continue;
+            $entry = ['imie' => $start['imie'], 'nr' => $start['konkurencja_nr'] ?? 0];
+
+            if (!empty($start['result_fetched'])) {
+                $entry['status'] = 'done';
+                $entry['czas']   = $start['czas_result'] ?? '';
+                if ($log !== null) $log[] = $entry;
+                continue;
+            }
 
             $ts = parse_start_timestamp($blok_data, $start['godz'] ?? '');
-            if ($ts === false) continue;
-            if ($now < $ts + RESULT_DELAY_SECONDS) continue;
+            if ($ts === false) {
+                $entry['status'] = 'skip';
+                $entry['reason'] = 'Nie można sparsować daty/godziny: ' . $blok_data . ' ' . ($start['godz'] ?? '');
+                if ($log !== null) $log[] = $entry;
+                continue;
+            }
+            if ($now < $ts + RESULT_DELAY_SECONDS) {
+                $entry['status']   = 'wait';
+                $entry['reason']   = 'Za wcześnie — czekam ' . max(0, $ts + RESULT_DELAY_SECONDS - $now) . 's';
+                if ($log !== null) $log[] = $entry;
+                continue;
+            }
 
             $nr      = (int)($start['konkurencja_nr'] ?? 0);
             $pdf_url = $base_url . 'ResultList_' . $nr . '.pdf';
             $result  = fetch_result_from_pdf($pdf_url, $start['imie']);
+            $entry['pdf_url'] = $pdf_url;
 
-            if (empty($result['found'])) continue;
+            if (empty($result['found'])) {
+                $entry['status'] = 'not_found';
+                $entry['reason'] = $result['error'] ?? 'Brak wyniku w PDF';
+                if ($log !== null) $log[] = $entry;
+                continue;
+            }
 
             $start['czas_result']      = $result['czas'];
             $start['punkty']           = $result['punkty'] ?? null;
@@ -126,6 +157,9 @@ function process_pending_results(): int {
             ]);
             save_athlete_result($start['imie'], $start_for_athlete, $zawody_meta);
 
+            $entry['status'] = 'updated';
+            $entry['czas']   = $result['czas'];
+            if ($log !== null) $log[] = $entry;
             $updated++;
         }
         unset($start);

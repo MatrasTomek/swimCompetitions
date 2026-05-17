@@ -59,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <a href="<?= BASE_URL ?>/admin/lista.php">Lista zawodów</a>
             <a href="<?= BASE_URL ?>/admin/dodaj.php">Dodaj zawody</a>
             <a href="<?= BASE_URL ?>/admin/live.php" class="active">Zawody live</a>
+            <a href="<?= BASE_URL ?>/admin/debug_live.php">Diagnostyka</a>
             <a href="<?= BASE_URL ?>/index.php">Strona główna</a>
             <a href="<?= BASE_URL ?>/admin/logout.php">Wyloguj</a>
         </nav>
