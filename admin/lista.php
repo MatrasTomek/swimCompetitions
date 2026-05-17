@@ -2,10 +2,8 @@
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../includes/result_fetch.php';
 
-$zawody      = load_all_zawody();
-$live_config = load_live_config();
+$zawody = load_all_zawody();
 $flash  = $_SESSION['flash'] ?? '';
 unset($_SESSION['flash']);
 ?>
@@ -25,7 +23,7 @@ unset($_SESSION['flash']);
         <nav>
             <a href="<?= BASE_URL ?>/admin/lista.php" class="active">Lista zawodów</a>
             <a href="<?= BASE_URL ?>/admin/dodaj.php">Dodaj zawody</a>
-            <a href="<?= BASE_URL ?>/admin/live.php">Zawody live</a>
+            <a href="<?= BASE_URL ?>/admin/live.php">Wyniki LENEX</a>
             <a href="<?= BASE_URL ?>/index.php">Strona główna</a>
             <a href="<?= BASE_URL ?>/admin/logout.php">Wyloguj</a>
         </nav>
@@ -73,11 +71,7 @@ unset($_SESSION['flash']);
                         <?php if ($z['has_file']): ?>
                             <a href="<?= BASE_URL ?>/lista_startowa.php?f=<?= urlencode($z['file']) ?>" class="btn btn-sm btn-outline" target="_blank">Starty</a>
                             <?php $slug = basename($z['file'], '.json'); ?>
-                            <?php if (($live_config['json_file'] ?? '') === $slug && !empty($live_config['aktywna'])): ?>
-                                <a href="<?= BASE_URL ?>/wyniki.php?zawody=<?= urlencode($slug) ?>" class="btn btn-sm btn-live" target="_blank">Wyniki live</a>
-                            <?php else: ?>
-                                <a href="<?= BASE_URL ?>/admin/live.php" class="btn btn-sm btn-outline">Ustaw live</a>
-                            <?php endif; ?>
+                            <a href="<?= BASE_URL ?>/wyniki.php?zawody=<?= urlencode($slug) ?>" class="btn btn-sm btn-outline" target="_blank">Wyniki</a>
                             <a href="<?= BASE_URL ?>/admin/edytuj.php?f=<?= urlencode($z['file']) ?>" class="btn btn-sm btn-secondary">Edytuj</a>
                             <a href="<?= BASE_URL ?>/admin/usun.php?f=<?= urlencode($z['file']) ?>" class="btn btn-sm btn-danger">Usuń</a>
                         <?php else: ?>

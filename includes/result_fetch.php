@@ -1,8 +1,5 @@
 <?php
-/**
- * Logic for fetching and saving results from livetiming.pl.
- */
-require_once __DIR__ . '/pdf_extract.php';
+require_once __DIR__ . '/lenex_fetch.php';
 
 function load_live_config(): array {
     if (!file_exists(LIVE_CONFIG_FILE)) return [];
@@ -18,88 +15,57 @@ function save_live_config(array $config): void {
 }
 
 /**
- * Extracts the base PDF directory URL from the livetiming.pl index.html URL.
- * E.g. "https://live.livetiming.pl/zak/2026/05_10_oswiecim/index.html"
- *  → "https://live.livetiming.pl/zak/2026/05_10_oswiecim/"
+ * Derives the LENEX download URL from a livetiming.pl contest URL.
+ * E.g. "https://livetiming.pl/contest/UUID" → "https://livetiming.pl/contest/UUID/results.lxf"
  */
-function get_base_pdf_url(string $index_url): string {
-    return preg_replace('/[^\/]+$/', '', rtrim($index_url, '/'));
+function lenex_url_from_contest(string $contest_url): string {
+    return rtrim($contest_url, '/') . '/results.lxf';
 }
 
 /**
- * Parses block date and start time into a Unix timestamp.
- * Block date e.g. "9/5/2026", time e.g. "8:41"
+ * Parses event name to extract plec/dystans/styl for saving athlete profiles.
  */
-function parse_start_timestamp(string $blok_data, string $godz): int|false {
-    // Normalize date: "9/5/2026" → "2026-05-09"
-    if (preg_match('#^(\d{1,2})/(\d{1,2})/(\d{4})$#', $blok_data, $m)) {
-        $normalized = sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]);
-    } else {
-        return false;
-    }
-    $dt = DateTime::createFromFormat('Y-m-d H:i', $normalized . ' ' . $godz);
-    return $dt ? $dt->getTimestamp() : false;
-}
-
-/**
- * Extracts distance and stroke from the event name.
- * E.g. "Kobiet, 400m zmienny" → ['dystans' => '400m', 'styl' => 'zmienny', 'plec' => 'Kobiet']
- */
-function parse_konkurencja(string $k): array {
+function parse_event_parts(string $k): array {
     $parts = array_map('trim', explode(',', $k, 3));
     $plec  = $parts[0] ?? '';
     $rest  = $parts[1] ?? '';
     preg_match('/(\d+m)\s+(.+)/', $rest, $m);
     return [
-        'plec'   => $plec,
-        'dystans'=> $m[1] ?? $rest,
-        'styl'   => $m[2] ?? '',
+        'plec'    => $plec,
+        'dystans' => $m[1] ?? $rest,
+        'styl'    => $m[2] ?? '',
     ];
 }
 
 /**
- * Downloads a PDF and extracts the athlete result — pure PHP, no Python.
+ * Downloads LENEX from the configured contest URL and applies all available
+ * results to the competition JSON. Always overwrites existing results with
+ * the latest LENEX data.
+ *
+ * Returns ['updated' => N, 'not_found' => N, 'total' => N, 'errors' => [...]]
  */
-function fetch_result_from_pdf(string $pdf_url, string $athlete_name): array {
-    $pdf_data = pdf_download($pdf_url);
-    if (!$pdf_data) {
-        return ['found' => false, 'error' => 'Nie udało się pobrać PDF: ' . $pdf_url];
-    }
-    $text = pdf_extract_text($pdf_data);
-    if (!$text) {
-        return ['found' => false, 'error' => 'Brak tekstu w PDF'];
-    }
-    return pdf_find_athlete($text, $athlete_name);
-}
-
-/**
- * Iterates over all entries in the active competition and fetches results
- * for those that started more than 5 minutes ago and have no result yet.
- * Returns the number of updated entries.
- * When $log is passed by reference, it receives per-entry diagnostic info.
- */
-function process_pending_results(array &$log = null): int {
+function fetch_and_apply_lenex(): array {
     $config = load_live_config();
-    if (empty($config['aktywna']) || empty($config['url']) || empty($config['json_file'])) {
-        if ($log !== null) $log[] = ['status' => 'skip', 'reason' => 'Brak aktywnej konfiguracji live'];
-        return 0;
+    if (empty($config['contest_url']) || empty($config['json_file'])) {
+        return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Brak konfiguracji — zapisz URL zawodów najpierw.']];
     }
 
     $zawody_path = safe_json_path($config['json_file'] . '.json');
     if (!$zawody_path) {
-        if ($log !== null) $log[] = ['status' => 'skip', 'reason' => 'Nieprawidłowy plik zawodów'];
-        return 0;
+        return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Nieprawidłowy plik zawodów.']];
     }
 
     $zawody = json_decode(file_get_contents($zawody_path), true);
     if (!$zawody) {
-        if ($log !== null) $log[] = ['status' => 'skip', 'reason' => 'Błąd odczytu JSON zawodów'];
-        return 0;
+        return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Błąd odczytu JSON zawodów.']];
     }
 
-    $base_url   = get_base_pdf_url($config['url']);
-    $now        = time();
-    $updated    = 0;
+    $lxf_url = lenex_url_from_contest($config['contest_url']);
+    $lenex   = lenex_download($lxf_url);
+    if (!$lenex['ok']) {
+        return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Błąd pobierania LENEX: ' . ($lenex['error'] ?? '')]];
+    }
+
     $zawody_meta = [
         'nazwa'   => $zawody['nazwa']   ?? '',
         'miejsce' => $zawody['miejsce'] ?? '',
@@ -107,73 +73,46 @@ function process_pending_results(array &$log = null): int {
         'basen'   => $zawody['basen']   ?? '50m',
     ];
 
+    $updated   = 0;
+    $not_found = 0;
+    $total     = 0;
+
     foreach ($zawody['bloki'] as &$blok) {
         $blok_data = $blok['data'] ?? '';
         foreach ($blok['starty'] as &$start) {
-            $entry = ['imie' => $start['imie'], 'nr' => $start['konkurencja_nr'] ?? 0];
+            $total++;
+            $nr     = (int)($start['konkurencja_nr'] ?? 0);
+            $result = lenex_find_athlete($lenex, $nr, $start['imie']);
 
-            if (!empty($start['result_fetched'])) {
-                $entry['status'] = 'done';
-                $entry['czas']   = $start['czas_result'] ?? '';
-                if ($log !== null) $log[] = $entry;
+            if (!$result['found']) {
+                $not_found++;
                 continue;
             }
 
-            $ts = parse_start_timestamp($blok_data, $start['godz'] ?? '');
-            if ($ts === false) {
-                $entry['status'] = 'skip';
-                $entry['reason'] = 'Nie można sparsować daty/godziny: ' . $blok_data . ' ' . ($start['godz'] ?? '');
-                if ($log !== null) $log[] = $entry;
-                continue;
-            }
-            if ($now < $ts + RESULT_DELAY_SECONDS) {
-                $entry['status']   = 'wait';
-                $entry['reason']   = 'Za wcześnie — czekam ' . max(0, $ts + RESULT_DELAY_SECONDS - $now) . 's';
-                if ($log !== null) $log[] = $entry;
-                continue;
-            }
-
-            $nr      = (int)($start['konkurencja_nr'] ?? 0);
-            $pdf_url = $base_url . 'ResultList_' . $nr . '.pdf';
-            $result  = fetch_result_from_pdf($pdf_url, $start['imie']);
-            $entry['pdf_url'] = $pdf_url;
-
-            if (empty($result['found'])) {
-                $entry['status'] = 'not_found';
-                $entry['reason'] = $result['error'] ?? 'Brak wyniku w PDF';
-                if ($log !== null) $log[] = $entry;
-                continue;
-            }
-
-            $start['czas_result']      = $result['czas'];
-            $start['punkty']           = $result['punkty'] ?? null;
-            $start['result_fetched']   = true;
+            $start['czas_result']       = $result['czas'];
+            $start['punkty']            = $result['punkty'] ?? null;
+            $start['result_fetched']    = true;
             $start['result_fetched_at'] = date('c');
 
-            $kp = parse_konkurencja($start['konkurencja'] ?? '');
-            $start_for_athlete = array_merge($start, $kp, [
+            $kp = parse_event_parts($start['konkurencja'] ?? '');
+            save_athlete_result($start['imie'], array_merge($start, $kp, [
                 'data'          => $blok_data,
                 'rok_urodzenia' => $result['rok_urodzenia'] ?? null,
-            ]);
-            save_athlete_result($start['imie'], $start_for_athlete, $zawody_meta);
+            ]), $zawody_meta);
 
-            $entry['status'] = 'updated';
-            $entry['czas']   = $result['czas'];
-            if ($log !== null) $log[] = $entry;
             $updated++;
         }
         unset($start);
     }
     unset($blok);
 
-    if ($updated > 0) {
-        file_put_contents(
-            $zawody_path,
-            json_encode($zawody, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
-        );
-        $config['ostatnia_aktualizacja'] = date('c');
-        save_live_config($config);
-    }
+    file_put_contents(
+        $zawody_path,
+        json_encode($zawody, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
+    );
 
-    return $updated;
+    $config['ostatnia_aktualizacja'] = date('c');
+    save_live_config($config);
+
+    return ['updated' => $updated, 'not_found' => $not_found, 'total' => $total, 'errors' => []];
 }

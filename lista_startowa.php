@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/functions.php';
-require_once __DIR__ . '/includes/result_fetch.php';
 
 $filepath = safe_json_path($_GET['f'] ?? '');
 if (!$filepath) {
@@ -15,10 +14,8 @@ if ($json === null) {
     die('Błąd odczytu pliku listy startowej.');
 }
 
-$bloki       = $json['bloki'] ?? [];
-$live_config = load_live_config();
-$json_slug   = basename($filepath, '.json');
-$is_live     = !empty($live_config['aktywna']) && ($live_config['json_file'] ?? '') === $json_slug;
+$bloki     = $json['bloki'] ?? [];
+$json_slug = basename($filepath, '.json');
 ?>
 <!DOCTYPE html>
 <html lang="pl">
@@ -149,9 +146,7 @@ $is_live     = !empty($live_config['aktywna']) && ($live_config['json_file'] ?? 
 
     <div class="back-link" style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
         <a href="<?= BASE_URL ?>/index.php" class="btn btn-outline">← Wróć do listy zawodów</a>
-        <?php if ($is_live): ?>
-            <a href="<?= BASE_URL ?>/wyniki.php?zawody=<?= urlencode($json_slug) ?>" class="btn btn-primary">Wyniki live</a>
-        <?php endif; ?>
+        <a href="<?= BASE_URL ?>/wyniki.php?zawody=<?= urlencode($json_slug) ?>" class="btn btn-outline">Wyniki</a>
     </div>
 </main>
 
@@ -251,21 +246,5 @@ document.addEventListener('click', function (e) {
 });
 </script>
 
-<?php if ($is_live): ?>
-<script>
-(function() {
-    setInterval(function() {
-        fetch('<?= BASE_URL ?>/api/fetch_result.php', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: '{}'
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(d) { if (d.updated > 0) location.reload(); })
-        .catch(function() {});
-    }, 60000);
-})();
-</script>
-<?php endif; ?>
 </body>
 </html>
