@@ -65,9 +65,10 @@ function lenex_download(string $lxf_url): array {
 
 /**
  * Parses the LENEX XML string.
+ * LENEX 3.0: results are stored under ATHLETE > RESULTS > RESULT (not under EVENT).
  * Builds two maps:
  *   athletes: athleteid → {lastname, firstname, birthdate}
- *   results:  event_number → {swimmerid → {czas, punkty}}
+ *   results:  event_number → {athleteid → {czas, punkty}}
  */
 function lenex_parse_xml(string $xml): array {
     libxml_use_internal_errors(true);
@@ -78,7 +79,19 @@ function lenex_parse_xml(string $xml): array {
     $athletes = [];
     $results  = [];
     foreach ($dom->MEETS->MEET as $meet) {
-        // LENEX 3.0: athletes live under CLUBS > CLUB > ATHLETES
+        // Build eventid → event_number map from SESSIONS
+        $eventid_to_nr = [];
+        foreach ($meet->SESSIONS->SESSION as $session) {
+            foreach ($session->EVENTS->EVENT as $event) {
+                $eventid = (string)$event['eventid'];
+                $nr      = (int)$event['number'];
+                if ($eventid !== '' && $nr > 0) {
+                    $eventid_to_nr[$eventid] = $nr;
+                }
+            }
+        }
+
+        // LENEX 3.0: athletes and their results under CLUBS > CLUB > ATHLETES > ATHLETE
         foreach ($meet->CLUBS->CLUB as $club) {
             foreach ($club->ATHLETES->ATHLETE as $ath) {
                 $id = (string)$ath['athleteid'];
@@ -88,35 +101,42 @@ function lenex_parse_xml(string $xml): array {
                     'firstname' => (string)$ath['firstname'],
                     'birthdate' => (string)($ath['birthdate'] ?? ''),
                 ];
-            }
-        }
-        // LENEX 2.x fallback: athletes directly under MEET > ATHLETES
-        if (empty($athletes)) {
-            foreach ($meet->ATHLETES->ATHLETE as $ath) {
-                $id = (string)$ath['athleteid'];
-                if ($id === '') continue;
-                $athletes[$id] = [
-                    'lastname'  => (string)$ath['lastname'],
-                    'firstname' => (string)$ath['firstname'],
-                    'birthdate' => (string)($ath['birthdate'] ?? ''),
-                ];
-            }
-        }
-        foreach ($meet->SESSIONS->SESSION as $session) {
-            foreach ($session->EVENTS->EVENT as $event) {
-                $nr = (int)$event['number'];
-                if (!isset($results[$nr])) $results[$nr] = [];
-                foreach ($event->RESULTS->RESULT as $res) {
-                    $swimmerid = (string)$res['swimmerid'];
-                    $status    = trim((string)($res['status'] ?? ''));
+                foreach ($ath->RESULTS->RESULT as $res) {
+                    $eventid  = (string)($res['eventid'] ?? '');
+                    $nr       = $eventid_to_nr[$eventid] ?? 0;
+                    if ($nr === 0) continue;
+                    $status   = trim((string)($res['status'] ?? ''));
                     if ($status !== '') continue; // DNS / DNF / DSQ / WDR
                     $swimtime = (string)($res['swimtime'] ?? '');
                     if ($swimtime === '' || $swimtime === '-1') continue;
-                    $pts = (int)($res['points'] ?? 0);
-                    $results[$nr][$swimmerid] = [
+                    $pts      = (int)($res['points'] ?? 0);
+                    if (!isset($results[$nr])) $results[$nr] = [];
+                    $results[$nr][$id] = [
                         'czas'   => lenex_normalize_time($swimtime),
                         'punkty' => $pts > 0 ? $pts : null,
                     ];
+                }
+            }
+        }
+
+        // LENEX 2.x fallback: results under EVENT > RESULTS > RESULT with swimmerid
+        if (empty($results)) {
+            foreach ($meet->SESSIONS->SESSION as $session) {
+                foreach ($session->EVENTS->EVENT as $event) {
+                    $nr = (int)$event['number'];
+                    foreach ($event->RESULTS->RESULT as $res) {
+                        $swimmerid = (string)$res['swimmerid'];
+                        $status    = trim((string)($res['status'] ?? ''));
+                        if ($status !== '') continue;
+                        $swimtime  = (string)($res['swimtime'] ?? '');
+                        if ($swimtime === '' || $swimtime === '-1') continue;
+                        $pts       = (int)($res['points'] ?? 0);
+                        if (!isset($results[$nr])) $results[$nr] = [];
+                        $results[$nr][$swimmerid] = [
+                            'czas'   => lenex_normalize_time($swimtime),
+                            'punkty' => $pts > 0 ? $pts : null,
+                        ];
+                    }
                 }
             }
         }
