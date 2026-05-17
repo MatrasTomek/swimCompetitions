@@ -221,6 +221,14 @@ a:hover { text-decoration: underline; color: var(--gold); }
     padding: 2rem 0 1.25rem;
 }
 
+.results-header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
 .results-header h1 {
     font-size: 1.75rem;
     font-weight: 800;
@@ -231,6 +239,43 @@ a:hover { text-decoration: underline; color: var(--gold); }
 .results-meta {
     color: var(--gray);
     font-size: 0.95rem;
+}
+
+/* ===============================
+   View toggle (lista_startowa.php)
+   =============================== */
+.view-toggle {
+    display: flex;
+    border: 1px solid var(--gold);
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.view-toggle-btn {
+    padding: 0.35rem 0.85rem;
+    font-size: 0.85rem;
+    font-family: inherit;
+    background: transparent;
+    color: var(--gold);
+    border: none;
+    border-right: 1px solid var(--gold);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    line-height: 1.4;
+}
+
+.view-toggle-btn:last-child { border-right: none; }
+
+.view-toggle-btn.active {
+    background: var(--gold);
+    color: var(--black);
+    font-weight: 600;
+}
+
+.view-toggle-btn:hover:not(.active) {
+    background: var(--gold-pale);
 }
 
 .block {
@@ -370,24 +415,36 @@ a:hover { text-decoration: underline; color: var(--gold); }
         white-space: nowrap;
     }
 
-    /* Search results table has 6 cols: Athlete | Event | Block | Heat | Time | Lane */
+    /* 6-col tables: search results + flat table view */
     #search-results .results-table th:nth-child(1),
-    #search-results .results-table td:nth-child(1) { width: 28%; }
+    #search-results .results-table td:nth-child(1),
+    #view-table .results-table th:nth-child(1),
+    #view-table .results-table td:nth-child(1) { width: 28%; }
 
     #search-results .results-table th:nth-child(2),
-    #search-results .results-table td:nth-child(2) { width: 22%; }
+    #search-results .results-table td:nth-child(2),
+    #view-table .results-table th:nth-child(2),
+    #view-table .results-table td:nth-child(2) { width: 22%; }
 
     #search-results .results-table th:nth-child(3),
-    #search-results .results-table td:nth-child(3) { width: 8%; }
+    #search-results .results-table td:nth-child(3),
+    #view-table .results-table th:nth-child(3),
+    #view-table .results-table td:nth-child(3) { width: 8%; }
 
     #search-results .results-table th:nth-child(4),
-    #search-results .results-table td:nth-child(4) { width: 18%; }
+    #search-results .results-table td:nth-child(4),
+    #view-table .results-table th:nth-child(4),
+    #view-table .results-table td:nth-child(4) { width: 18%; }
 
     #search-results .results-table th:nth-child(5),
-    #search-results .results-table td:nth-child(5) { width: 16%; white-space: nowrap; }
+    #search-results .results-table td:nth-child(5),
+    #view-table .results-table th:nth-child(5),
+    #view-table .results-table td:nth-child(5) { width: 16%; white-space: nowrap; }
 
     #search-results .results-table th:nth-child(6),
-    #search-results .results-table td:nth-child(6) { width: 8%; }
+    #search-results .results-table td:nth-child(6),
+    #view-table .results-table th:nth-child(6),
+    #view-table .results-table td:nth-child(6) { width: 8%; }
 }
 
 /* ===============================
