@@ -19,8 +19,23 @@ function lenex_download(string $lxf_url): array {
         'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
     ]);
     $data = @file_get_contents($lxf_url, false, $ctx);
-    if (!$data) {
-        return ['ok' => false, 'error' => 'Nie można pobrać: ' . $lxf_url];
+    $http_code    = '';
+    $content_type = '';
+    if (isset($http_response_header)) {
+        foreach ($http_response_header as $h) {
+            if (preg_match('#HTTP/\S+ (\d+)#', $h, $m)) {
+                $http_code = ' (HTTP ' . $m[1] . ')';
+            }
+            if (stripos($h, 'Content-Type:') === 0) {
+                $content_type = strtolower($h);
+            }
+        }
+    }
+    if ($data === false || $data === '') {
+        return ['ok' => false, 'error' => 'Nie można pobrać: ' . $lxf_url . $http_code];
+    }
+    if (str_contains($content_type, 'text/html')) {
+        return ['ok' => false, 'error' => 'Wyniki LENEX jeszcze niedostępne na livetiming.pl (strona zwróciła HTML zamiast pliku .lxf)'];
     }
     if (!class_exists('ZipArchive')) {
         return ['ok' => false, 'error' => 'Rozszerzenie ZipArchive niedostępne na tym serwerze'];

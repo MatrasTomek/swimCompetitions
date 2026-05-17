@@ -25,6 +25,10 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/athlete.php';
 require_once __DIR__ . '/../includes/result_fetch.php';
 
-$result = fetch_and_apply_lenex();
+$body        = json_decode(file_get_contents('php://input'), true) ?? [];
+$contest_url = trim($body['contest_url'] ?? '');
+$json_file   = preg_replace('/\.json$/', '', basename(trim($body['json_file'] ?? '')));
+
+$result = fetch_and_apply_lenex($contest_url, $json_file);
 
 echo json_encode(array_merge($result, ['time' => date('c')]));

@@ -44,13 +44,17 @@ function parse_event_parts(string $k): array {
  *
  * Returns ['updated' => N, 'not_found' => N, 'total' => N, 'errors' => [...]]
  */
-function fetch_and_apply_lenex(): array {
-    $config = load_live_config();
-    if (empty($config['contest_url']) || empty($config['json_file'])) {
-        return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Brak konfiguracji — zapisz URL zawodów najpierw.']];
+function fetch_and_apply_lenex(string $contest_url = '', string $json_file = ''): array {
+    if ($contest_url === '' || $json_file === '') {
+        $config = load_live_config();
+        if ($contest_url === '') $contest_url = $config['contest_url'] ?? '';
+        if ($json_file === '') $json_file = $config['json_file'] ?? '';
+    }
+    if (empty($contest_url) || empty($json_file)) {
+        return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Brak konfiguracji — podaj URL zawodów.']];
     }
 
-    $zawody_path = safe_json_path($config['json_file'] . '.json');
+    $zawody_path = safe_json_path($json_file . '.json');
     if (!$zawody_path) {
         return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Nieprawidłowy plik zawodów.']];
     }
@@ -60,7 +64,7 @@ function fetch_and_apply_lenex(): array {
         return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Błąd odczytu JSON zawodów.']];
     }
 
-    $lxf_url = lenex_url_from_contest($config['contest_url']);
+    $lxf_url = lenex_url_from_contest($contest_url);
     $lenex   = lenex_download($lxf_url);
     if (!$lenex['ok']) {
         return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Błąd pobierania LENEX: ' . ($lenex['error'] ?? '')]];
@@ -110,9 +114,6 @@ function fetch_and_apply_lenex(): array {
         $zawody_path,
         json_encode($zawody, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
     );
-
-    $config['ostatnia_aktualizacja'] = date('c');
-    save_live_config($config);
 
     return ['updated' => $updated, 'not_found' => $not_found, 'total' => $total, 'errors' => []];
 }

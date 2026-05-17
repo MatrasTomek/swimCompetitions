@@ -58,15 +58,22 @@ function load_all_zawody(): array {
     foreach ($files as $path) {
         $data = json_decode(file_get_contents($path), true);
         if ($data === null) continue;
+        $has_results = false;
+        foreach ($data['bloki'] ?? [] as $blok) {
+            foreach ($blok['starty'] ?? [] as $start) {
+                if (!empty($start['result_fetched'])) { $has_results = true; break 2; }
+            }
+        }
         $list[] = [
-            'file'     => basename($path),
-            'nazwa'    => $data['nazwa']   ?? '(brak nazwy)',
-            'klub'     => $data['klub']    ?? '',
-            'miejsce'  => $data['miejsce'] ?? '',
-            'data'     => $data['data']    ?? '',
-            'mtime'    => filemtime($path),
-            'has_file' => true,
-            'id'       => '',
+            'file'        => basename($path),
+            'nazwa'       => $data['nazwa']   ?? '(brak nazwy)',
+            'klub'        => $data['klub']    ?? '',
+            'miejsce'     => $data['miejsce'] ?? '',
+            'data'        => $data['data']    ?? '',
+            'mtime'       => filemtime($path),
+            'has_file'    => true,
+            'has_results' => $has_results,
+            'id'          => '',
         ];
     }
 
