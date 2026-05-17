@@ -137,6 +137,12 @@ function safe_json_path(string $filename): string {
 function format_konkurencja(string $k, int $nr): string {
     $first = mb_strtoupper(mb_substr(trim($k), 0, 1, 'UTF-8'), 'UTF-8');
     $rest  = preg_replace('/^[^,]+,\s*/', '', $k);
+    $skroty = [
+        'grzbietowy' => 'grzbiet',
+        'motylkowy'  => 'motyl',
+        'klasyczny'  => 'klasyk',
+    ];
+    $rest = str_ireplace(array_keys($skroty), array_values($skroty), $rest);
     return $first . $nr . ' ' . $rest;
 }
 
