@@ -74,7 +74,6 @@ $is_live     = !empty($live_config['aktywna']) && ($live_config['json_file'] ?? 
                         <th>Seria</th>
                         <th class="text-center">Godz.</th>
                         <th class="text-center col-tor">T</th>
-                        <th class="text-center">Wynik</th>
                     </tr>
                 </thead>
                 <tbody id="search-tbody"></tbody>
@@ -108,7 +107,6 @@ $is_live     = !empty($live_config['aktywna']) && ($live_config['json_file'] ?? 
                             <th>Seria</th>
                             <th class="text-center">Godz.</th>
                             <th class="text-center col-tor">T</th>
-                            <th class="text-center">Wynik</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -127,20 +125,16 @@ $is_live     = !empty($live_config['aktywna']) && ($live_config['json_file'] ?? 
                                 <?php if ($imie): ?>
                                     <span class="imie"><?= h($imie) ?></span>
                                 <?php endif; ?>
+                                <?php if ($fetched): ?>
+                                    <button class="btn-pokaz-czas" data-czas="<?= h($s['czas_result']) ?>" data-type="result">Pokaż czas</button>
+                                <?php elseif (!empty($s['czas'])): ?>
+                                    <button class="btn-pokaz-czas" data-czas="<?= h($s['czas']) ?>" data-type="seed">Pokaż czas</button>
+                                <?php endif; ?>
                             </td>
                             <td data-label="Konk."><?= h(format_konkurencja($s['konkurencja'], (int)$s['konkurencja_nr'])) ?></td>
                             <td data-label="Seria"><?= h($s['seria']) ?></td>
                             <td class="text-center" data-label="Godz."><?= h($s['godz']) ?></td>
                             <td class="text-center" data-label="Tor"><?= h((string)$s['tor']) ?></td>
-                            <td class="text-center" data-label="Wynik">
-                                <?php if ($fetched): ?>
-                                    <strong style="color:#4caf50"><?= h($s['czas_result']) ?></strong>
-                                <?php elseif (!empty($s['czas'])): ?>
-                                    <span style="color:#888"><?= h($s['czas']) ?></span>
-                                <?php else: ?>
-                                    <span style="color:#555">—</span>
-                                <?php endif; ?>
-                            </td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -240,18 +234,21 @@ $is_live     = !empty($live_config['aktywna']) && ($live_config['json_file'] ?? 
                 tdT.setAttribute('data-label', 'Tor');
                 tdT.innerHTML = buildCell(r, 4);
                 tr.appendChild(tdT);
-                /* Wynik */
-                var tdW = document.createElement('td');
-                tdW.className = 'text-center';
-                tdW.setAttribute('data-label', 'Wynik');
-                tdW.innerHTML = buildCell(r, 5);
-                tr.appendChild(tdW);
 
                 tbody.appendChild(tr);
             });
         }
     });
 })();
+
+document.addEventListener('click', function (e) {
+    var btn = e.target;
+    if (!btn.classList.contains('btn-pokaz-czas')) return;
+    var span = document.createElement('span');
+    span.className = btn.dataset.type === 'result' ? 'czas-wynik czas-result' : 'czas-wynik czas-seed';
+    span.textContent = btn.dataset.czas;
+    btn.replaceWith(span);
+});
 </script>
 
 <?php if ($is_live): ?>

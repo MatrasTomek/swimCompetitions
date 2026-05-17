@@ -17,7 +17,7 @@ define('ZAWODY_DIR', __DIR__ . '/../zawody');
 define('MAX_JSON_SIZE', 5 * 1024 * 1024);
 
 // CSS version — bump when updating style.css or admin.css
-define('CSS_VERSION', '13');
+define('CSS_VERSION', '14');
 
 // Directory with athlete profiles
 define('ZAWODNICY_DIR', __DIR__ . '/../zawodnicy');

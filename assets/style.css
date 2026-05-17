@@ -370,28 +370,58 @@ a:hover { text-decoration: underline; color: var(--gold); }
         white-space: nowrap;
     }
 
-    /* Search results table has 7 cols: Zawodnik | Konk. | Blok | Seria | Godz. | T | Wynik */
+    /* Search results table has 6 cols: Zawodnik | Konk. | Blok | Seria | Godz. | T */
     #search-results .tabela-wynikow th:nth-child(1),
-    #search-results .tabela-wynikow td:nth-child(1) { width: 26%; }
+    #search-results .tabela-wynikow td:nth-child(1) { width: 28%; }
 
     #search-results .tabela-wynikow th:nth-child(2),
-    #search-results .tabela-wynikow td:nth-child(2) { width: 20%; }
+    #search-results .tabela-wynikow td:nth-child(2) { width: 22%; }
 
     #search-results .tabela-wynikow th:nth-child(3),
     #search-results .tabela-wynikow td:nth-child(3) { width: 8%; }
 
     #search-results .tabela-wynikow th:nth-child(4),
-    #search-results .tabela-wynikow td:nth-child(4) { width: 16%; }
+    #search-results .tabela-wynikow td:nth-child(4) { width: 18%; }
 
     #search-results .tabela-wynikow th:nth-child(5),
-    #search-results .tabela-wynikow td:nth-child(5) { width: 14%; white-space: nowrap; }
+    #search-results .tabela-wynikow td:nth-child(5) { width: 16%; white-space: nowrap; }
 
     #search-results .tabela-wynikow th:nth-child(6),
-    #search-results .tabela-wynikow td:nth-child(6) { width: 6%; }
-
-    #search-results .tabela-wynikow th:nth-child(7),
-    #search-results .tabela-wynikow td:nth-child(7) { width: 10%; white-space: nowrap; }
+    #search-results .tabela-wynikow td:nth-child(6) { width: 8%; }
 }
+
+/* ===============================
+   Show-time button (lista_startowa.php)
+   =============================== */
+.btn-pokaz-czas {
+    display: inline-block;
+    margin-top: 0.25rem;
+    padding: 0.12rem 0.45rem;
+    font-size: 0.7rem;
+    font-family: inherit;
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1.4;
+    transition: background 0.15s, color 0.15s;
+}
+
+.btn-pokaz-czas:hover {
+    background: var(--gold-pale);
+}
+
+.czas-wynik {
+    display: inline-block;
+    margin-top: 0.25rem;
+    font-family: monospace;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.czas-result { color: var(--success); }
+.czas-seed   { color: var(--gray); }
 
 .back-link { padding: 1rem 0 2.5rem; }
 
