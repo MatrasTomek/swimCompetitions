@@ -123,7 +123,11 @@ $json_slug = basename($filepath, '.json');
                                     <span class="imie"><?= h($imie) ?></span>
                                 <?php endif; ?>
                                 <?php if ($fetched): ?>
-                                    <button class="btn-pokaz-czas" data-czas="<?= h($s['czas_result']) ?>" data-type="result">Pokaż czas</button>
+                                    <button class="btn-pokaz-czas"
+                                        data-czas="<?= h($s['czas'] ?? '') ?>"
+                                        data-czas-result="<?= h($s['czas_result']) ?>"
+                                        data-punkty="<?= h((string)($s['punkty'] ?? '')) ?>"
+                                        data-type="result">Pokaż czas</button>
                                 <?php elseif (!empty($s['czas'])): ?>
                                     <button class="btn-pokaz-czas" data-czas="<?= h($s['czas']) ?>" data-type="seed">Pokaż czas</button>
                                 <?php endif; ?>
@@ -240,8 +244,14 @@ document.addEventListener('click', function (e) {
     var btn = e.target;
     if (!btn.classList.contains('btn-pokaz-czas')) return;
     var span = document.createElement('span');
-    span.className = btn.dataset.type === 'result' ? 'czas-wynik czas-result' : 'czas-wynik czas-seed';
-    span.textContent = btn.dataset.czas;
+    if (btn.dataset.type === 'result') {
+        span.className = 'czas-wynik czas-result';
+        var parts = [btn.dataset.czas, btn.dataset.czasResult, btn.dataset.punkty].filter(Boolean);
+        span.textContent = parts.join(' ⇒ ');
+    } else {
+        span.className = 'czas-wynik czas-seed';
+        span.textContent = btn.dataset.czas;
+    }
     btn.replaceWith(span);
 });
 </script>

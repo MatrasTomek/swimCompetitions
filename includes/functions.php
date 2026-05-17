@@ -51,6 +51,14 @@ function validate_json_upload(array $file): array {
     return ['ok' => true, 'decoded' => $decoded];
 }
 
+function parse_zawody_date(string $data): int {
+    // Handles "9-10/5/2026", "9/5/2026"
+    if (preg_match('/^(\d+)(?:-\d+)?\/(\d+)\/(\d{4})/', $data, $m)) {
+        return mktime(0, 0, 0, (int)$m[2], (int)$m[1], (int)$m[3]);
+    }
+    return 0;
+}
+
 // Loads all competitions from the directory, sorted by newest first
 function load_all_zawody(): array {
     $files = glob(ZAWODY_DIR . '/*.json') ?: [];
@@ -92,7 +100,7 @@ function load_all_zawody(): array {
         ];
     }
 
-    usort($list, fn($a, $b) => $b['mtime'] - $a['mtime']);
+    usort($list, fn($a, $b) => parse_zawody_date($b['data']) - parse_zawody_date($a['data']));
     return $list;
 }
 
