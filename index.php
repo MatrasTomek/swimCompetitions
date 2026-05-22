@@ -50,7 +50,7 @@ $zawody = load_all_zawody();
         <div id="view-grid">
             <div class="competitions-grid" id="competitions-grid">
                 <?php foreach ($zawody as $z): ?>
-                <article class="competition-card" data-search="<?= h(mb_strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub'])) ?>">
+                <article class="competition-card" data-search="<?= h(function_exists('mb_strtolower') ? mb_strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub']) : strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub'])) ?>">
                     <div class="competition-card-body">
                         <div class="competition-meta">
                             <?php if ($z['data']): ?>
@@ -93,7 +93,7 @@ $zawody = load_all_zawody();
                     </thead>
                     <tbody>
                     <?php foreach ($zawody as $z): ?>
-                        <tr data-search="<?= h(mb_strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub'])) ?>">
+                        <tr data-search="<?= h(function_exists('mb_strtolower') ? mb_strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub']) : strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub'])) ?>">
                             <td><?= h($z['nazwa']) ?></td>
                             <td style="white-space:nowrap"><?= h($z['data']) ?></td>
                             <td><?= h($z['miejsce']) ?></td>
@@ -192,8 +192,8 @@ $zawody = load_all_zawody();
 
 <footer class="site-footer">
     <div class="container">
-        <p>&copy; <?= date('Y') ?> Olimpijczyk Proszówki</p>
-        <p class="footer-madeby">made by <a href="https://www.nd-soft.pl" target="_blank" rel="noopener">nd-soft</a></p>
+        <p>&copy; <?= date('Y') ?> OlimpijczyK Proszówki</p>
+        <span class="footer-madeby">madeBy: <a href="https://www.nd-soft.pl/" target="_blank" rel="noopener">ndsoft</a></span>
     </div>
 </footer>
 </body>
