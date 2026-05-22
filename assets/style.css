@@ -2,6 +2,7 @@
    Variables and reset
    =============================== */
 :root {
+	--footer-height: 64px;
 	--black: #000000;
 	--dark: #111111;
 	--dark-mid: #1a1a1a;
@@ -41,6 +42,7 @@ body {
 	min-height: 100vh;
 	display: flex;
 	flex-direction: column;
+	padding-bottom: var(--footer-height);
 }
 
 main {
@@ -687,13 +689,18 @@ a:hover {
    Footer
    =============================== */
 .site-footer {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 1000;
 	background: var(--dark);
 	border-top: 1px solid #2a2a2a;
 	color: #555;
 	text-align: center;
 	padding: 1rem;
 	font-size: 0.85rem;
-	margin-top: auto;
+	min-height: var(--footer-height);
 }
 
 .site-footer a {
