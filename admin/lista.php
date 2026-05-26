@@ -33,7 +33,10 @@ unset($_SESSION['flash']);
 <main class="container">
     <div class="page-header">
         <h1>Lista zawodów</h1>
-        <a href="<?= BASE_URL ?>/admin/dodaj.php" class="btn btn-primary">+ Dodaj zawody</a>
+        <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+            <button id="btn-athletes" class="btn btn-outline">Pobierz wyniki zawodników</button>
+            <a href="<?= BASE_URL ?>/admin/dodaj.php" class="btn btn-primary">+ Dodaj zawody</a>
+        </div>
     </div>
 
     <?php if ($flash): ?>
@@ -93,6 +96,36 @@ unset($_SESSION['flash']);
     <?php endif; ?>
 </main>
 
+<!-- Modal: zawodnicy -->
+<div id="modal-athletes" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 0">
+    <div style="background:#1e2030;border:1px solid #333;border-radius:8px;padding:2rem;width:min(720px,95vw);position:relative;margin:auto">
+        <button id="modal-ath-close" style="position:absolute;top:.75rem;right:1rem;background:none;border:none;color:#888;font-size:1.4rem;cursor:pointer;line-height:1">&times;</button>
+        <h2 style="margin:0 0 1.25rem;font-size:1.1rem;color:#eee">Wyniki zawodników</h2>
+        <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
+            <input id="ath-search" type="text" placeholder="Szukaj zawodnika…"
+                style="flex:1;min-width:160px;padding:.45rem .7rem;background:#12141e;border:1px solid #444;border-radius:5px;color:#eee;font-size:.875rem">
+            <a id="ath-download-all" href="<?= BASE_URL ?>/api/download_athletes.php"
+                class="btn btn-outline btn-sm" style="white-space:nowrap">Pobierz wszystko (JSON)</a>
+        </div>
+        <div id="ath-status" style="min-height:1.4rem;font-size:.875rem;color:#aaa;margin-bottom:.5rem"></div>
+        <div id="ath-table-wrap" style="max-height:420px;overflow-y:auto">
+            <table class="admin-table" style="font-size:.83rem">
+                <thead>
+                    <tr>
+                        <th>Zawodnik</th>
+                        <th>Rok ur.</th>
+                        <th>Klub</th>
+                        <th style="text-align:right">Starty</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="ath-tbody"></tbody>
+            </table>
+        </div>
+        <p id="ath-empty" style="display:none;color:#888;text-align:center;padding:2rem 0;margin:0">Brak plików zawodników.</p>
+    </div>
+</div>
+
 <!-- Modal: pobierz wyniki -->
 <div id="modal-lenex" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center">
     <div style="background:#1e2030;border:1px solid #333;border-radius:8px;padding:2rem;width:min(520px,95vw);position:relative">
@@ -112,6 +145,68 @@ unset($_SESSION['flash']);
 </div>
 
 <script>
+(function () {
+    var modalAth  = document.getElementById('modal-athletes');
+    var athTbody  = document.getElementById('ath-tbody');
+    var athStatus = document.getElementById('ath-status');
+    var athEmpty  = document.getElementById('ath-empty');
+    var athSearch = document.getElementById('ath-search');
+    var allRows   = [];
+
+    function openAthletes() {
+        modalAth.style.display = 'flex';
+        athStatus.textContent  = 'Ładowanie…';
+        athTbody.innerHTML     = '';
+        athEmpty.style.display = 'none';
+        athSearch.value        = '';
+
+        fetch('<?= BASE_URL ?>/api/list_athletes.php')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                allRows = data.athletes || [];
+                athStatus.textContent = 'Zawodników: ' + allRows.length;
+                renderRows(allRows);
+            })
+            .catch(function (e) {
+                athStatus.style.color = '#f44';
+                athStatus.textContent = 'Błąd: ' + e.message;
+            });
+    }
+
+    function renderRows(rows) {
+        athTbody.innerHTML = '';
+        athEmpty.style.display = rows.length ? 'none' : 'block';
+        rows.forEach(function (a) {
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td>' + esc(a.nazwisko + ' ' + a.imie) + '</td>' +
+                '<td>' + (a.rok_urodzenia || '—') + '</td>' +
+                '<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.klub) + '</td>' +
+                '<td style="text-align:right">' + a.starty + '</td>' +
+                '<td><a href="<?= BASE_URL ?>/api/get_athlete.php?file=' + encodeURIComponent(a.file) + '" download="' + esc(a.file) + '" class="btn btn-sm btn-outline">JSON</a></td>';
+            athTbody.appendChild(tr);
+        });
+    }
+
+    function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function closeAthletes() { modalAth.style.display = 'none'; }
+
+    document.getElementById('btn-athletes').addEventListener('click', openAthletes);
+    document.getElementById('modal-ath-close').addEventListener('click', closeAthletes);
+    modalAth.addEventListener('click', function (e) { if (e.target === modalAth) closeAthletes(); });
+
+    athSearch.addEventListener('input', function () {
+        var q = this.value.toLowerCase();
+        if (!q) { renderRows(allRows); return; }
+        renderRows(allRows.filter(function (a) {
+            return (a.nazwisko + ' ' + a.imie + ' ' + a.klub).toLowerCase().includes(q);
+        }));
+    });
+})();
+
 (function () {
     var modal   = document.getElementById('modal-lenex');
     var urlInput= document.getElementById('modal-url');
