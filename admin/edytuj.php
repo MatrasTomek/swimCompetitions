@@ -60,6 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <nav>
             <a href="<?= BASE_URL ?>/admin/lista.php" class="active">Lista zawodów</a>
             <a href="<?= BASE_URL ?>/admin/dodaj.php">Dodaj zawody</a>
+            <a href="<?= BASE_URL ?>/admin/import_startlist.php">Import PDF</a>
+            <a href="<?= BASE_URL ?>/admin/live.php">Wyniki LENEX</a>
             <a href="<?= BASE_URL ?>/index.php">Strona główna</a>
             <a href="<?= BASE_URL ?>/admin/logout.php">Wyloguj</a>
         </nav>

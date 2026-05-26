@@ -53,6 +53,7 @@ $has_config = !empty($config['contest_url']) && !empty($config['json_file']);
         <nav>
             <a href="<?= BASE_URL ?>/admin/lista.php">Lista zawodów</a>
             <a href="<?= BASE_URL ?>/admin/dodaj.php">Dodaj zawody</a>
+            <a href="<?= BASE_URL ?>/admin/import_startlist.php">Import PDF</a>
             <a href="<?= BASE_URL ?>/admin/live.php" class="active">Wyniki LENEX</a>
             <a href="<?= BASE_URL ?>/index.php">Strona główna</a>
             <a href="<?= BASE_URL ?>/admin/logout.php">Wyloguj</a>

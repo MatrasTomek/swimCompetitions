@@ -79,6 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <nav>
             <a href="<?= BASE_URL ?>/admin/lista.php">Lista zawodów</a>
             <a href="<?= BASE_URL ?>/admin/dodaj.php" class="active">Dodaj zawody</a>
+            <a href="<?= BASE_URL ?>/admin/import_startlist.php">Import PDF</a>
+            <a href="<?= BASE_URL ?>/admin/live.php">Wyniki LENEX</a>
             <a href="<?= BASE_URL ?>/index.php">Strona główna</a>
             <a href="<?= BASE_URL ?>/admin/logout.php">Wyloguj</a>
         </nav>
@@ -95,6 +97,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <ul><?php foreach ($errors as $e): ?><li><?= h($e) ?></li><?php endforeach; ?></ul>
         </div>
     <?php endif; ?>
+
+    <div style="background:#1a1600;border:1px solid #f0a800;border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;max-width:520px">
+        <span style="color:#ddd;font-size:.9rem">Masz link z livetiming.pl? Pobierz listę startową automatycznie.</span>
+        <a href="<?= BASE_URL ?>/admin/import_startlist.php" class="btn btn-primary" style="white-space:nowrap">Import PDF →</a>
+    </div>
 
     <div class="admin-form" style="max-width:520px">
         <p style="margin-bottom:1.25rem;color:#555;font-size:.92rem">
