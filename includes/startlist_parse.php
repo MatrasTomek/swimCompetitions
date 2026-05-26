@@ -125,22 +125,22 @@ function sl_club_matches(string $filter, string $club): bool {
  *
  * Expected layout (pdftotext -layout):
  *   "  4   WAS AMELIA         10  OLI BRZESKO    5:23.71"
- *   leading spaces + lane(1-10) + 2+spaces + NAME + spaces + YOB + spaces + CLUB + optional time
+ *   leading spaces + lane(1-10) + 1+spaces + NAME + spaces + YOB + spaces + CLUB + optional [code] + optional time
  */
 function sl_parse_entry_line(string $line, array $event, array $heat, string $club_filter): ?array {
     $trimmed = trim($line);
     if (strlen($trimmed) < 8) return null;
 
-    // Must begin with (optional spaces +) 1-2 digit lane number + ≥2 spaces
-    if (!preg_match('/^\s{0,6}(\d{1,2})\s{2,}/u', $line, $lm)) return null;
+    // Must begin with (optional spaces +) 1-2 digit lane number + ≥1 space
+    if (!preg_match('/^\s{0,6}(\d{1,2})\s+/u', $line, $lm)) return null;
     $tor = (int)$lm[1];
     if ($tor < 1 || $tor > 10) return null;
 
     // Rest of line after lane
     $rest = substr($line, (int)strpos($line, $lm[0]) + strlen($lm[0]));
 
-    // Name: uppercase letters (incl. Polish), hyphens, followed by ≥2 spaces
-    if (!preg_match('/^([A-ZŻŹĆĄŚĘŁÓŃ][A-ZŻŹĆĄŚĘŁÓŃ\-\s]+?)\s{2,}/u', $rest, $nm)) return null;
+    // Name: Unicode letters (upper or lower, incl. Polish), hyphens, followed by ≥2 spaces
+    if (!preg_match('/^([\p{L}][\p{L}\-\s]+?)\s{2,}/u', $rest, $nm)) return null;
     $raw_name = trim($nm[1]);
     if (strlen($raw_name) < 3) return null;
 
@@ -150,10 +150,16 @@ function sl_parse_entry_line(string $line, array $event, array $heat, string $cl
     if (!preg_match('/^(\d{2,4})\s+/u', $after_name, $ym)) return null;
     $after_yob = ltrim(substr($after_name, strlen($ym[0])));
 
-    // Club + optional time at end
+    // Club + optional time at end.
+    // Some PDFs (Splash Meet Manager) insert an extra numeric code (e.g. "06") and optional
+    // qualifier (e.g. "PK") between the club name and the seed time. Try that format first.
     $czas     = null;
     $club_raw = '';
-    if (preg_match('/^(.*?)\s{2,}(NT|\d[\d:.]+)\s*$/u', $after_yob, $cm)) {
+    if (preg_match('/^(.*?)\s{2,}\d{1,3}(?:\s+[A-Z]+)?\s{2,}(NT|\d[\d:.]+)\s*$/u', $after_yob, $cm)) {
+        $club_raw = trim($cm[1]);
+        $t_raw    = trim($cm[2]);
+        $czas     = ($t_raw === 'NT') ? null : sl_normalize_time($t_raw);
+    } elseif (preg_match('/^(.*?)\s{2,}(NT|\d[\d:.]+)\s*$/u', $after_yob, $cm)) {
         $club_raw = trim($cm[1]);
         $t_raw    = trim($cm[2]);
         $czas     = ($t_raw === 'NT') ? null : sl_normalize_time($t_raw);
@@ -277,14 +283,20 @@ function parse_startlist_text(string $text, string $club_filter, string $basen):
         }
 
         // --- Event ---
-        if (preg_match('/^(Event|Wydarzenie)\s+(\d+)\s+(.*)/iu', $trimmed, $m)) {
+        // Matches "Event N desc", "Wydarzenie N desc", "Konkurencja N desc" or "Konkurencja N, desc"
+        if (preg_match('/^(Event|Wydarzenie|Konkurencja)\s+(\d+)(?:[\s,]+(.*))?/iu', $trimmed, $m)) {
+            $new_nr = (int)$m[2];
+            // Same event repeated at page-break: don't reset current heat, just skip
+            if ($cur_event !== null && $cur_event['nr'] === $new_nr) {
+                continue;
+            }
             if ($cur_session && $cur_heat) {
                 sl_flush_heat($cur_session, $cur_heat);
                 $cur_heat = null;
             }
             $cur_event = [
-                'nr'   => (int)$m[2],
-                'name' => sl_normalize_event_name(trim($m[3])),
+                'nr'   => $new_nr,
+                'name' => sl_normalize_event_name(trim($m[3] ?? '')),
             ];
             continue;
         }
@@ -487,8 +499,7 @@ function parse_startlist_text_vertical(string $text, string $club_filter, string
 
             case 'CLUB':
                 if ($trimmed === '.') {
-                    // extraneous dot field present in some exports — skip
-                    break;
+                    break; // extraneous dot — skip
                 }
                 $is_time = $trimmed === 'NT'
                     || preg_match('/^\d{1,2}:\d{2}\.\d{2}$/', $trimmed)
@@ -510,8 +521,11 @@ function parse_startlist_text_vertical(string $text, string $club_filter, string
                         $cur_heat['entries'][] = $entry;
                     }
                     $state = 'IDLE';
+                } elseif (preg_match('/^\d{1,3}$/', $trimmed) || preg_match('/^[A-Z]{1,4}$/', $trimmed)) {
+                    // Skip meeting-code (e.g. "06") or short qualifier (e.g. "PK") — stay in CLUB
+                    break;
                 } else {
-                    // not a time — reset and re-process this line
+                    // not a time, not a skip-code — reset and re-process
                     $state = 'IDLE';
                     $i--;
                 }
