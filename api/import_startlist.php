@@ -88,7 +88,7 @@ if ($action === 'save') {
     echo json_encode([
         'ok'       => true,
         'filename' => $filename,
-        'redirect' => BASE_URL . '/admin/edytuj.php?f=' . urlencode(basename($filename, '.json')),
+        'redirect' => BASE_URL . '/admin/edytuj.php?f=' . urlencode($filename),
     ]);
     exit;
 }

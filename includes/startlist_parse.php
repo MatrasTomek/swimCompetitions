@@ -334,6 +334,197 @@ function parse_startlist_text(string $text, string $club_filter, string $basen):
 
     $zawody['bloki'] = array_values(array_filter($sessions, fn($s) => !empty($s['starty'])));
 
+    if (empty($zawody['bloki'])) {
+        return parse_startlist_text_vertical($text, $club_filter, $basen);
+    }
+
+    sl_extract_metadata($zawody, $first_lines);
+
+    return $zawody;
+}
+
+/**
+ * Parser for vertical-format PDF text produced by the PHP fallback extractor.
+ * Each entry field (lane, name, yob, club, time) is on its own line.
+ */
+function parse_startlist_text_vertical(string $text, string $club_filter, string $basen): array {
+    $lines = preg_split('/\r?\n/', $text);
+    $n     = count($lines);
+
+    $zawody = [
+        'nazwa'   => '',
+        'miejsce' => '',
+        'data'    => '',
+        'klub'    => $club_filter,
+        'basen'   => $basen,
+        'bloki'   => [],
+    ];
+
+    $sessions    = [];
+    $cur_session = null;
+    $cur_event   = null;
+    $cur_heat    = null;
+    $session_idx = 0;
+    $first_lines = [];
+
+    $state  = 'IDLE'; // IDLE | LANE | NAME | YOB | CLUB
+    $e_lane = 0;
+    $e_name = '';
+    $e_yob  = '';
+    $e_club = '';
+
+    for ($i = 0; $i < $n; $i++) {
+        $trimmed = trim($lines[$i]);
+
+        if ($trimmed !== '' && count($first_lines) < 25) {
+            $first_lines[] = $trimmed;
+        }
+
+        // ── Session ──────────────────────────────────────────────────────────
+        if (preg_match('/^(Sesja|Session)\s+([IVX]+|\d+)/iu', $trimmed)) {
+            $state = 'IDLE';
+            if ($cur_session !== null) {
+                sl_flush_heat($cur_session, $cur_heat);
+                $sessions[] = $cur_session;
+            }
+            $session_idx++;
+            $cur_session = ['blok' => sl_int_to_roman($session_idx), 'data' => '', 'godz_start' => '', 'starty' => []];
+            $cur_event = $cur_heat = null;
+            if (preg_match('/(\d{1,2}[.\/]\d{1,2}[.\/]\d{4})/', $trimmed, $dm)) {
+                $cur_session['data'] = sl_normalize_date_str($dm[1]);
+            }
+            continue;
+        }
+
+        // ── Event ─────────────────────────────────────────────────────────────
+        // "Konkurencja 2, Kobiet, 100m dowolny"  OR  "Konkurencja 1" + desc on next line
+        if (preg_match('/^Konkurencja\s+(\d+)(?:[,\s]+(.+))?/iu', $trimmed, $m)) {
+            $state      = 'IDLE';
+            $event_nr   = (int)$m[1];
+            $event_desc = trim($m[2] ?? '');
+            if ($event_desc === '') {
+                // Description may span 2 lines (gender on one, distance+stroke on next)
+                $parts = [];
+                for ($j = $i + 1; $j < min($n, $i + 8); $j++) {
+                    $next = trim($lines[$j]);
+                    if ($next === '') continue;
+                    if (preg_match('/^(Seria|Heat|Sesja|Session|Konkurencja|Lista)\b/iu', $next)) break;
+                    $parts[] = ltrim($next, ', ');
+                    $i = $j;
+                    if (count($parts) >= 2) break; // gender + distance/stroke is enough
+                }
+                $event_desc = trim(implode(', ', array_filter($parts)));
+            }
+            $cur_event = ['nr' => $event_nr, 'name' => sl_normalize_event_name($event_desc)];
+            continue;
+        }
+
+        // ── Heat ──────────────────────────────────────────────────────────────
+        if (preg_match('/^(Seria|Heat)\s+(\d+)\s+(z|of)\s+(\d+)/iu', $trimmed, $m)) {
+            $state = 'IDLE';
+            if ($cur_session !== null && $cur_heat !== null) {
+                sl_flush_heat($cur_session, $cur_heat);
+            }
+            if ($cur_session === null) {
+                $session_idx++;
+                $cur_session = ['blok' => sl_int_to_roman($session_idx), 'data' => '', 'godz_start' => '', 'starty' => []];
+            }
+            $heat_time = '';
+            if (preg_match('/\b(\d{1,2}:\d{2})\s*$/', $trimmed, $hm)) {
+                $heat_time = $hm[1];
+                if ($cur_session['godz_start'] === '') $cur_session['godz_start'] = $heat_time;
+            }
+            $cur_heat = ['nr' => (int)$m[2], 'total' => (int)$m[4], 'godz' => $heat_time, 'entries' => []];
+            continue;
+        }
+
+        if ($cur_heat === null || $cur_event === null) {
+            $state = 'IDLE';
+            continue;
+        }
+
+        // ── Entry state machine ───────────────────────────────────────────────
+        switch ($state) {
+            case 'IDLE':
+                if (preg_match('/^\d{1,2}$/', $trimmed) && (int)$trimmed >= 1 && (int)$trimmed <= 10) {
+                    $e_lane = (int)$trimmed;
+                    $e_name = $e_yob = $e_club = '';
+                    $state  = 'LANE';
+                }
+                break;
+
+            case 'LANE':
+                if ($trimmed === '') {
+                    $e_name = '';
+                    $state  = 'NAME';
+                } elseif (preg_match('/^\d{2,4}$/', $trimmed)) {
+                    // no name line — this is already the YOB
+                    $e_yob = $trimmed;
+                    $state = 'YOB';
+                } else {
+                    $e_name = $trimmed;
+                    $state  = 'NAME';
+                }
+                break;
+
+            case 'NAME':
+                if (preg_match('/^\d{2,4}$/', $trimmed)) {
+                    $e_yob = $trimmed;
+                    $state = 'YOB';
+                } elseif ($trimmed !== '') {
+                    // unexpected text (e.g. relay team-number line) — reset
+                    $state = 'IDLE';
+                    $i--;
+                }
+                // empty line: keep waiting for YOB
+                break;
+
+            case 'YOB':
+                // next line is always the club (may be empty)
+                $e_club = $trimmed;
+                $state  = 'CLUB';
+                break;
+
+            case 'CLUB':
+                if ($trimmed === '.') {
+                    // extraneous dot field present in some exports — skip
+                    break;
+                }
+                $is_time = $trimmed === 'NT'
+                    || preg_match('/^\d{1,2}:\d{2}\.\d{2}$/', $trimmed)
+                    || preg_match('/^\d{2}\.\d{2}$/', $trimmed);
+
+                if ($is_time) {
+                    if ($e_club !== '' && sl_club_matches($club_filter, $e_club)) {
+                        $entry = [
+                            'imie'           => sl_titlecase($e_name),
+                            'konkurencja'    => $cur_event['name'],
+                            'konkurencja_nr' => $cur_event['nr'],
+                            'seria'          => $cur_heat['nr'] . ' z ' . $cur_heat['total'],
+                            'godz'           => $cur_heat['godz'],
+                            'tor'            => $e_lane,
+                        ];
+                        if ($trimmed !== 'NT') {
+                            $entry['czas'] = sl_normalize_time($trimmed);
+                        }
+                        $cur_heat['entries'][] = $entry;
+                    }
+                    $state = 'IDLE';
+                } else {
+                    // not a time — reset and re-process this line
+                    $state = 'IDLE';
+                    $i--;
+                }
+                break;
+        }
+    }
+
+    if ($cur_session !== null) {
+        sl_flush_heat($cur_session, $cur_heat);
+        $sessions[] = $cur_session;
+    }
+
+    $zawody['bloki'] = array_values(array_filter($sessions, fn($s) => !empty($s['starty'])));
     sl_extract_metadata($zawody, $first_lines);
 
     return $zawody;
