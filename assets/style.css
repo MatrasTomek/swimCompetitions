@@ -179,6 +179,13 @@ a:hover {
 	margin: 0;
 }
 
+.view-toggles {
+	display: flex;
+	gap: 0.5rem;
+	flex-shrink: 0;
+	align-items: center;
+}
+
 .view-controls .search-bar input[type='search'] {
 	max-width: none;
 	margin: 0;
@@ -748,6 +755,13 @@ a:hover {
 	}
 	.view-controls {
 		gap: 0.5rem;
+	}
+	.view-toggles {
+		gap: 0.35rem;
+	}
+	.view-toggle-btn {
+		padding: 0.35rem 0.55rem;
+		font-size: 0.8rem;
 	}
 
 	#view-table .index-table thead {

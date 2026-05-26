@@ -35,9 +35,15 @@ $zawody = load_all_zawody();
         <div class="search-bar">
             <input type="search" id="search" placeholder="Szukaj zawodów..." autocomplete="off">
         </div>
-        <div class="view-toggle" id="view-toggle">
-            <button class="view-toggle-btn active" data-view="grid">⊞ Karty</button>
-            <button class="view-toggle-btn" data-view="table">☰ Tabela</button>
+        <div class="view-toggles">
+            <div class="view-toggle" id="scope-toggle">
+                <button class="view-toggle-btn active" data-scope="najnowsze">Najnowsze</button>
+                <button class="view-toggle-btn" data-scope="wszystko">Wszystko</button>
+            </div>
+            <div class="view-toggle" id="view-toggle">
+                <button class="view-toggle-btn active" data-view="grid">⊞ Karty</button>
+                <button class="view-toggle-btn" data-view="table">☰ Tabela</button>
+            </div>
         </div>
     </div>
     <?php endif; ?>
@@ -49,8 +55,8 @@ $zawody = load_all_zawody();
     <?php else: ?>
         <div id="view-grid">
             <div class="competitions-grid" id="competitions-grid">
-                <?php foreach ($zawody as $z): ?>
-                <article class="competition-card" data-search="<?= h(function_exists('mb_strtolower') ? mb_strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub']) : strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub'])) ?>">
+                <?php foreach ($zawody as $idx => $z): ?>
+                <article class="competition-card" data-recent="<?= $idx < 4 ? 'true' : 'false' ?>" data-search="<?= h(function_exists('mb_strtolower') ? mb_strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub']) : strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub'])) ?>">
                     <div class="competition-card-body">
                         <div class="competition-meta">
                             <?php if ($z['data']): ?>
@@ -92,8 +98,8 @@ $zawody = load_all_zawody();
                         </tr>
                     </thead>
                     <tbody>
-                    <?php foreach ($zawody as $z): ?>
-                        <tr data-search="<?= h(function_exists('mb_strtolower') ? mb_strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub']) : strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub'])) ?>">
+                    <?php foreach ($zawody as $idx => $z): ?>
+                        <tr data-recent="<?= $idx < 4 ? 'true' : 'false' ?>" data-search="<?= h(function_exists('mb_strtolower') ? mb_strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub']) : strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub'])) ?>">
                             <td><?= h($z['nazwa']) ?></td>
                             <td style="white-space:nowrap"><?= h($z['data']) ?></td>
                             <td><?= h($z['miejsce']) ?></td>
@@ -116,32 +122,33 @@ $zawody = load_all_zawody();
 
 <script>
 (function () {
-    var input     = document.getElementById('search');
-    var toggle    = document.getElementById('view-toggle');
-    var viewGrid  = document.getElementById('view-grid');
-    var viewTable = document.getElementById('view-table');
+    var input      = document.getElementById('search');
+    var toggle     = document.getElementById('view-toggle');
+    var scopeEl    = document.getElementById('scope-toggle');
+    var viewGrid   = document.getElementById('view-grid');
+    var viewTable  = document.getElementById('view-table');
 
-    var KEY = 'swim-index-view';
+    var VIEW_KEY  = 'swim-index-view';
+    var SCOPE_KEY = 'swim-index-scope';
 
-    function doSearch(q, activeView) {
+    function currentView()  { try { return localStorage.getItem(VIEW_KEY)  || 'grid';      } catch (e) { return 'grid';      } }
+    function currentScope() { try { return localStorage.getItem(SCOPE_KEY) || 'najnowsze'; } catch (e) { return 'najnowsze'; } }
+
+    function doFilter(q, view, scope) {
+        var selector = view === 'table'
+            ? '#view-table tbody tr[data-search]'
+            : '#competitions-grid .competition-card';
+        var items = document.querySelectorAll(selector);
         var visible = 0;
-        if (activeView === 'table') {
-            var rows = document.querySelectorAll('#view-table tbody tr[data-search]');
-            rows.forEach(function (row) {
-                var match = !q || row.dataset.search.indexOf(q) !== -1;
-                row.style.display = match ? '' : 'none';
-                if (match) visible++;
-            });
-            showEmpty(q && visible === 0, viewTable);
-        } else {
-            var cards = document.querySelectorAll('#competitions-grid .competition-card');
-            cards.forEach(function (card) {
-                var match = !q || card.dataset.search.indexOf(q) !== -1;
-                card.style.display = match ? '' : 'none';
-                if (match) visible++;
-            });
-            showEmpty(q && visible === 0, viewGrid);
-        }
+        items.forEach(function (el) {
+            var matchSearch = !q || el.dataset.search.indexOf(q) !== -1;
+            var matchScope  = scope === 'wszystko' || el.dataset.recent === 'true';
+            var show = matchSearch && matchScope;
+            el.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        var container = view === 'table' ? viewTable : viewGrid;
+        showEmpty(q && visible === 0, container);
     }
 
     function showEmpty(show, container) {
@@ -156,13 +163,25 @@ $zawody = load_all_zawody();
         empty.style.display = show ? '' : 'none';
     }
 
-    function currentView() {
-        try { return localStorage.getItem(KEY) || 'grid'; } catch (e) { return 'grid'; }
-    }
-
     if (input) {
         input.addEventListener('input', function () {
-            doSearch(this.value.toLowerCase().trim(), currentView());
+            doFilter(this.value.toLowerCase().trim(), currentView(), currentScope());
+        });
+    }
+
+    if (scopeEl) {
+        function setScope(s) {
+            scopeEl.querySelectorAll('.view-toggle-btn').forEach(function (b) {
+                b.classList.toggle('active', b.dataset.scope === s);
+            });
+            if (input && input.value) { input.value = ''; }
+            try { localStorage.setItem(SCOPE_KEY, s); } catch (e) {}
+            doFilter('', currentView(), s);
+        }
+
+        scopeEl.addEventListener('click', function (e) {
+            var btn = e.target.closest('.view-toggle-btn');
+            if (btn) setScope(btn.dataset.scope);
         });
     }
 
@@ -173,11 +192,9 @@ $zawody = load_all_zawody();
             toggle.querySelectorAll('.view-toggle-btn').forEach(function (b) {
                 b.classList.toggle('active', b.dataset.view === v);
             });
-            if (input && input.value) {
-                input.value = '';
-                doSearch('', v);
-            }
-            try { localStorage.setItem(KEY, v); } catch (e) {}
+            if (input && input.value) { input.value = ''; }
+            try { localStorage.setItem(VIEW_KEY, v); } catch (e) {}
+            doFilter('', v, currentScope());
         }
 
         toggle.addEventListener('click', function (e) {
@@ -185,7 +202,17 @@ $zawody = load_all_zawody();
             if (btn) setView(btn.dataset.view);
         });
 
-        try { setView(localStorage.getItem(KEY) || 'grid'); } catch (e) { setView('grid'); }
+        try { setView(localStorage.getItem(VIEW_KEY) || 'grid'); } catch (e) { setView('grid'); }
+    }
+
+    // Apply initial scope after view is set
+    if (scopeEl) {
+        try { var s = localStorage.getItem(SCOPE_KEY) || 'najnowsze';
+              scopeEl.querySelectorAll('.view-toggle-btn').forEach(function (b) {
+                  b.classList.toggle('active', b.dataset.scope === s);
+              });
+              doFilter('', currentView(), s);
+        } catch (e) {}
     }
 })();
 </script>
