@@ -12,9 +12,6 @@ PHP 8.x web application for managing swimming competition start lists and live r
 # Run a PHP file locally (CLI)
 php includes/functions.php
 
-# Run the cron result-fetcher manually
-php cron/check_results.php
-
 # Generate a bcrypt password hash for admin login
 php -r "echo password_hash('password', PASSWORD_BCRYPT);"
 ```
@@ -44,7 +41,7 @@ No automated tests are configured. Verify changes in a browser or via CLI.
 ### Result fetching pipeline
 
 1. Admin sets a livetiming.pl `index.html` URL + competition JSON file via `admin/live.php` → saved to `live_config.json`
-2. `api/fetch_result.php` (AJAX POST, same-origin only) or `cron/check_results.php` calls `process_pending_results()`
+2. `api/fetch_result.php` (AJAX POST, same-origin only) calls `process_pending_results()`
 3. For each entry older than `RESULT_DELAY_SECONDS` with no result: downloads `ResultList_{event_nr}.pdf`, extracts athlete name + time + points
 4. Writes `czas_result`, `punkty`, `result_fetched: true`, `result_fetched_at` back into the competition JSON
 5. Updates/creates the athlete profile in `zawodnicy/`

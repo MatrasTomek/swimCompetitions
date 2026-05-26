@@ -125,13 +125,7 @@ function pdf_iter_streams(string $pdf_data): array {
             }
         }
 
-        $streams[] = [
-            'raw_len'    => strlen($raw),
-            'is_flat'    => $is_flat,
-            'decomp_ok'  => $decomp_ok,
-            'decoded_len'=> strlen($decoded),
-            'decoded'    => $decoded,
-        ];
+        $streams[] = ['decoded' => $decoded];
     }
 
     return $streams;
@@ -221,46 +215,4 @@ function pdf_extract_strings(string $block, array $cid_map = []): string {
     }
 
     return implode('', $parts);
-}
-
-/**
- * Searches for an athlete result in PDF text.
- * Line format: "Wąs Amelia 12 Olimpijczyk Brzesko 5:23.29 542"
- */
-function pdf_find_athlete(string $text, string $athlete_name): array {
-    $lines      = preg_split('/\r?\n/', $text);
-    $name_lower = mb_strtolower(trim($athlete_name), 'UTF-8');
-
-    foreach ($lines as $line) {
-        if (mb_strpos(mb_strtolower($line, 'UTF-8'), $name_lower) === false) continue;
-
-        // Time: m:ss.dd or ss.dd
-        if (!preg_match('/(\d{1,2}:\d{2}\.\d{2}|\d{2}\.\d{2})/', $line, $tm)) continue;
-
-        $czas = $tm[1];
-
-        // Birth year: 2-digit number after the athlete name
-        $escaped = preg_quote(trim($athlete_name), '/');
-        $rok_ur  = null;
-        if (preg_match('/' . $escaped . '\s+(\d{2})\s+/ui', $line, $rm)) {
-            $rok_ur = 2000 + (int)$rm[1];
-        }
-
-        // Points: 3-4 digit number after the time
-        $after = substr($line, (int)strpos($line, $czas) + strlen($czas));
-        $punkty = null;
-        if (preg_match('/\b(\d{3,4})\b/', $after, $pm)) {
-            $punkty = (int)$pm[1];
-        }
-
-        return [
-            'found'         => true,
-            'imie'          => trim($athlete_name),
-            'czas'          => $czas,
-            'rok_urodzenia' => $rok_ur,
-            'punkty'        => $punkty,
-        ];
-    }
-
-    return ['found' => false, 'error' => 'Zawodnik nie znaleziony w PDF'];
 }
