@@ -30,3 +30,17 @@ define('RESULT_DELAY_SECONDS', 300); // 5 minutes
 
 // File with competition announcements (without start list)
 define('ZAPOWIEDZI_FILE', __DIR__ . '/../zapowiedzi.json');
+
+// ============================================================
+// REST API v1 — Angular SPA integration
+// ============================================================
+
+// JWT secret — CHANGE THIS to a long random string in production
+define('JWT_SECRET', 'CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_STRING_AT_LEAST_64_CHARS_RECOMMENDED');
+
+// JWT token time-to-live in seconds (default: 24 h)
+define('JWT_TTL', 86400);
+
+// Allowed CORS origin for the Angular SPA
+// Change to production URL when deploying (e.g. 'https://swim.example.com')
+define('CORS_ALLOWED_ORIGIN', 'http://localhost:4200');

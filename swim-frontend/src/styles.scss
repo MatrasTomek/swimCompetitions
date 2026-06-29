@@ -1,0 +1,87 @@
+@use 'primeicons/primeicons.css';
+
+// ── Brand variables ──────────────────────────────────────────────────────────
+:root {
+  --swim-gold:   #FFD700;
+  --swim-dark:   #111111;
+  --swim-card:   #1c1c1c;
+  --swim-border: #2a2a2a;
+  --swim-text:   #e0e0e0;
+  --swim-muted:  #888;
+  --swim-green:  #22c55e;
+  --swim-red:    #ef4444;
+}
+
+// ── PrimeNG dark-theme overrides ─────────────────────────────────────────────
+body {
+  background: var(--swim-dark);
+  color: var(--swim-text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  margin: 0;
+}
+
+// Highlight primary color to gold
+.p-button.p-button-primary,
+.p-button:not(.p-button-secondary):not(.p-button-danger):not(.p-button-text):not(.p-button-outlined) {
+  background: var(--swim-gold);
+  border-color: var(--swim-gold);
+  color: #111;
+  font-weight: 600;
+  &:hover { background: #e6c200; border-color: #e6c200; }
+}
+
+.p-tag {
+  &.tag-gold { background: var(--swim-gold); color: #111; }
+  &.tag-green { background: var(--swim-green); }
+  &.tag-muted { background: #333; color: var(--swim-muted); }
+}
+
+// ── Layout ────────────────────────────────────────────────────────────────────
+.swim-page {
+  min-height: calc(100vh - 60px);
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.swim-page-title {
+  color: var(--swim-gold);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem;
+}
+
+// ── Competition cards ─────────────────────────────────────────────────────────
+.competition-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.competition-card {
+  background: var(--swim-card);
+  border: 1px solid var(--swim-border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: border-color .2s, transform .15s;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+
+  &:hover { border-color: var(--swim-gold); transform: translateY(-2px); }
+
+  &__name { font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: .5rem; }
+  &__meta { font-size: .8rem; color: var(--swim-muted); display: flex; flex-wrap: wrap; gap: .5rem; }
+  &__actions { margin-top: 1rem; display: flex; gap: .5rem; }
+}
+
+// ── Results table ─────────────────────────────────────────────────────────────
+.result-better { color: var(--swim-green); font-weight: 700; }
+.result-none   { color: var(--swim-muted); }
+
+// ── Responsive ────────────────────────────────────────────────────────────────
+@media (max-width: 640px) {
+  .swim-page { padding: 1rem; }
+  .competition-grid { grid-template-columns: 1fr; }
+}
