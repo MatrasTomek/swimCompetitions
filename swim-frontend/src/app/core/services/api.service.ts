@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import {
   Competition, AthletesResponse, ResultFetchResponse,
-  StartlistPreviewResponse, LiveConfig
+  StartlistPreviewResponse, LiveConfig, LtContest, LtCacheStatus
 } from '../models';
 
 @Injectable({ providedIn: 'root' })
@@ -87,5 +87,18 @@ export class ApiService {
   // ── Announcements ───────────────────────────────────────────────────
   deleteAnnouncement(id: string) {
     return this.http.delete<{ ok: boolean }>(`${this.base}/announcements/${id}`);
+  }
+
+  // ── Contest cache (livetiming.pl) ────────────────────────────────────
+  searchContests(q: string) {
+    return this.http.get<LtContest[]>(`${this.base}/contests/search`, { params: { q } });
+  }
+
+  getCacheStatus() {
+    return this.http.get<LtCacheStatus>(`${this.base}/contests/cache-status`);
+  }
+
+  refreshContestCache() {
+    return this.http.post<{ ok: boolean; status: LtCacheStatus }>(`${this.base}/contests/cache-refresh`, {});
   }
 }

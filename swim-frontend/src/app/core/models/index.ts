@@ -78,3 +78,19 @@ export interface AuthToken {
   token: string;
   expires_at: string;
 }
+
+export interface LtContest {
+  uuid: string;
+  name: string;
+  date: string;
+  city: string;
+  category: string;
+}
+
+export interface LtCacheStatus {
+  exists: boolean;
+  count?: number;
+  age_hours?: number;
+  is_fresh?: boolean;
+  updated_at?: string;
+}

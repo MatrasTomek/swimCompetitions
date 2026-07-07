@@ -74,6 +74,11 @@ switch ($resource) {
         handle_announcements($seg1, $method);
         break;
 
+    case 'contests':
+        require_once __DIR__ . '/contests.php';
+        handle_contests($seg1, $method);
+        break;
+
     default:
         http_response_code(404);
         echo json_encode(['error' => 'Unknown resource: ' . $resource]);

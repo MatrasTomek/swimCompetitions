@@ -32,6 +32,10 @@ function resolve_startlist_pdf_url(string $contest_url): string {
             return str_starts_with($href, 'http') ? $href : 'https://livetiming.pl' . $href;
         }
     }
+    // For livetiming.pl contest detail pages, avoid guessing a wrong fallback URL.
+    if (preg_match('~livetiming\.pl/contest/~i', $base)) {
+        return '';
+    }
     return $base . '/startlist.pdf';
 }
 
@@ -116,7 +120,11 @@ function sl_ascii(string $s): string {
 function sl_club_matches(string $filter, string $club): bool {
     $f = sl_ascii($filter);
     $c = sl_ascii($club);
-    return str_contains($c, $f) || str_contains($f, $c);
+    $tokens = array_values(array_filter(explode(' ', $f), fn($t) => strlen($t) >= 2));
+    if (count($tokens) < 2) return str_contains($c, $f);
+    $matched = 0;
+    foreach ($tokens as $t) { if (str_contains($c, $t)) $matched++; }
+    return $matched >= 2;
 }
 
 /**
@@ -555,6 +563,13 @@ function build_startlist_from_pdf(string $contest_url, string $club, string $bas
     $pdf_url = preg_match('/\.pdf(\?.*)?$/i', $contest_url)
         ? $contest_url
         : resolve_startlist_pdf_url($contest_url);
+
+    if ($pdf_url === '') {
+        return [
+            'ok'    => false,
+            'error' => 'Nie znaleziono linku do PDF z listą startową na stronie zawodów. Lista może jeszcze nie być opublikowana na livetiming.pl.',
+        ];
+    }
 
     $pdf_data = pdf_download($pdf_url);
     if ($pdf_data === false || strlen((string)$pdf_data) < 100) {

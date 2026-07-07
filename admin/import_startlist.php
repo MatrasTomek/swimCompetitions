@@ -2,6 +2,8 @@
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/livetiming_cache.php';
+$cache_status = ltcache_status();
 ?>
 <!DOCTYPE html>
 <html lang="pl">
@@ -33,10 +35,45 @@ require_once __DIR__ . '/../includes/auth.php';
     </div>
 
     <div class="admin-form" style="max-width:600px">
-        <p style="margin-bottom:1.25rem;color:#888;font-size:.9rem">
-            Podaj link do zawodów na livetiming.pl oraz nazwę klubu.
-            System automatycznie pobierze PDF z listą startową i wygeneruje plik JSON.
-        </p>
+
+        <!-- Step 0: Search livetiming.pl -->
+        <div id="step-search">
+            <?php
+            $cs = $cache_status;
+            if (!$cs['exists']) {
+                $cache_color  = '#f0a800';
+                $cache_label  = 'brak cache';
+                $cache_detail = '— wyszukiwanie wymaga zbudowania cache';
+            } elseif (!$cs['is_fresh']) {
+                $cache_color  = '#fa8030';
+                $cache_label  = 'nieaktualny';
+                $cache_detail = '· ' . $cs['count'] . ' zawodów · ' . $cs['age_hours'] . 'h temu';
+            } else {
+                $cache_color  = '#4caf50';
+                $cache_label  = 'aktualny';
+                $cache_detail = '· ' . $cs['count'] . ' zawodów · ' . $cs['age_hours'] . 'h temu';
+            }
+            ?>
+            <div style="background:#0a0a0a;border:1px solid #1e1e1e;border-radius:5px;padding:.4rem .75rem;font-size:.78rem;color:#555;display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.85rem;flex-wrap:wrap">
+                <span id="cache-info">Cache zawodów: <span id="cache-label" style="color:<?= h($cache_color) ?>"><?= h($cache_label) ?></span> <span id="cache-detail"><?= h($cache_detail) ?></span></span>
+                <button id="btn-cache-refresh" type="button" style="font-size:.72rem;background:transparent;border:1px solid #2a2a2a;color:#555;border-radius:4px;padding:2px 8px;cursor:pointer;white-space:nowrap">↺ Odśwież cache</button>
+            </div>
+
+            <div class="form-group" style="margin-bottom:.6rem">
+                <label for="search-input">Wyszukaj zawody na livetiming.pl</label>
+                <input type="text" id="search-input" autocomplete="off"
+                    placeholder="Wpisz nazwę miasta lub zawodów...">
+                <span class="form-hint">Wpisz min. 2 znaki — kliknij wynik, aby pobrać listę startową.</span>
+            </div>
+
+            <div id="search-results" style="margin-bottom:.75rem"></div>
+
+            <div style="display:flex;align-items:center;gap:.6rem;color:#333;font-size:.78rem;margin:.85rem 0">
+                <div style="flex:1;height:1px;background:#1e1e1e"></div>
+                lub podaj URL bezpośrednio
+                <div style="flex:1;height:1px;background:#1e1e1e"></div>
+            </div>
+        </div>
 
         <!-- Step 1: URL + club form -->
         <div id="step-fetch">
@@ -128,6 +165,122 @@ require_once __DIR__ . '/../includes/auth.php';
     var btnReset  = document.getElementById('btn-reset');
     var btnToggle = document.getElementById('btn-toggle-raw');
     var rawBox    = document.getElementById('raw-text-box');
+
+    // ── Search ──────────────────────────────────────────────────────────────
+    var searchInput     = document.getElementById('search-input');
+    var searchResults   = document.getElementById('search-results');
+    var btnCacheRefresh = document.getElementById('btn-cache-refresh');
+    var cacheLabel      = document.getElementById('cache-label');
+    var cacheDetail     = document.getElementById('cache-detail');
+    var searchTimer     = null;
+
+    var CAT_LABEL = {regional: 'okręgowe', national: 'centralne', calendar: 'kalendarz', international: 'międzynarodowe'};
+    var CAT_COLOR = {regional: '#6ab0ee', national: '#a07eee', calendar: '#6dcfa0', international: '#e8a060'};
+
+    function renderSearchResults(items) {
+        if (!Array.isArray(items) || items.length === 0) {
+            searchResults.innerHTML =
+                '<p style="color:#555;font-size:.82rem;padding:.35rem 0">' +
+                'Nie znaleziono. Spróbuj innej frazy lub ' +
+                '<button type="button" id="btn-empty-refresh" style="background:none;border:none;color:#f0a800;cursor:pointer;padding:0;font-size:.82rem;text-decoration:underline">odśwież cache</button>.' +
+                '</p>';
+            var b = document.getElementById('btn-empty-refresh');
+            if (b) b.addEventListener('click', doRefreshCache);
+            return;
+        }
+
+        var html = '<div style="display:flex;flex-direction:column;gap:.35rem">';
+        items.forEach(function (item) {
+            var cat   = CAT_LABEL[item.category] || item.category || '';
+            var color = CAT_COLOR[item.category]  || '#888';
+            html +=
+                '<div class="lt-result-card" data-uuid="' + escHtml(item.uuid) + '"' +
+                ' style="background:#161616;border:1px solid #252525;border-radius:6px;' +
+                'padding:.55rem .85rem;cursor:pointer;display:flex;align-items:center;gap:.7rem;' +
+                'transition:border-color .12s">' +
+                '<div style="flex:1;min-width:0">' +
+                '<div style="color:#e8e8e8;font-size:.85rem;font-weight:600;' +
+                'white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(item.name) + '</div>' +
+                '<div style="color:#555;font-size:.74rem;margin-top:.1rem">' +
+                escHtml(item.city || '') + (item.city && item.date ? ' · ' : '') + escHtml(item.date || '') +
+                '</div></div>' +
+                (cat ? '<span style="font-size:.66rem;font-weight:700;letter-spacing:.05em;' +
+                'text-transform:uppercase;padding:2px 6px;border-radius:3px;background:#111;' +
+                'color:' + color + ';flex-shrink:0">' + escHtml(cat) + '</span>' : '') +
+                '</div>';
+        });
+        html += '</div>';
+        searchResults.innerHTML = html;
+
+        Array.prototype.forEach.call(
+            searchResults.querySelectorAll('.lt-result-card'),
+            function (card) {
+                card.addEventListener('mouseenter', function () { this.style.borderColor = '#f0a800'; });
+                card.addEventListener('mouseleave', function () { this.style.borderColor = '#252525'; });
+                card.addEventListener('click', function () {
+                    var uuid = this.dataset.uuid;
+                    document.getElementById('contest-url').value =
+                        'https://livetiming.pl/contest/' + uuid;
+                    // Scroll into view then trigger fetch
+                    document.getElementById('step-fetch').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+                    setTimeout(function () { btnFetch.click(); }, 120);
+                });
+            }
+        );
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function () {
+            clearTimeout(searchTimer);
+            var q = this.value.trim();
+            if (q.length < 2) { searchResults.innerHTML = ''; return; }
+            searchTimer = setTimeout(function () {
+                fetch('<?= BASE_URL ?>/api/competitions_search.php?q=' + encodeURIComponent(q))
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) { renderSearchResults(data); })
+                    .catch(function () {
+                        searchResults.innerHTML = '<p style="color:#e53935;font-size:.82rem">Błąd wyszukiwania.</p>';
+                    });
+            }, 300);
+        });
+    }
+
+    function doRefreshCache() {
+        if (btnCacheRefresh) { btnCacheRefresh.disabled = true; btnCacheRefresh.textContent = 'Odświeżanie…'; }
+        if (cacheLabel)  { cacheLabel.style.color = '#888'; cacheLabel.textContent = 'odświeżanie…'; }
+        if (cacheDetail) cacheDetail.textContent = '';
+
+        fetch('<?= BASE_URL ?>/api/ltcache_refresh.php', {method: 'POST'})
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (btnCacheRefresh) { btnCacheRefresh.disabled = false; btnCacheRefresh.textContent = '↺ Odśwież cache'; }
+                var s = data.status || {};
+                if (cacheLabel) {
+                    if (s.is_fresh) {
+                        cacheLabel.style.color = '#4caf50';
+                        cacheLabel.textContent = 'aktualny';
+                    } else {
+                        cacheLabel.style.color = '#fa8030';
+                        cacheLabel.textContent = 'nieaktualny';
+                    }
+                }
+                if (cacheDetail && s.count !== undefined) {
+                    cacheDetail.textContent = '· ' + s.count + ' zawodów · tylko co odświeżony';
+                }
+                // Re-run current search with fresh data
+                if (searchInput && searchInput.value.trim().length >= 2) {
+                    searchInput.dispatchEvent(new Event('input'));
+                }
+            })
+            .catch(function () {
+                if (btnCacheRefresh) { btnCacheRefresh.disabled = false; btnCacheRefresh.textContent = '↺ Odśwież cache'; }
+                if (cacheLabel) { cacheLabel.style.color = '#e53935'; cacheLabel.textContent = 'błąd odświeżenia'; }
+            });
+    }
+
+    if (btnCacheRefresh) {
+        btnCacheRefresh.addEventListener('click', doRefreshCache);
+    }
 
     // ── Fetch ──────────────────────────────────────────────────────────────
     btnFetch.addEventListener('click', function () {

@@ -1,16 +1,34 @@
 <?php
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/livetiming_cache.php';
 
-$zawody = load_all_zawody();
+$cache_status = ltcache_status();
 ?>
 <!DOCTYPE html>
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Zawody pływackie — Olimpijczyk Proszówki</title>
+    <title>Szukaj zawodników — Olimpijczyk Proszówki</title>
     <link rel="stylesheet" href="<?= BASE_URL ?>/assets/style.css?v=<?= CSS_VERSION ?>">
+    <style>
+        .search-section { max-width: 640px; margin: 0 auto 2rem; }
+        .search-section h1 { font-size: 1.5rem; margin-bottom: 1.25rem; }
+        .field-group { margin-bottom: 1rem; position: relative; }
+        .field-group label { display: block; font-size: .85rem; font-weight: 600; margin-bottom: .35rem; color: var(--text-muted, #555); }
+        .field-group input[type="text"] { width: 100%; }
+        .suggestions-dropdown { position: absolute; left: 0; right: 0; top: calc(100% + 2px); background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.12); z-index: 100; max-height: 280px; overflow-y: auto; }
+        .suggestions-dropdown li { list-style: none; padding: .6rem .85rem; cursor: pointer; border-bottom: 1px solid #f0f0f0; font-size: .92rem; }
+        .suggestions-dropdown li:last-child { border-bottom: none; }
+        .suggestions-dropdown li:hover, .suggestions-dropdown li.active { background: #f5f9ff; }
+        .sug-name { font-weight: 600; }
+        .sug-meta { font-size: .8rem; color: #666; margin-top: 2px; }
+        .search-form-row { display: flex; gap: .75rem; align-items: flex-end; flex-wrap: wrap; }
+        .search-form-row .field-group { flex: 1; min-width: 200px; margin-bottom: 0; }
+        #results-section .results-header { margin-bottom: 1.25rem; }
+        .cache-hint { font-size: .82rem; color: #888; margin-top: .4rem; }
+    </style>
 </head>
 <body>
 <header class="site-header">
@@ -25,203 +43,299 @@ $zawody = load_all_zawody();
 </header>
 
 <main class="container">
-    <section class="hero">
-        <h1>Zawody pływackie</h1>
-        <p>Listy startowe zawodów klubu Olimpijczyk Proszówki</p>
+    <section class="search-section">
+        <h1>Znajdź zawodników klubu</h1>
+
+        <form id="search-form" autocomplete="off">
+            <div class="field-group">
+                <label for="comp-input">Zawody</label>
+                <input id="comp-input" type="text"
+                       placeholder="Wpisz nazwę zawodów lub miasto…"
+                       spellcheck="false">
+                <input id="comp-url" type="hidden">
+                <ul id="comp-suggestions" class="suggestions-dropdown" hidden></ul>
+                <?php if (!$cache_status['exists']): ?>
+                    <p class="cache-hint">Autouzupełnianie wymaga zbudowania cache zawodów — <a href="<?= BASE_URL ?>/admin/livetiming_cache.php">odśwież w panelu admina</a>. Możesz też wkleić bezpośredni URL z livetiming.pl (np. https://livetiming.pl/contest/…).</p>
+                <?php elseif (!$cache_status['is_fresh']): ?>
+                    <p class="cache-hint">Cache zawodów ma <?= $cache_status['age_hours'] ?>h — rozważ <a href="<?= BASE_URL ?>/admin/livetiming_cache.php">odświeżenie</a>.</p>
+                <?php endif; ?>
+            </div>
+
+            <div class="search-form-row">
+                <div class="field-group">
+                    <label for="club-input">Klub</label>
+                    <input id="club-input" type="text"
+                           placeholder="np. Olimpijczyk Brzesko">
+                </div>
+                <div class="field-group" style="flex:0">
+                    <button type="submit" class="btn btn-primary" style="white-space:nowrap">Szukaj</button>
+                </div>
+            </div>
+        </form>
+
+        <div id="search-status" style="margin-top:.75rem;font-size:.9rem;color:#555" hidden></div>
     </section>
 
-    <?php if (!empty($zawody)): ?>
-    <div class="view-controls">
-        <div class="search-bar">
-            <input type="search" id="search" placeholder="Szukaj zawodów..." autocomplete="off">
-        </div>
-        <div class="view-toggles">
-            <div class="view-toggle" id="scope-toggle">
-                <button class="view-toggle-btn active" data-scope="najnowsze">Najnowsze</button>
-                <button class="view-toggle-btn" data-scope="wszystko">Wszystko</button>
-            </div>
-            <div class="view-toggle" id="view-toggle">
-                <button class="view-toggle-btn active" data-view="grid">⊞ Karty</button>
-                <button class="view-toggle-btn" data-view="table">☰ Tabela</button>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if (empty($zawody)): ?>
-        <div class="empty-state">
-            <p>Brak zawodów. Wyniki pojawią się tutaj po dodaniu plików JSON.</p>
-        </div>
-    <?php else: ?>
-        <div id="view-grid">
-            <div class="competitions-grid" id="competitions-grid">
-                <?php foreach ($zawody as $idx => $z): ?>
-                <article class="competition-card" data-recent="<?= $idx < 4 ? 'true' : 'false' ?>" data-search="<?= h(function_exists('mb_strtolower') ? mb_strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub']) : strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub'])) ?>">
-                    <div class="competition-card-body">
-                        <div class="competition-meta">
-                            <?php if ($z['data']): ?>
-                                <span class="badge-date"><?= h($z['data']) ?></span>
-                            <?php endif; ?>
-                            <?php if ($z['miejsce']): ?>
-                                <span class="badge-city"><?= h($z['miejsce']) ?></span>
-                            <?php endif; ?>
-                        </div>
-                        <h2 class="competition-name"><?= h($z['nazwa']) ?></h2>
-                        <?php if ($z['klub']): ?>
-                            <p class="competition-club"><?= h($z['klub']) ?></p>
-                        <?php endif; ?>
-                    </div>
-                    <div class="competition-card-footer">
-                        <?php if ($z['has_file']): ?>
-                            <a href="<?= BASE_URL ?>/lista_startowa.php?f=<?= urlencode($z['file']) ?>" class="btn btn-primary">
-                                Lista startowa →
-                            </a>
-                        <?php else: ?>
-                            <span class="btn-coming-soon">wkrótce</span>
-                        <?php endif; ?>
-                    </div>
-                </article>
-                <?php endforeach; ?>
-            </div>
-        </div>
-
-        <div id="view-table" hidden>
-            <div class="table-wrapper">
-                <table class="results-table index-table">
-                    <thead>
-                        <tr>
-                            <th>Nazwa</th>
-                            <th>Data</th>
-                            <th>Miejsce</th>
-                            <th>Klub</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    <?php foreach ($zawody as $idx => $z): ?>
-                        <tr data-recent="<?= $idx < 4 ? 'true' : 'false' ?>" data-search="<?= h(function_exists('mb_strtolower') ? mb_strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub']) : strtolower($z['nazwa'] . ' ' . $z['data'] . ' ' . $z['miejsce'] . ' ' . $z['klub'])) ?>">
-                            <td><?= h($z['nazwa']) ?></td>
-                            <td style="white-space:nowrap"><?= h($z['data']) ?></td>
-                            <td><?= h($z['miejsce']) ?></td>
-                            <td><?= h($z['klub']) ?></td>
-                            <td style="white-space:nowrap">
-                                <?php if ($z['has_file']): ?>
-                                    <a href="<?= BASE_URL ?>/lista_startowa.php?f=<?= urlencode($z['file']) ?>" class="btn btn-sm btn-primary">Lista →</a>
-                                <?php else: ?>
-                                    <span class="btn-coming-soon" style="padding:.3rem .6rem;font-size:.8rem">wkrótce</span>
-                                <?php endif; ?>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    <?php endif; ?>
+    <section id="results-section" hidden></section>
 </main>
-
-<script>
-(function () {
-    var input      = document.getElementById('search');
-    var toggle     = document.getElementById('view-toggle');
-    var scopeEl    = document.getElementById('scope-toggle');
-    var viewGrid   = document.getElementById('view-grid');
-    var viewTable  = document.getElementById('view-table');
-
-    var VIEW_KEY  = 'swim-index-view';
-    var SCOPE_KEY = 'swim-index-scope';
-
-    function currentView()  { try { return localStorage.getItem(VIEW_KEY)  || 'grid';      } catch (e) { return 'grid';      } }
-    function currentScope() { try { return localStorage.getItem(SCOPE_KEY) || 'najnowsze'; } catch (e) { return 'najnowsze'; } }
-
-    function doFilter(q, view, scope) {
-        var selector = view === 'table'
-            ? '#view-table tbody tr[data-search]'
-            : '#competitions-grid .competition-card';
-        var items = document.querySelectorAll(selector);
-        var visible = 0;
-        items.forEach(function (el) {
-            var matchSearch = !q || el.dataset.search.indexOf(q) !== -1;
-            var matchScope  = scope === 'wszystko' || el.dataset.recent === 'true';
-            var show = matchSearch && matchScope;
-            el.style.display = show ? '' : 'none';
-            if (show) visible++;
-        });
-        var container = view === 'table' ? viewTable : viewGrid;
-        showEmpty(q && visible === 0, container);
-    }
-
-    function showEmpty(show, container) {
-        var empty = document.getElementById('searchEmpty');
-        if (!empty) {
-            empty = document.createElement('p');
-            empty.id = 'searchEmpty';
-            empty.className = 'empty-state';
-            empty.textContent = 'Brak wyników dla podanej frazy.';
-            container.after(empty);
-        }
-        empty.style.display = show ? '' : 'none';
-    }
-
-    if (input) {
-        input.addEventListener('input', function () {
-            doFilter(this.value.toLowerCase().trim(), currentView(), currentScope());
-        });
-    }
-
-    if (scopeEl) {
-        function setScope(s) {
-            scopeEl.querySelectorAll('.view-toggle-btn').forEach(function (b) {
-                b.classList.toggle('active', b.dataset.scope === s);
-            });
-            if (input && input.value) { input.value = ''; }
-            try { localStorage.setItem(SCOPE_KEY, s); } catch (e) {}
-            doFilter('', currentView(), s);
-        }
-
-        scopeEl.addEventListener('click', function (e) {
-            var btn = e.target.closest('.view-toggle-btn');
-            if (btn) setScope(btn.dataset.scope);
-        });
-    }
-
-    if (toggle && viewGrid && viewTable) {
-        function setView(v) {
-            viewGrid.hidden  = (v === 'table');
-            viewTable.hidden = (v === 'grid');
-            toggle.querySelectorAll('.view-toggle-btn').forEach(function (b) {
-                b.classList.toggle('active', b.dataset.view === v);
-            });
-            if (input && input.value) { input.value = ''; }
-            try { localStorage.setItem(VIEW_KEY, v); } catch (e) {}
-            doFilter('', v, currentScope());
-        }
-
-        toggle.addEventListener('click', function (e) {
-            var btn = e.target.closest('.view-toggle-btn');
-            if (btn) setView(btn.dataset.view);
-        });
-
-        try { setView(localStorage.getItem(VIEW_KEY) || 'grid'); } catch (e) { setView('grid'); }
-    }
-
-    // Apply initial scope after view is set
-    if (scopeEl) {
-        try { var s = localStorage.getItem(SCOPE_KEY) || 'najnowsze';
-              scopeEl.querySelectorAll('.view-toggle-btn').forEach(function (b) {
-                  b.classList.toggle('active', b.dataset.scope === s);
-              });
-              doFilter('', currentView(), s);
-        } catch (e) {}
-    }
-})();
-</script>
 
 <footer class="site-footer">
     <div class="container">
-        <p>&copy; <?= date('Y') ?> OlimpijczyK Proszówki</p>
+        <p>&copy; <?= date('Y') ?> Olimpijczyk Proszówki</p>
         <span class="footer-madeby">madeBy: <a href="https://www.nd-soft.pl/" target="_blank" rel="noopener">ndsoft</a></span>
     </div>
 </footer>
+
+<script>
+(function () {
+'use strict';
+
+var BASE = '<?= BASE_URL ?>';
+
+// ── format_konkurencja (mirrors PHP) ─────────────────────────────────────────
+function formatKonkurencja(k, nr) {
+    if (!k) return nr ? String(nr) : '';
+    var first = k.trim().charAt(0).toUpperCase();
+    var rest  = k.replace(/^[^,]+,\s*/, '');
+    rest = rest.replace(/grzbietowy/ig, 'grzbiet')
+               .replace(/motylkowy/ig,  'motyl')
+               .replace(/klasyczny/ig,  'klasyk');
+    return first + nr + ' ' + rest;
+}
+
+function escHtml(s) {
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// ── Autocomplete ──────────────────────────────────────────────────────────────
+var compInput   = document.getElementById('comp-input');
+var compUrl     = document.getElementById('comp-url');
+var sugList     = document.getElementById('comp-suggestions');
+var activeIdx   = -1;
+var debTimer    = null;
+
+function clearSuggestions() {
+    sugList.innerHTML = '';
+    sugList.hidden = true;
+    activeIdx = -1;
+}
+
+function showSuggestions(items) {
+    sugList.innerHTML = '';
+    if (!items.length) { sugList.hidden = true; return; }
+    items.forEach(function (c, i) {
+        var li = document.createElement('li');
+        li.innerHTML = '<div class="sug-name">' + escHtml(c.name) + '</div>' +
+                       '<div class="sug-meta">' + escHtml(c.date) + (c.city ? ' · ' + escHtml(c.city) : '') + '</div>';
+        li.addEventListener('mousedown', function (e) {
+            e.preventDefault(); // prevent blur before click
+            selectSuggestion(c);
+        });
+        sugList.appendChild(li);
+    });
+    sugList.hidden = false;
+    activeIdx = -1;
+}
+
+function selectSuggestion(c) {
+    compInput.value = c.name + (c.date ? ' (' + c.date + ')' : '');
+    compUrl.value   = 'https://livetiming.pl/contest/' + c.uuid;
+    clearSuggestions();
+}
+
+function navigateSuggestions(dir) {
+    var items = sugList.querySelectorAll('li');
+    if (!items.length) return;
+    if (activeIdx >= 0) items[activeIdx].classList.remove('active');
+    activeIdx = Math.max(-1, Math.min(items.length - 1, activeIdx + dir));
+    if (activeIdx >= 0) items[activeIdx].classList.add('active');
+}
+
+compInput.addEventListener('input', function () {
+    var q = this.value.trim();
+    compUrl.value = ''; // clear selection when user types again
+    clearTimeout(debTimer);
+    if (q.length < 2) { clearSuggestions(); return; }
+    debTimer = setTimeout(function () {
+        fetch(BASE + '/api/competitions_search.php?q=' + encodeURIComponent(q))
+            .then(function (r) { return r.json(); })
+            .then(showSuggestions)
+            .catch(function () { clearSuggestions(); });
+    }, 300);
+});
+
+compInput.addEventListener('keydown', function (e) {
+    if (sugList.hidden) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); navigateSuggestions(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); navigateSuggestions(-1); }
+    else if (e.key === 'Enter' && activeIdx >= 0) {
+        e.preventDefault();
+        sugList.querySelectorAll('li')[activeIdx].dispatchEvent(new MouseEvent('mousedown'));
+    }
+    else if (e.key === 'Escape') { clearSuggestions(); }
+});
+
+compInput.addEventListener('blur', function () {
+    setTimeout(clearSuggestions, 150);
+});
+
+// ── Form submit ───────────────────────────────────────────────────────────────
+var searchForm   = document.getElementById('search-form');
+var statusEl     = document.getElementById('search-status');
+var resultsEl    = document.getElementById('results-section');
+var clubInput    = document.getElementById('club-input');
+
+searchForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    var contestUrl = compUrl.value.trim() || compInput.value.trim();
+    var club       = clubInput.value.trim();
+
+    if (!contestUrl) {
+        showStatus('Wpisz nazwę zawodów lub wklej URL z livetiming.pl.', 'error');
+        return;
+    }
+    if (!club) {
+        showStatus('Wpisz nazwę klubu.', 'error');
+        return;
+    }
+
+    showStatus('Pobieranie listy startowej…', 'loading');
+    resultsEl.hidden = true;
+    resultsEl.innerHTML = '';
+
+    fetch(BASE + '/api/search_startlist.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contest_url: contestUrl, club: club }),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        if (data.status === 'ok') {
+            statusEl.hidden = true;
+            renderResults(data.zawody, club);
+        } else if (data.status === 'no_athletes') {
+            showStatus(data.message || 'Brak zawodników z tego klubu.', 'warn');
+        } else {
+            showStatus((data.error || 'Nie udało się pobrać listy startowej.') +
+                       ' Sprawdź czy zawody są dostępne na livetiming.pl.', 'error');
+        }
+    })
+    .catch(function () {
+        showStatus('Błąd połączenia. Spróbuj ponownie.', 'error');
+    });
+});
+
+function showStatus(msg, type) {
+    statusEl.textContent = msg;
+    statusEl.style.color = type === 'error' ? '#c0392b' : type === 'warn' ? '#e67e22' : '#555';
+    statusEl.hidden = false;
+}
+
+// ── Results rendering ─────────────────────────────────────────────────────────
+function renderResults(zawody, clubFilter) {
+    var html = '';
+
+    html += '<div class="results-header">' +
+            '<h1>' + escHtml(zawody.nazwa || 'Lista startowa') + '</h1>';
+    var parts = [zawody.klub, zawody.miejsce, zawody.data].filter(Boolean);
+    if (parts.length) html += '<div class="results-meta">' + escHtml(parts.join(' · ')) + '</div>';
+    html += '</div>';
+
+    var bloki = zawody.bloki || [];
+
+    if (!bloki.length) {
+        html += '<p class="empty-state">Brak bloków startowych.</p>';
+    } else {
+        bloki.forEach(function (blok) {
+            var starty = blok.starty || [];
+            html += '<section class="block">' +
+                    '<div class="block-header">' +
+                    '<h2>Blok ' + escHtml(blok.blok) + '</h2>' +
+                    '<div class="block-meta">';
+            if (blok.data)       html += '<span>📅 ' + escHtml(blok.data) + '</span>';
+            if (blok.godz_start) html += '<span>🕐 Start: ' + escHtml(blok.godz_start) + '</span>';
+            html += '<span>' + starty.length + ' start' + (starty.length === 1 ? '' : starty.length < 5 ? 'y' : 'ów') + '</span>' +
+                    '</div></div>';
+
+            if (starty.length) {
+                html += '<div class="table-wrapper"><table class="results-table">' +
+                        '<thead><tr>' +
+                        '<th>Zawodnik</th><th>Konk.</th><th>Seria</th>' +
+                        '<th class="text-center">Godz.</th><th class="text-center col-tor">T</th>' +
+                        '</tr></thead><tbody>';
+
+                starty.forEach(function (s) {
+                    var parts2 = (s.imie || '').trim().split(/\s+/);
+                    var nazwisko = parts2[0] || '';
+                    var imie     = parts2.slice(1).join(' ');
+                    var konk     = formatKonkurencja(s.konkurencja || '', parseInt(s.konkurencja_nr, 10) || 0);
+                    var search   = (s.imie + ' ' + konk).toLowerCase();
+
+                    html += '<tr data-search="' + escHtml(search) + '" data-blok="' + escHtml(blok.blok) + '">' +
+                            '<td class="athlete" data-label="Zawodnik">' +
+                            '<span class="last-name">' + escHtml(nazwisko) + '</span>';
+                    if (imie) html += ' <span class="first-name">' + escHtml(imie) + '</span>';
+                    if (s.czas) {
+                        html += ' <button class="btn-show-time" data-czas="' + escHtml(s.czas) + '" data-type="seed">Pokaż czas</button>';
+                    }
+                    html += '</td>' +
+                            '<td data-label="Konk.">' + escHtml(konk) + '</td>' +
+                            '<td data-label="Seria">' + escHtml(s.seria || '') + '</td>' +
+                            '<td class="text-center" data-label="Godz.">' + escHtml(s.godz || '') + '</td>' +
+                            '<td class="text-center" data-label="Tor">' + escHtml(String(s.tor || '')) + '</td>' +
+                            '</tr>';
+                });
+
+                html += '</tbody></table></div>';
+            } else {
+                html += '<p class="empty-state" style="padding:1rem 1.25rem">Brak startów w tym bloku.</p>';
+            }
+            html += '</section>';
+        });
+    }
+
+    html += '<div class="back-link" style="margin-top:1.5rem">' +
+            '<button type="button" onclick="document.getElementById(\'results-section\').hidden=true;document.getElementById(\'search-status\').hidden=true" class="btn btn-outline">← Nowe wyszukiwanie</button>' +
+            '</div>';
+
+    resultsEl.innerHTML = html;
+    resultsEl.hidden = false;
+    resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── "Show time" button (same as lista_startowa.php) ─────────────────────────
+document.addEventListener('click', function (e) {
+    var btn = e.target;
+    if (!btn.classList.contains('btn-show-time')) return;
+    var tr = btn.closest('tr');
+    if (!tr) return;
+    var nextTr = tr.nextElementSibling;
+    if (nextTr && nextTr.classList.contains('tr-time-display')) {
+        nextTr.remove();
+        btn.textContent = 'Pokaż czas';
+        return;
+    }
+    var text = btn.dataset.czas || '';
+    var cls  = 'time-display time-seed';
+    btn.textContent = 'Ukryj czas';
+    var newTr = document.createElement('tr');
+    newTr.className = 'tr-time-display';
+    var td = document.createElement('td');
+    td.colSpan = tr.cells.length;
+    var span = document.createElement('span');
+    span.className = cls;
+    span.textContent = text;
+    td.appendChild(span);
+    newTr.appendChild(td);
+    tr.insertAdjacentElement('afterend', newTr);
+});
+
+})();
+</script>
 </body>
 </html>
