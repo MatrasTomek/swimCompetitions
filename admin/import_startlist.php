@@ -63,7 +63,7 @@ $cache_status = ltcache_status();
                 <label for="search-input">Wyszukaj zawody na livetiming.pl</label>
                 <input type="text" id="search-input" autocomplete="off"
                     placeholder="Wpisz nazwę miasta lub zawodów...">
-                <span class="form-hint">Wpisz min. 2 znaki — kliknij wynik, aby pobrać listę startową.</span>
+                <span class="form-hint">Wpisz min. 2 znaki — kliknij wynik, aby wybrać zawody.</span>
             </div>
 
             <div id="search-results" style="margin-bottom:.75rem"></div>
@@ -83,23 +83,25 @@ $cache_status = ltcache_status();
                     placeholder="https://live.livetiming.pl/zak/2026/02_21_oswiecim/startowa.pdf">
                 <span class="form-hint">Wklej link do PDF z listą startową lub link do strony zawodów na livetiming.pl.</span>
             </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="klub-name">Nazwa klubu</label>
-                    <input type="text" id="klub-name" name="klub"
-                        value="Olimpijczyk Brzesko">
-                    <span class="form-hint">Filtruje startujących po nazwie klubu.</span>
+            <div id="step-club" style="display:none">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="klub-name">Nazwa klubu</label>
+                        <input type="text" id="klub-name" name="klub"
+                            placeholder="podaj nazwę klubu">
+                        <span class="form-hint">Filtruje startujących po nazwie klubu.</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="basen-size">Długość basenu</label>
+                        <select id="basen-size" name="basen" class="form-select">
+                            <option value="25m" selected>25m</option>
+                            <option value="50m">50m</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="basen-size">Długość basenu</label>
-                    <select id="basen-size" name="basen" class="form-select">
-                        <option value="25m" selected>25m</option>
-                        <option value="50m">50m</option>
-                    </select>
+                <div class="form-actions">
+                    <button id="btn-fetch" class="btn btn-primary">Pobierz listę startową</button>
                 </div>
-            </div>
-            <div class="form-actions">
-                <button id="btn-fetch" class="btn btn-primary">Pobierz listę startową</button>
             </div>
             <div id="fetch-status" style="margin-top:1rem;font-size:.88rem"></div>
         </div>
@@ -174,6 +176,18 @@ $cache_status = ltcache_status();
     var cacheDetail     = document.getElementById('cache-detail');
     var searchTimer     = null;
 
+    var stepClub   = document.getElementById('step-club');
+    var contestUrl = document.getElementById('contest-url');
+
+    function showClubStep() {
+        stepClub.style.display = '';
+    }
+
+    // Reveal the club input when a URL is pasted/typed directly
+    contestUrl.addEventListener('input', function () {
+        if (this.value.trim() !== '') showClubStep();
+    });
+
     var CAT_LABEL = {regional: 'okręgowe', national: 'centralne', calendar: 'kalendarz', international: 'międzynarodowe'};
     var CAT_COLOR = {regional: '#6ab0ee', national: '#a07eee', calendar: '#6dcfa0', international: '#e8a060'};
 
@@ -189,7 +203,8 @@ $cache_status = ltcache_status();
             return;
         }
 
-        var html = '<div style="display:flex;flex-direction:column;gap:.35rem">';
+        var html = '<p style="color:#f0a800;font-size:.85rem;font-weight:600;margin:0 0 .45rem">Wybierz zawody:</p>';
+        html += '<div style="display:flex;flex-direction:column;gap:.35rem">';
         items.forEach(function (item) {
             var cat   = CAT_LABEL[item.category] || item.category || '';
             var color = CAT_COLOR[item.category]  || '#888';
@@ -216,14 +231,26 @@ $cache_status = ltcache_status();
             searchResults.querySelectorAll('.lt-result-card'),
             function (card) {
                 card.addEventListener('mouseenter', function () { this.style.borderColor = '#f0a800'; });
-                card.addEventListener('mouseleave', function () { this.style.borderColor = '#252525'; });
+                card.addEventListener('mouseleave', function () {
+                    this.style.borderColor = this.dataset.selected ? '#f0a800' : '#252525';
+                });
                 card.addEventListener('click', function () {
                     var uuid = this.dataset.uuid;
                     document.getElementById('contest-url').value =
                         'https://livetiming.pl/contest/' + uuid;
-                    // Scroll into view then trigger fetch
+
+                    // Highlight selected card
+                    Array.prototype.forEach.call(
+                        searchResults.querySelectorAll('.lt-result-card'),
+                        function (c) { delete c.dataset.selected; c.style.borderColor = '#252525'; }
+                    );
+                    this.dataset.selected = '1';
+                    this.style.borderColor = '#f0a800';
+
+                    // Reveal club input and focus it
+                    showClubStep();
                     document.getElementById('step-fetch').scrollIntoView({behavior: 'smooth', block: 'nearest'});
-                    setTimeout(function () { btnFetch.click(); }, 120);
+                    document.getElementById('klub-name').focus();
                 });
             }
         );
