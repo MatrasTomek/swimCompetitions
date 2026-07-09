@@ -54,9 +54,14 @@ $cache_status = ltcache_status();
                 $cache_detail = '· ' . $cs['count'] . ' zawodów · ' . $cs['age_hours'] . 'h temu';
             }
             ?>
+            <style>
+                .lt-spinner{display:inline-block;width:12px;height:12px;border:2px solid #f0a800;border-top-color:transparent;border-radius:50%;animation:lt-spin .7s linear infinite;flex-shrink:0}
+                @keyframes lt-spin{to{transform:rotate(360deg)}}
+            </style>
             <div style="background:#0a0a0a;border:1px solid #1e1e1e;border-radius:5px;padding:.4rem .75rem;font-size:.78rem;color:#555;display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.85rem;flex-wrap:wrap">
                 <span id="cache-info">Cache zawodów: <span id="cache-label" style="color:<?= h($cache_color) ?>"><?= h($cache_label) ?></span> <span id="cache-detail"><?= h($cache_detail) ?></span></span>
-                <button id="btn-cache-refresh" type="button" style="font-size:.72rem;background:transparent;border:1px solid #2a2a2a;color:#555;border-radius:4px;padding:2px 8px;cursor:pointer;white-space:nowrap">↺ Odśwież cache</button>
+                <button id="btn-cache-refresh" type="button" style="font-size:.72rem;background:transparent;border:1px solid #2a2a2a;color:#555;border-radius:4px;padding:2px 8px;cursor:pointer;white-space:nowrap;<?= ($cs['exists'] && $cs['is_fresh']) ? 'display:none' : '' ?>">↺ Odśwież cache</button>
+                <span id="cache-refreshing" style="display:none;align-items:center;gap:.45rem;color:#f0a800;white-space:nowrap"><span class="lt-spinner"></span>…Trwa łączenie z LiveTiming</span>
             </div>
 
             <div class="form-group" style="margin-bottom:.6rem">
@@ -172,6 +177,7 @@ $cache_status = ltcache_status();
     var searchInput     = document.getElementById('search-input');
     var searchResults   = document.getElementById('search-results');
     var btnCacheRefresh = document.getElementById('btn-cache-refresh');
+    var cacheRefreshing = document.getElementById('cache-refreshing');
     var cacheLabel      = document.getElementById('cache-label');
     var cacheDetail     = document.getElementById('cache-detail');
     var searchTimer     = null;
@@ -273,14 +279,15 @@ $cache_status = ltcache_status();
     }
 
     function doRefreshCache() {
-        if (btnCacheRefresh) { btnCacheRefresh.disabled = true; btnCacheRefresh.textContent = 'Odświeżanie…'; }
+        if (btnCacheRefresh) btnCacheRefresh.style.display = 'none';
+        if (cacheRefreshing) cacheRefreshing.style.display = 'inline-flex';
         if (cacheLabel)  { cacheLabel.style.color = '#888'; cacheLabel.textContent = 'odświeżanie…'; }
         if (cacheDetail) cacheDetail.textContent = '';
 
         fetch('<?= BASE_URL ?>/api/ltcache_refresh.php', {method: 'POST'})
             .then(function (r) { return r.json(); })
             .then(function (data) {
-                if (btnCacheRefresh) { btnCacheRefresh.disabled = false; btnCacheRefresh.textContent = '↺ Odśwież cache'; }
+                if (cacheRefreshing) cacheRefreshing.style.display = 'none';
                 var s = data.status || {};
                 if (cacheLabel) {
                     if (s.is_fresh) {
@@ -291,6 +298,8 @@ $cache_status = ltcache_status();
                         cacheLabel.textContent = 'nieaktualny';
                     }
                 }
+                // Show the refresh button only when the cache is still stale
+                if (btnCacheRefresh) btnCacheRefresh.style.display = s.is_fresh ? 'none' : '';
                 if (cacheDetail && s.count !== undefined) {
                     cacheDetail.textContent = '· ' + s.count + ' zawodów · tylko co odświeżony';
                 }
@@ -300,7 +309,8 @@ $cache_status = ltcache_status();
                 }
             })
             .catch(function () {
-                if (btnCacheRefresh) { btnCacheRefresh.disabled = false; btnCacheRefresh.textContent = '↺ Odśwież cache'; }
+                if (cacheRefreshing) cacheRefreshing.style.display = 'none';
+                if (btnCacheRefresh) btnCacheRefresh.style.display = '';
                 if (cacheLabel) { cacheLabel.style.color = '#e53935'; cacheLabel.textContent = 'błąd odświeżenia'; }
             });
     }
