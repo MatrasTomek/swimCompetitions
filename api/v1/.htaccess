@@ -1,1 +1,8 @@
 FallbackResource /api/v1/index.php
+
+# Hosting CGI/FastCGI (np. OVH) domyślnie nie przekazuje naglowka
+# Authorization do PHP — bez tego JWT zawsze konczy sie 401.
+CGIPassAuth On
+<IfModule mod_setenvif.c>
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+</IfModule>

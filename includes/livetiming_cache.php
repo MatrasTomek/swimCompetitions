@@ -165,10 +165,24 @@ function ltcache_search(string $q, int $limit = 20): array {
         }
         if ($matched === 0) continue;
 
-        $results[] = ['score' => $matched, 'entry' => $c];
+        // Pełna fraza ("mistrzostwa polski") liczy się mocniej niż luźne tokeny,
+        // inaczej "polski" w "Wielkopolski" daje remis setkom zawodów okręgowych.
+        $score = $matched;
+        if (count($tokens) > 1 && str_contains($haystack, $q_norm)) {
+            $score += count($tokens);
+        }
+
+        $ts = 0;
+        if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $c['date'] ?? '', $d)) {
+            $ts = mktime(0, 0, 0, (int)$d[2], (int)$d[1], (int)$d[3]);
+        }
+
+        $results[] = ['score' => $score, 'ts' => $ts, 'entry' => $c];
     }
 
-    usort($results, fn($a, $b) => $b['score'] <=> $a['score']);
+    usort($results, fn($a, $b) =>
+        [$b['score'], $b['ts']] <=> [$a['score'], $a['ts']]
+    );
 
     return array_column(array_slice($results, 0, $limit), 'entry');
 }
