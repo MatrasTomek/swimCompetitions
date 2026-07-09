@@ -45,13 +45,16 @@ import { Competition, StartlistPreviewResponse, LtContest, LtCacheStatus } from 
                   <span style="color:#555">sprawdzanie…</span>
                 }
               </span>
-              <p-button
-                label="↺ Odśwież"
-                size="small"
-                severity="secondary"
-                [loading]="cacheRefreshing()"
-                (onClick)="doRefreshCache()"
-                styleClass="cache-btn" />
+              @if (cacheRefreshing()) {
+                <span class="cache-refreshing"><span class="lt-spinner"></span>…Trwa łączenie z LiveTiming</span>
+              } @else if (cacheStatus() && !cacheStatus()!.is_fresh) {
+                <p-button
+                  label="↺ Odśwież"
+                  size="small"
+                  severity="secondary"
+                  (onClick)="doRefreshCache()"
+                  styleClass="cache-btn" />
+              }
             </div>
 
             <!-- Search input -->
@@ -185,6 +188,9 @@ import { Competition, StartlistPreviewResponse, LtContest, LtCacheStatus } from 
     .cache-strip      { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 5px; padding: .4rem .75rem; font-size: .78rem; color: #555; }
     .cache-status-label { flex: 1; }
     :host ::ng-deep .cache-btn .p-button { padding: .2rem .6rem; font-size: .72rem; }
+    .cache-refreshing { display: inline-flex; align-items: center; gap: .45rem; color: #f0a800; white-space: nowrap; }
+    .lt-spinner       { display: inline-block; width: 12px; height: 12px; border: 2px solid #f0a800; border-top-color: transparent; border-radius: 50%; animation: lt-spin .7s linear infinite; flex-shrink: 0; }
+    @keyframes lt-spin { to { transform: rotate(360deg); } }
 
     /* Search results */
     .search-results { display: flex; flex-direction: column; gap: .35rem; }
