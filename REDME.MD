@@ -2,6 +2,11 @@
 
 A web application for managing and displaying swimming competition results for the **Olimpijczyk Proszówki** club. It shows start lists, fetches live results from [livetiming.pl](https://livetiming.pl) PDFs, and generates PDF reports.
 
+The application is split into two parts:
+
+- **Backend** — PHP 8.x REST API (`api/v1/`), no framework, no database (JSON file storage)
+- **Frontend** — Angular SPA (`swim-frontend/`) with PrimeNG, covering both the public pages and the admin panel
+
 ---
 
 ## Features
@@ -9,7 +14,7 @@ A web application for managing and displaying swimming competition results for t
 - **Public pages** — competition list with cards, per-competition start lists
 - **Live results** — automatic result fetching from livetiming.pl PDFs after each race
 - **Athlete profiles** — race history stored per athlete in JSON files
-- **Admin panel** — add, edit and delete competitions; manage live mode
+- **Admin panel** — add, edit and delete competitions; import start lists from livetiming.pl PDFs; manage live mode
 - **PDF export** — downloadable results report for each competition
 - **Announcements** — competitions without a start list shown as "coming soon"
 
@@ -17,11 +22,11 @@ A web application for managing and displaying swimming competition results for t
 
 ## Technology stack
 
-- PHP 8.x (no framework, no database)
+- Backend: PHP 8.x (no framework, no database), JWT auth
+- Frontend: Angular + PrimeNG (standalone components, signals)
 - Data storage: JSON files
 - PDF generation: [FPDF](http://www.fpdf.org/) library
 - PDF text extraction: `pdftotext` (poppler-utils) or pure PHP (zlib + BT/ET parser)
-- CSS: custom dark-mode design, fully responsive
 
 ---
 
@@ -29,37 +34,35 @@ A web application for managing and displaying swimming competition results for t
 
 ```
 swimCompetitions/
-├── index.php               # Home page — competition list
-├── lista_startowa.php      # Start list for a selected competition
-├── wyniki.php              # Live / archived results
-│
-├── admin/
-│   ├── login.php           # Admin login
-│   ├── logout.php          # Admin logout
-│   ├── lista.php           # Competition list in the admin panel
-│   ├── dodaj.php           # Add competition / announcement
-│   ├── edytuj.php          # Edit competition metadata
-│   ├── usun.php            # Delete competition / announcement
-│   └── live.php            # Live mode configuration
-│
 ├── api/
-│   ├── fetch_result.php    # AJAX: fetch pending results (POST)
-│   └── generuj_pdf.php     # Generate results PDF (GET)
-│
-├── cron/
-│   └── check_results.php   # Cron script for fetching results
+│   ├── generuj_pdf.php     # Results PDF generation (included by api/v1/competitions.php)
+│   └── v1/                 # REST API for the Angular SPA
+│       ├── index.php       # Router (/api/v1/{resource})
+│       ├── auth.php        # POST /auth/login — JWT issuance
+│       ├── competitions.php# Competition CRUD + PDF
+│       ├── athletes.php    # Athlete profiles
+│       ├── startlist.php   # Start list import (preview/save)
+│       ├── results.php     # Live result fetching
+│       ├── live.php        # Live mode configuration
+│       ├── announcements.php
+│       └── contests.php    # livetiming.pl contest search + cache
 │
 ├── includes/
 │   ├── config.php          # Configuration constants
 │   ├── functions.php       # Helper functions, competition JSON handling
-│   ├── auth.php            # Admin session check
+│   ├── jwt.php             # JWT encode/verify
 │   ├── athlete.php         # Athlete profile management
 │   ├── result_fetch.php    # Result fetching logic from livetiming.pl
+│   ├── lenex_fetch.php     # LENEX result fetching
+│   ├── livetiming_cache.php# livetiming.pl contest list cache
+│   ├── startlist_parse.php # Start list PDF parsing
 │   └── pdf_extract.php     # PDF text extraction (pdftotext / pure PHP)
 │
-├── assets/
-│   ├── style.css           # Public styles
-│   └── admin.css           # Admin panel styles
+├── swim-frontend/          # Angular SPA (public pages + admin panel)
+│   └── src/app/
+│       ├── public/         # home, start-list, results
+│       ├── admin/          # login, competitions, athletes, import, live
+│       └── core/           # ApiService, auth, guards, interceptors, models
 │
 ├── zawody/                 # Competition JSON files (auto-created)
 ├── zawodnicy/              # Athlete profile JSON files (auto-created)
@@ -88,9 +91,10 @@ After a result is fetched from livetiming.pl, the following fields are added to 
 
 - PHP 8.0+
 - Web server (Apache / Nginx)
+- Node.js + npm (to build the Angular frontend)
 - Optional: `pdftotext` from the `poppler-utils` package (speeds up PDF extraction)
 
-### 2. Configuration
+### 2. Backend configuration
 
 Edit `includes/config.php`:
 
@@ -99,11 +103,24 @@ define('ADMIN_USER',          'admin');
 define('ADMIN_PASSWORD_HASH', '...');   // bcrypt hash — generate with: password_hash('password', PASSWORD_BCRYPT)
 
 define('BASE_URL', '');                 // e.g. '/swim' if the app is not in the web root
-define('CSS_VERSION', '11');            // bump this when updating CSS (cache-busting)
 define('RESULT_DELAY_SECONDS', 300);    // delay before fetching results after a race start (default 5 min)
+
+define('JWT_SECRET', '...');            // long random string — REQUIRED in production
+define('JWT_TTL', 86400);               // token lifetime in seconds
+define('CORS_ALLOWED_ORIGIN', 'http://localhost:4200'); // Angular dev server / production URL
 ```
 
-### 3. Directory permissions
+### 3. Frontend build
+
+```bash
+cd swim-frontend
+npm install --legacy-peer-deps
+npm run build
+```
+
+Deploy the build output (`swim-frontend/dist/`) to the web root; the SPA calls the API at `/api/v1/index.php` (see `src/environments/`).
+
+### 4. Directory permissions
 
 ```bash
 mkdir -p zawody zawodnicy
@@ -112,30 +129,22 @@ chmod 755 zawody zawodnicy
 
 The `live_config.json` and `zapowiedzi.json` files are created automatically by the application.
 
-### 4. Cron job (optional, as a fallback)
-
-If browser-based JS polling is not sufficient, set up a cron job:
-
-```cron
-* * * * * php /path/to/swimCompetitions/cron/check_results.php >> /var/log/swim_cron.log 2>&1
-```
-
 ---
 
 ## Live mode — how it works
 
-1. The admin navigates to **Live competition** and enters the URL of the livetiming.pl `index.html` page (e.g. `https://live.livetiming.pl/zak/2026/05_10_oswiecim/index.html`) and selects the matching JSON start list file.
+1. The admin opens **Live** in the admin panel, enters the livetiming.pl competition URL and selects the matching JSON start list file.
 2. The application saves the configuration to `live_config.json`.
-3. Every minute (via JS polling in the browser or the cron job), the endpoint `POST /api/fetch_result.php` is called.
+3. The frontend polls `POST /api/v1/results/fetch`.
 4. For each entry that started more than 5 minutes ago and has no result yet, the file `ResultList_{event_nr}.pdf` is downloaded from the livetiming.pl server.
 5. The result is extracted from the PDF and saved to both the competition JSON file and the athlete's profile.
-6. The page auto-reloads when new results appear.
+6. The page updates when new results appear.
 
 ---
 
 ## Admin panel
 
-Available at `/admin/login.php`. Default username: `admin`.
+Part of the Angular SPA — route `/admin`. Default username: `admin`.
 
 To generate a new password hash:
 
@@ -149,10 +158,10 @@ Paste the output into the `ADMIN_PASSWORD_HASH` constant in `includes/config.php
 
 ## Security
 
-- CSRF protection on all POST forms
+- JWT-based API authentication (login via `POST /api/v1/auth/login`)
+- CORS restricted to the configured SPA origin
 - JSON file validation and sanitization on upload
 - Admin password stored as a bcrypt hash
-- API endpoint accepts only same-origin requests
 - File paths restricted to the `zawody/` directory (basename + character whitelist)
 
 ---
@@ -160,4 +169,3 @@ Paste the output into the `ADMIN_PASSWORD_HASH` constant in `includes/config.php
 ## Author
 
 Tomasz Matras / [nd-soft.pl](https://www.nd-soft.pl)
-
