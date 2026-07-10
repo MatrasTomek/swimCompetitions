@@ -310,3 +310,9 @@ LENEX (wyniki):   https://live.livetiming.pl/bachorz/2024/12_22_bydgoszcz/result
 - [System Ewidencji i Licencji](https://l2.polswim.pl/user) — rejestracja zawodników PZP
 - [Rekordy Polski](http://porabik.pl/komitet/)
 - [Ranking europejski](http://www.swimrankings.net/) — swimrankings.net
+
+---
+
+## Dokumenty dodatkowe
+
+- `recommendation.md` — rozeznanie i rekomendacja integracji ze SPLASH Meet Manager 11 / SplashMe (dostępne kanały danych, brak publicznego API, opcje na dane live)
