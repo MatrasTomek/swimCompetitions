@@ -21,6 +21,9 @@ import { Competition } from '../../core/models';
         <p-selectbutton [options]="viewOpts" [(ngModel)]="view" optionLabel="label" optionValue="value" />
       </div>
 
+      @if (loadError()) {
+        <p class="empty error-text">⚠ {{ loadError() }}</p>
+      }
       @if (loading()) {
         <div class="center-spin"><p-progressSpinner /></div>
       } @else if (filtered().length === 0) {
@@ -78,6 +81,7 @@ import { Competition } from '../../core/models';
     .search-input { flex: 1; min-width: 200px; background: #1c1c1c; border-color: #333; color: #fff; }
     .center-spin  { display: flex; justify-content: center; padding: 3rem; }
     .empty        { color: var(--swim-muted); text-align: center; padding: 2rem; }
+    .error-text   { color: var(--swim-red); }
     .card-link    { color: #ccc; font-size: .8rem; text-decoration: none; border: 1px solid #333; border-radius: 4px; padding: .2rem .5rem; }
     .card-link:hover { border-color: var(--swim-gold); color: var(--swim-gold); }
     .card-link.gold  { color: var(--swim-gold); border-color: var(--swim-gold); }
@@ -92,7 +96,8 @@ import { Competition } from '../../core/models';
 export class HomeComponent implements OnInit {
   private api = inject(ApiService);
 
-  loading = signal(true);
+  loading   = signal(true);
+  loadError = signal<string | null>(null);
   private all = signal<Competition[]>([]);
 
   query = '';
@@ -121,7 +126,10 @@ export class HomeComponent implements OnInit {
   ngOnInit() {
     this.api.getCompetitions().subscribe({
       next: data => { this.all.set(data ?? []); this.loading.set(false); },
-      error: () => this.loading.set(false),
+      error: err => {
+        this.loading.set(false);
+        this.loadError.set(err.error?.error ?? 'Nie udało się wczytać listy zawodów.');
+      },
     });
   }
 

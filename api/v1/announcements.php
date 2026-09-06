@@ -28,6 +28,11 @@ function handle_announcements(string $id, string $method): void {
         if ($nazwa === '') { echo json_encode(['error' => 'Pole "nazwa" jest wymagane.']); return; }
 
         $newId = save_zapowiedz($nazwa, $miejsce, $data, $klub);
+        if ($newId === null) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Nie udało się zapisać zapowiedzi.']);
+            return;
+        }
         echo json_encode(['ok' => true, 'id' => $newId]);
         return;
     }

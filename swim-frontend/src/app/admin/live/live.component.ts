@@ -35,7 +35,7 @@ import { Competition, LiveConfig } from '../../core/models';
             <div class="current-info">
               <strong>Aktywne:</strong> {{ active()!.nazwa }}<br/>
               <span class="muted">{{ active()!.ostatnia_aktualizacja }}</span>
-              <a [href]="previewUrl()" target="_blank" class="preview-link">Podgląd wyników →</a>
+              <a [href]="previewUrl()" target="_blank" rel="noopener" class="preview-link">Podgląd wyników →</a>
             </div>
           }
           @if (error()) { <p-message severity="error" [text]="error()!" /> }
@@ -80,6 +80,7 @@ export class LiveComponent implements OnInit {
           this.active.set(c);
         }
       },
+      error: err => this.msg.add({ severity: 'error', summary: 'Błąd', detail: err.error?.error ?? 'Nie udało się wczytać konfiguracji live.' }),
     });
     this.api.getCompetitions().subscribe({
       next: list => {
@@ -90,6 +91,7 @@ export class LiveComponent implements OnInit {
           }))
         );
       },
+      error: err => this.msg.add({ severity: 'error', summary: 'Błąd', detail: err.error?.error ?? 'Nie udało się wczytać listy zawodów.' }),
     });
   }
 

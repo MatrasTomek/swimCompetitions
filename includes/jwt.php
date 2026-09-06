@@ -30,7 +30,7 @@ function jwt_decode(string $token, string $secret): ?array {
 
     $data = json_decode(_jwt_b64u_decode($body), true);
     if (!is_array($data)) return null;
-    if (isset($data['exp']) && $data['exp'] < time()) return null;
+    if (!isset($data['exp']) || !is_int($data['exp']) || $data['exp'] < time()) return null;
 
     return $data;
 }

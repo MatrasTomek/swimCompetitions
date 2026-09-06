@@ -27,7 +27,7 @@ import { Competition, Blok, Start } from '../../core/models';
           <div class="sl-actions">
             <input pInputText placeholder="Szukaj zawodnika..." [(ngModel)]="query" class="search-input" />
             @if (slug) {
-              <a [href]="pdfUrl" target="_blank" class="pdf-btn">⬇ PDF wyniki</a>
+              <a [href]="pdfUrl" target="_blank" rel="noopener" class="pdf-btn">⬇ PDF wyniki</a>
             }
           </div>
         </div>
@@ -55,6 +55,8 @@ import { Competition, Blok, Start } from '../../core/models';
             </table>
           </div>
         }
+      } @else if (loadError()) {
+        <p class="empty error-text">⚠ {{ loadError() }}</p>
       } @else {
         <p class="empty">Nie znaleziono zawodów.</p>
       }
@@ -70,6 +72,7 @@ import { Competition, Blok, Start } from '../../core/models';
     .pdf-btn      { color: var(--swim-gold); border: 1px solid var(--swim-gold); border-radius: 4px; padding: .4rem .8rem; text-decoration: none; font-size: .85rem; }
     .center-spin  { display: flex; justify-content: center; padding: 3rem; }
     .empty        { color: var(--swim-muted); text-align: center; padding: 2rem; }
+    .error-text   { color: var(--swim-red); }
     .blok         { margin-bottom: 2rem; }
     .blok-header  { display: flex; align-items: center; gap: 1rem; margin-bottom: .75rem; }
     .blok-nr      { background: var(--swim-gold); color: #111; font-weight: 700; border-radius: 4px; padding: .2rem .6rem; }
@@ -86,6 +89,7 @@ export class StartListComponent implements OnInit {
 
   loading = signal(true);
   competition = signal<Competition | null>(null);
+  loadError = signal<string | null>(null);
   query = '';
   slug = '';
 
@@ -110,7 +114,10 @@ export class StartListComponent implements OnInit {
     this.slug = this.route.snapshot.paramMap.get('slug') ?? '';
     this.api.getCompetition(this.slug).subscribe({
       next: data => { this.competition.set(data); this.loading.set(false); },
-      error: () => this.loading.set(false),
+      error: err => {
+        this.loading.set(false);
+        this.loadError.set(err.error?.error ?? 'Nie udało się wczytać zawodów.');
+      },
     });
   }
 }

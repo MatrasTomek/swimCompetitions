@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/result_fetch.php';
 require_once __DIR__ . '/require_auth.php';
 
@@ -25,9 +26,12 @@ function handle_live(string $method): void {
 
         if ($contest_url === '') { echo json_encode(['error' => 'Podaj URL zawodów.']); return; }
         if ($json_file   === '') { echo json_encode(['error' => 'Podaj plik JSON.']); return; }
+        if (!is_allowed_contest_host($contest_url)) {
+            echo json_encode(['error' => 'Niedozwolony host — dozwolone są tylko adresy livetiming.pl.']);
+            return;
+        }
 
         // Resolve competition name from file
-        require_once __DIR__ . '/../../includes/functions.php';
         $path  = safe_json_path($json_file . '.json');
         $nazwa = '';
         if ($path) {
@@ -41,7 +45,11 @@ function handle_live(string $method): void {
             'nazwa'               => $nazwa,
             'ostatnia_aktualizacja' => date('c'),
         ];
-        save_live_config($config);
+        if (!save_live_config($config)) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Nie udało się zapisać konfiguracji.']);
+            return;
+        }
         echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);
         return;
     }

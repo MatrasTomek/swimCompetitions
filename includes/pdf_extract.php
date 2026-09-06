@@ -11,7 +11,6 @@ function pdf_download(string $url) {
             'header'  => "User-Agent: Mozilla/5.0 SwimResults/1.0\r\n",
             'timeout' => 15,
         ],
-        'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
     ]);
     return @file_get_contents($url, false, $ctx);
 }

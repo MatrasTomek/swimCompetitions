@@ -11,12 +11,14 @@
  *      or ['ok'=>false, 'error'=>'...']
  */
 function lenex_download(string $lxf_url): array {
+    if (!is_allowed_contest_host($lxf_url)) {
+        return ['ok' => false, 'error' => 'Niedozwolony host — dozwolone są tylko adresy livetiming.pl.'];
+    }
     $ctx = stream_context_create([
         'http' => [
             'header'  => "User-Agent: Mozilla/5.0 SwimResults/1.0\r\n",
             'timeout' => 20,
         ],
-        'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
     ]);
     $data = @file_get_contents($lxf_url, false, $ctx);
     $http_code    = '';

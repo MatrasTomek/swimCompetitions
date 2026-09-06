@@ -23,6 +23,9 @@ import { AthleteRow } from '../../core/models';
         <span class="count">{{ total() }} zawodników</span>
       </div>
 
+      @if (loadError()) {
+        <p class="load-error">⚠ {{ loadError() }}</p>
+      }
       @if (loading()) {
         <div class="center-spin"><p-progressSpinner /></div>
       } @else {
@@ -54,18 +57,20 @@ import { AthleteRow } from '../../core/models';
     .count        { color: var(--swim-muted); font-size: .85rem; white-space: nowrap; }
     .center-spin  { display: flex; justify-content: center; padding: 3rem; }
     .download-link{ color: var(--swim-gold); }
+    .load-error   { color: var(--swim-red); margin-bottom: 1rem; }
   `]
 })
 export class AthletesComponent implements OnInit {
-  api     = inject(ApiService);
-  loading = signal(true);
-  athletes = signal<AthleteRow[]>([]);
-  total    = signal(0);
-  query    = '';
-  page     = 1;
+  api       = inject(ApiService);
+  loading   = signal(true);
+  athletes  = signal<AthleteRow[]>([]);
+  total     = signal(0);
+  loadError = signal<string | null>(null);
+  query     = '';
+  page      = 1;
 
   athleteUrl(file: string): string {
-    return `${(this.api as any).base}/athletes/${file.replace('.json', '')}`;
+    return this.api.getAthleteFileUrl(file);
   }
 
   ngOnInit() { this.load(); }
@@ -76,9 +81,13 @@ export class AthletesComponent implements OnInit {
 
   private load() {
     this.loading.set(true);
+    this.loadError.set(null);
     this.api.getAthletes(this.query, this.page).subscribe({
       next: res => { this.athletes.set(res.athletes); this.total.set(res.total); this.loading.set(false); },
-      error: () => this.loading.set(false),
+      error: err => {
+        this.loading.set(false);
+        this.loadError.set(err.error?.error ?? 'Nie udało się wczytać zawodników.');
+      },
     });
   }
 }

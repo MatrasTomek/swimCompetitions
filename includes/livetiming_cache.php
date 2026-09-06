@@ -19,7 +19,6 @@ function ltcache_scrape_page(string $category, int $page): array {
             'header'  => "User-Agent: Mozilla/5.0 SwimResults/1.0\r\n",
             'timeout' => LT_SCRAPE_TIMEOUT,
         ],
-        'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
     ]);
     $html = @file_get_contents($url, false, $ctx);
     if ($html === false || strlen($html) < 500) return [];
@@ -63,7 +62,6 @@ function ltcache_is_last_page(string $category, int $page): bool {
             'header'  => "User-Agent: Mozilla/5.0 SwimResults/1.0\r\n",
             'timeout' => LT_SCRAPE_TIMEOUT,
         ],
-        'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
     ]);
     $html = @file_get_contents($url, false, $ctx);
     if ($html === false || strlen($html) < 500) return true;
@@ -107,7 +105,7 @@ function ltcache_refresh(int $max_pages_per_category = 30, bool $force = false):
         'updated_at'   => date('c'),
         'competitions' => $all,
     ];
-    file_put_contents(LT_CACHE_FILE, json_encode($cache, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    write_json_atomic(LT_CACHE_FILE, $cache);
 
     return [
         'ok'       => true,

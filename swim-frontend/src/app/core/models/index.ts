@@ -43,6 +43,29 @@ export interface AthleteRow {
   starty: number;
 }
 
+export interface AthleteStart {
+  zawody: string;
+  data: string;
+  miejscowosc: string;
+  basen: '25m' | '50m';
+  konkurencja_nr: number;
+  dystans: string;
+  styl: string;
+  plec: string;
+  tor: number;
+  czas: string;
+  punkty?: number | null;
+  timestamp_pobrania: string;
+}
+
+export interface AthleteProfile {
+  imie: string;
+  nazwisko: string;
+  rok_urodzenia?: number | null;
+  klub: string;
+  starty: AthleteStart[];
+}
+
 export interface AthletesResponse {
   athletes: AthleteRow[];
   total: number;

@@ -1,5 +1,7 @@
 /plan.md
 /current.md
-/zawody
 /list-transform
-/json-format.md/livetiming_cache.json
+/json-format.md
+/livetiming_cache.json
+/login_attempts.json
+/includes/secrets.php

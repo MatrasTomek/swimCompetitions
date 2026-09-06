@@ -52,11 +52,11 @@ import { Competition, AthleteRow, ResultFetchResponse } from '../../core/models'
               </td>
               <td class="action-cell">
                 @if (c.has_file) {
-                  <a [routerLink]="['/zawody', slug(c), 'lista']" target="_blank">
+                  <a [routerLink]="['/zawody', slug(c), 'lista']" target="_blank" rel="noopener">
                     <p-button label="Starty" size="small" severity="secondary" />
                   </a>
                   @if (c.has_results) {
-                    <a [routerLink]="['/zawody', slug(c), 'wyniki']" target="_blank">
+                    <a [routerLink]="['/zawody', slug(c), 'wyniki']" target="_blank" rel="noopener">
                       <p-button label="Wyniki" size="small" severity="secondary" />
                     </a>
                   }
@@ -157,13 +157,16 @@ export class CompetitionsComponent implements OnInit {
   slug(c: Competition): string { return c.file?.replace(/\.json$/, '') ?? ''; }
 
   athleteUrl(file: string): string {
-    return `${this.api['base']}/athletes/${file.replace('.json','')}`;
+    return this.api.getAthleteFileUrl(file);
   }
 
   ngOnInit() {
     this.api.getCompetitions().subscribe({
       next: d => { this.competitions.set(d); this.loading.set(false); },
-      error: () => this.loading.set(false),
+      error: err => {
+        this.loading.set(false);
+        this.msg.add({ severity: 'error', summary: 'Błąd', detail: err.error?.error ?? 'Nie udało się wczytać listy zawodów.' });
+      },
     });
   }
 
@@ -201,7 +204,10 @@ export class CompetitionsComponent implements OnInit {
     this.athletesLoading.set(true);
     this.api.getAthletes(this.athleteQ).subscribe({
       next: res => { this.athletes.set(res.athletes); this.athletesLoading.set(false); },
-      error: () => this.athletesLoading.set(false),
+      error: err => {
+        this.athletesLoading.set(false);
+        this.msg.add({ severity: 'error', summary: 'Błąd', detail: err.error?.error ?? 'Nie udało się wczytać zawodników.' });
+      },
     });
   }
 

@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import {
   Competition, AthletesResponse, ResultFetchResponse,
-  StartlistPreviewResponse, LiveConfig, LtContest, LtCacheStatus
+  StartlistPreviewResponse, LiveConfig, LtContest, LtCacheStatus, AthleteProfile
 } from '../models';
 
 @Injectable({ providedIn: 'root' })
@@ -50,11 +50,16 @@ export class ApiService {
   }
 
   getAthlete(slug: string) {
-    return this.http.get<any>(`${this.base}/athletes/${slug}`);
+    return this.http.get<AthleteProfile>(`${this.base}/athletes/${slug}`);
   }
 
   getAthletesExportUrl(): string {
     return `${this.base}/athletes/export`;
+  }
+
+  /** Direct download link for one athlete's JSON profile (file includes .json). */
+  getAthleteFileUrl(file: string): string {
+    return `${this.base}/athletes/${file.replace(/\.json$/, '')}`;
   }
 
   // ── Start list import ───────────────────────────────────────────────

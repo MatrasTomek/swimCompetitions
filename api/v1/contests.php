@@ -7,6 +7,7 @@
  */
 
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/livetiming_cache.php';
 
 function handle_contests(string $sub, string $method): void {

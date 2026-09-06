@@ -63,7 +63,11 @@ function handle_competitions(string $slug, string $sub, string $method): void {
 
             $filename = unique_filename(slugify($zawody['nazwa'] ?? 'zawody'));
             $dest     = ZAWODY_DIR . '/' . $filename;
-            file_put_contents($dest, json_encode($zawody, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            if (!write_json_atomic($dest, $zawody)) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Nie udało się zapisać pliku zawodów.']);
+                return;
+            }
             echo json_encode(['ok' => true, 'file' => $filename], JSON_UNESCAPED_UNICODE);
             return;
         }
@@ -78,17 +82,26 @@ function handle_competitions(string $slug, string $sub, string $method): void {
         if ($nazwa === '') { echo json_encode(['error' => 'Pole "nazwa" jest wymagane.']); return; }
 
         // If bloki provided → save as full competition
-        if (!empty($body['bloki'])) {
+        if (is_array($body['bloki'] ?? null)) {
             $filename = unique_filename(slugify($nazwa ?: 'zawody'));
             $dest     = ZAWODY_DIR . '/' . $filename;
             $zawody   = array_intersect_key($body, array_flip(['nazwa','miejsce','data','klub','basen','bloki']));
-            file_put_contents($dest, json_encode($zawody, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            if (!write_json_atomic($dest, $zawody)) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Nie udało się zapisać pliku zawodów.']);
+                return;
+            }
             echo json_encode(['ok' => true, 'file' => $filename], JSON_UNESCAPED_UNICODE);
             return;
         }
 
         // Otherwise → announcement
         $id = save_zapowiedz($nazwa, $miejsce, $data, $klub);
+        if ($id === null) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Nie udało się zapisać zapowiedzi.']);
+            return;
+        }
         echo json_encode(['ok' => true, 'id' => $id, 'announcement' => true]);
         return;
     }
@@ -100,14 +113,21 @@ function handle_competitions(string $slug, string $sub, string $method): void {
         $path = safe_json_path($slug . '.json');
         if (!$path) { http_response_code(404); echo json_encode(['error' => 'Nie znaleziono zawodów.']); return; }
 
-        $zawody = json_decode(file_get_contents($path), true) ?? [];
-        $body   = json_decode(file_get_contents('php://input'), true) ?? [];
+        $body = json_decode(file_get_contents('php://input'), true) ?? [];
 
-        foreach (['nazwa','miejsce','data','klub','basen'] as $f) {
-            if (array_key_exists($f, $body)) $zawody[$f] = mb_substr(trim($body[$f]), 0, 255, 'UTF-8');
+        $ok = with_file_lock($path . '.lock', function () use ($path, $body) {
+            $zawody = json_decode(file_get_contents($path), true) ?? [];
+            foreach (['nazwa','miejsce','data','klub','basen'] as $f) {
+                if (array_key_exists($f, $body)) $zawody[$f] = mb_substr(trim((string)$body[$f]), 0, 255, 'UTF-8');
+            }
+            return write_json_atomic($path, $zawody);
+        });
+
+        if (!$ok) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Nie udało się zapisać zawodów.']);
+            return;
         }
-
-        file_put_contents($path, json_encode($zawody, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
         echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);
         return;
     }

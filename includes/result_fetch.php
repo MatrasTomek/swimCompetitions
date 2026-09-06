@@ -7,25 +7,24 @@ function load_live_config(): array {
     return is_array($data) ? $data : [];
 }
 
-function save_live_config(array $config): void {
-    file_put_contents(
-        LIVE_CONFIG_FILE,
-        json_encode($config, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
-    );
+function save_live_config(array $config): bool {
+    return write_json_atomic(LIVE_CONFIG_FILE, $config);
 }
 
 /**
  * Fetches the livetiming.pl contest page and extracts the .lxf download URL from its HTML.
  * Falls back to appending /results.lxf if extraction fails.
- * Returns ['url' => string, 'source' => 'page'|'fallback'].
+ * Returns ['url' => string, 'source' => 'page'|'fallback'|'blocked', 'error'? => string].
  */
 function resolve_lenex_url(string $contest_url): array {
+    if (!is_allowed_contest_host($contest_url)) {
+        return ['url' => '', 'source' => 'blocked', 'error' => 'Niedozwolony host — dozwolone są tylko adresy livetiming.pl.'];
+    }
     $ctx = stream_context_create([
         'http' => [
             'header'  => "User-Agent: Mozilla/5.0 SwimResults/1.0\r\n",
             'timeout' => 10,
         ],
-        'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
     ]);
     $html = @file_get_contents(rtrim($contest_url, '/'), false, $ctx);
     if ($html !== false && $html !== '') {
@@ -77,67 +76,80 @@ function fetch_and_apply_lenex(string $contest_url = '', string $json_file = '')
         return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Brak konfiguracji — podaj URL zawodów.']];
     }
 
+    if (!is_allowed_contest_host($contest_url)) {
+        return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Niedozwolony host — dozwolone są tylko adresy livetiming.pl.']];
+    }
+
     $zawody_path = safe_json_path($json_file . '.json');
     if (!$zawody_path) {
         return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Nieprawidłowy plik zawodów.']];
     }
 
-    $zawody = json_decode(file_get_contents($zawody_path), true);
-    if (!$zawody) {
-        return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Błąd odczytu JSON zawodów.']];
-    }
-
     $resolved = resolve_lenex_url($contest_url);
-    $lxf_url  = $resolved['url'];
-    $lenex    = lenex_download($lxf_url);
+    if (!empty($resolved['error'])) {
+        return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => [$resolved['error']]];
+    }
+    $lxf_url = $resolved['url'];
+    $lenex   = lenex_download($lxf_url);
     if (!$lenex['ok']) {
         return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Błąd pobierania LENEX: ' . ($lenex['error'] ?? '')]];
     }
 
-    $zawody_meta = [
-        'nazwa'   => $zawody['nazwa']   ?? '',
-        'miejsce' => $zawody['miejsce'] ?? '',
-        'klub'    => $zawody['klub']    ?? '',
-        'basen'   => $zawody['basen']   ?? '50m',
-    ];
-
-    $updated   = 0;
-    $not_found = 0;
-    $total     = 0;
-
-    foreach ($zawody['bloki'] as &$blok) {
-        $blok_data = $blok['data'] ?? '';
-        foreach ($blok['starty'] as &$start) {
-            $total++;
-            $nr     = (int)($start['konkurencja_nr'] ?? 0);
-            $result = lenex_find_athlete($lenex, $nr, $start['imie']);
-
-            if (!$result['found']) {
-                $not_found++;
-                continue;
-            }
-
-            $start['czas_result']       = $result['czas'];
-            $start['punkty']            = $result['punkty'] ?? null;
-            $start['result_fetched']    = true;
-            $start['result_fetched_at'] = date('c');
-
-            $kp = parse_event_parts($start['konkurencja'] ?? '');
-            save_athlete_result($start['imie'], array_merge($start, $kp, [
-                'data'          => $blok_data,
-                'rok_urodzenia' => $result['rok_urodzenia'] ?? null,
-            ]), $zawody_meta);
-
-            $updated++;
+    return with_file_lock($zawody_path . '.lock', function () use ($zawody_path, $lenex) {
+        $zawody = json_decode(file_get_contents($zawody_path), true);
+        if (!$zawody) {
+            return ['updated' => 0, 'not_found' => 0, 'total' => 0, 'errors' => ['Błąd odczytu JSON zawodów.']];
         }
-        unset($start);
-    }
-    unset($blok);
 
-    file_put_contents(
-        $zawody_path,
-        json_encode($zawody, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
-    );
+        $zawody_meta = [
+            'nazwa'   => $zawody['nazwa']   ?? '',
+            'miejsce' => $zawody['miejsce'] ?? '',
+            'klub'    => $zawody['klub']    ?? '',
+            'basen'   => $zawody['basen']   ?? '50m',
+        ];
 
-    return ['updated' => $updated, 'not_found' => $not_found, 'total' => $total, 'errors' => []];
+        $updated   = 0;
+        $not_found = 0;
+        $total     = 0;
+        $errors    = [];
+
+        foreach ($zawody['bloki'] as &$blok) {
+            $blok_data = $blok['data'] ?? '';
+            foreach ($blok['starty'] as &$start) {
+                $total++;
+                $nr     = (int)($start['konkurencja_nr'] ?? 0);
+                $result = lenex_find_athlete($lenex, $nr, $start['imie']);
+
+                if (!$result['found']) {
+                    $not_found++;
+                    continue;
+                }
+
+                $start['czas_result']       = $result['czas'];
+                $start['punkty']            = $result['punkty'] ?? null;
+                $start['result_fetched']    = true;
+                $start['result_fetched_at'] = date('c');
+
+                $kp = parse_event_parts($start['konkurencja'] ?? '');
+                $saved = save_athlete_result($start['imie'], array_merge($start, $kp, [
+                    'data'          => $blok_data,
+                    'rok_urodzenia' => $result['rok_urodzenia'] ?? null,
+                ]), $zawody_meta);
+
+                if (!$saved) {
+                    $errors[] = 'Nie udało się zapisać profilu zawodnika: ' . $start['imie'];
+                }
+
+                $updated++;
+            }
+            unset($start);
+        }
+        unset($blok);
+
+        if (!write_json_atomic($zawody_path, $zawody)) {
+            $errors[] = 'Nie udało się zapisać pliku zawodów.';
+        }
+
+        return ['updated' => $updated, 'not_found' => $not_found, 'total' => $total, 'errors' => $errors];
+    });
 }

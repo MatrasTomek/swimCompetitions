@@ -7,6 +7,7 @@
  */
 
 require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/require_auth.php';
 
 function handle_athletes(string $slug, string $method): void {
@@ -35,19 +36,21 @@ function handle_athletes(string $slug, string $method): void {
 
     // ── GET /athletes/{slug} ─────────────────────────────────────────
     if ($slug !== '') {
-        $name  = basename($slug);
+        $name = basename($slug);
         if (!preg_match('/^[a-zA-Z0-9_\-]+$/', $name)) {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid athlete slug.']);
             return;
         }
-        $path = ZAWODNICY_DIR . '/' . $name . '.json';
-        if (!file_exists($path)) {
+        $path = safe_path(ZAWODNICY_DIR, $name . '.json');
+        if ($path === '') {
             http_response_code(404);
             echo json_encode(['error' => 'Nie znaleziono zawodnika.']);
             return;
         }
-        echo json_decode(file_get_contents($path), false) ? file_get_contents($path) : json_encode([]);
+        $raw     = file_get_contents($path);
+        $decoded = json_decode($raw, true);
+        echo $decoded !== null ? $raw : json_encode([]);
         return;
     }
 
@@ -64,7 +67,10 @@ function handle_athletes(string $slug, string $method): void {
     $athletes = [];
     foreach (glob(ZAWODNICY_DIR . '/*.json') as $path) {
         $data = json_decode(file_get_contents($path), true);
-        if (!is_array($data)) continue;
+        if (!is_array($data)) {
+            error_log('GET /athletes: nie udało się odczytać/sparsować ' . basename($path));
+            continue;
+        }
         $row = [
             'file'          => basename($path),
             'imie'          => $data['imie']         ?? '',

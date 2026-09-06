@@ -16,7 +16,6 @@ function resolve_startlist_pdf_url(string $contest_url): string {
             'header'  => "User-Agent: Mozilla/5.0 SwimResults/1.0\r\n",
             'timeout' => 10,
         ],
-        'ssl' => ['verify_peer' => false, 'verify_peer_name' => false],
     ]);
     $html = @file_get_contents($base, false, $ctx);
     if ($html !== false && $html !== '') {
@@ -558,6 +557,9 @@ function parse_startlist_text_vertical(string $text, string $club_filter, string
 function build_startlist_from_pdf(string $contest_url, string $club, string $basen = '25m'): array {
     if (!filter_var($contest_url, FILTER_VALIDATE_URL)) {
         return ['ok' => false, 'error' => 'Nieprawidłowy URL zawodów.'];
+    }
+    if (!is_allowed_contest_host($contest_url)) {
+        return ['ok' => false, 'error' => 'Niedozwolony host — dozwolone są tylko adresy livetiming.pl.'];
     }
 
     $pdf_url = preg_match('/\.pdf(\?.*)?$/i', $contest_url)

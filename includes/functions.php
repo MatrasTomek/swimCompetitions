@@ -14,20 +14,112 @@ function slugify(string $text): string {
     return trim(substr($text, 0, 60), '_');
 }
 
-function csrf_token(): string {
-    if (session_status() === PHP_SESSION_NONE) session_start();
-    if (empty($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+/**
+ * Atomically writes JSON to disk (write-to-temp + rename) with an exclusive
+ * lock, so a killed/overlapping request can't leave a corrupt or empty file.
+ * Returns false if encoding failed (e.g. invalid UTF-8) or the write failed —
+ * callers must check this instead of assuming the write succeeded.
+ */
+function write_json_atomic(string $path, $data): bool {
+    $json = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    if ($json === false) return false;
+
+    $tmp = $path . '.tmp.' . bin2hex(random_bytes(6));
+    $fp  = fopen($tmp, 'c');
+    if ($fp === false) return false;
+
+    flock($fp, LOCK_EX);
+    ftruncate($fp, 0);
+    $ok = fwrite($fp, $json) !== false;
+    fflush($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+
+    if (!$ok || !rename($tmp, $path)) {
+        @unlink($tmp);
+        return false;
     }
-    return $_SESSION['csrf_token'];
+    return true;
 }
 
-function csrf_verify(): void {
-    if (session_status() === PHP_SESSION_NONE) session_start();
-    if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
-        http_response_code(403);
-        die('Błąd bezpieczeństwa – odśwież stronę i spróbuj ponownie.');
+/**
+ * Runs $fn while holding an exclusive lock on $lock_path, to serialize
+ * read-modify-write cycles against the same data file across requests.
+ */
+function with_file_lock(string $lock_path, callable $fn) {
+    $fp = fopen($lock_path, 'c');
+    if ($fp === false) return $fn();
+    flock($fp, LOCK_EX);
+    try {
+        return $fn();
+    } finally {
+        flock($fp, LOCK_UN);
+        fclose($fp);
     }
+}
+
+/**
+ * SSRF guard: only http(s) URLs on the livetiming.pl host (or a subdomain)
+ * may be fetched server-side. Used for every admin-supplied contest URL.
+ */
+function is_allowed_contest_host(string $url): bool {
+    $parts = parse_url($url);
+    if (!$parts || empty($parts['scheme']) || empty($parts['host'])) return false;
+    if (!in_array(strtolower($parts['scheme']), ['http', 'https'], true)) return false;
+
+    $host   = strtolower($parts['host']);
+    $suffix = strtolower(ALLOWED_CONTEST_HOST_SUFFIX);
+    return $host === $suffix || str_ends_with($host, '.' . $suffix);
+}
+
+function login_attempts_load(): array {
+    if (!file_exists(LOGIN_ATTEMPTS_FILE)) return [];
+    $data = json_decode(file_get_contents(LOGIN_ATTEMPTS_FILE), true);
+    return is_array($data) ? $data : [];
+}
+
+/** Returns a user-facing lockout message if $ip is currently locked out, else null. */
+function login_rate_limit_check(string $ip): ?string {
+    $rec = login_attempts_load()[$ip] ?? null;
+    if ($rec && ($rec['locked_until'] ?? 0) > time()) {
+        $mins = (int)ceil(($rec['locked_until'] - time()) / 60);
+        return "Zbyt wiele nieudanych prób logowania. Spróbuj ponownie za {$mins} min.";
+    }
+    return null;
+}
+
+function login_rate_limit_record_failure(string $ip): void {
+    with_file_lock(LOGIN_ATTEMPTS_FILE . '.lock', function () use ($ip) {
+        $attempts = login_attempts_load();
+        $now = time();
+
+        foreach ($attempts as $k => $a) {
+            if ($now - ($a['first'] ?? 0) > LOGIN_WINDOW_SECONDS && ($a['locked_until'] ?? 0) < $now) {
+                unset($attempts[$k]);
+            }
+        }
+
+        $rec = $attempts[$ip] ?? ['count' => 0, 'first' => $now, 'locked_until' => 0];
+        if ($now - $rec['first'] > LOGIN_WINDOW_SECONDS) {
+            $rec = ['count' => 0, 'first' => $now, 'locked_until' => 0];
+        }
+        $rec['count']++;
+        if ($rec['count'] >= LOGIN_MAX_ATTEMPTS) {
+            $rec['locked_until'] = $now + LOGIN_LOCKOUT_SECONDS;
+        }
+        $attempts[$ip] = $rec;
+        write_json_atomic(LOGIN_ATTEMPTS_FILE, $attempts);
+    });
+}
+
+function login_rate_limit_clear(string $ip): void {
+    with_file_lock(LOGIN_ATTEMPTS_FILE . '.lock', function () use ($ip) {
+        $attempts = login_attempts_load();
+        if (isset($attempts[$ip])) {
+            unset($attempts[$ip]);
+            write_json_atomic(LOGIN_ATTEMPTS_FILE, $attempts);
+        }
+    });
 }
 
 function validate_json_upload(array $file): array {
@@ -65,7 +157,10 @@ function load_all_zawody(): array {
     $list  = [];
     foreach ($files as $path) {
         $data = json_decode(file_get_contents($path), true);
-        if ($data === null) continue;
+        if ($data === null) {
+            error_log('load_all_zawody: nie udało się odczytać/sparsować ' . basename($path));
+            continue;
+        }
         $has_results = false;
         foreach ($data['bloki'] ?? [] as $blok) {
             foreach ($blok['starty'] ?? [] as $start) {
@@ -110,27 +205,29 @@ function load_zapowiedzi(): array {
     return is_array($data) ? $data : [];
 }
 
-function save_zapowiedz(string $nazwa, string $miejsce, string $data, string $klub): string {
-    $zapowiedzi = load_zapowiedzi();
-    $id = bin2hex(random_bytes(8));
-    $zapowiedzi[] = [
-        'id'      => $id,
-        'nazwa'   => $nazwa,
-        'miejsce' => $miejsce,
-        'data'    => $data,
-        'klub'    => $klub,
-        'mtime'   => time(),
-    ];
-    file_put_contents(ZAPOWIEDZI_FILE, json_encode($zapowiedzi, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-    return $id;
+function save_zapowiedz(string $nazwa, string $miejsce, string $data, string $klub): ?string {
+    return with_file_lock(ZAPOWIEDZI_FILE . '.lock', function () use ($nazwa, $miejsce, $data, $klub) {
+        $zapowiedzi = load_zapowiedzi();
+        $id = bin2hex(random_bytes(8));
+        $zapowiedzi[] = [
+            'id'      => $id,
+            'nazwa'   => $nazwa,
+            'miejsce' => $miejsce,
+            'data'    => $data,
+            'klub'    => $klub,
+            'mtime'   => time(),
+        ];
+        return write_json_atomic(ZAPOWIEDZI_FILE, $zapowiedzi) ? $id : null;
+    });
 }
 
 function delete_zapowiedz(string $id): bool {
-    $zapowiedzi = load_zapowiedzi();
-    $filtered = array_values(array_filter($zapowiedzi, fn($z) => $z['id'] !== $id));
-    if (count($filtered) === count($zapowiedzi)) return false;
-    file_put_contents(ZAPOWIEDZI_FILE, json_encode($filtered, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-    return true;
+    return with_file_lock(ZAPOWIEDZI_FILE . '.lock', function () use ($id) {
+        $zapowiedzi = load_zapowiedzi();
+        $filtered = array_values(array_filter($zapowiedzi, fn($z) => $z['id'] !== $id));
+        if (count($filtered) === count($zapowiedzi)) return false;
+        return write_json_atomic(ZAPOWIEDZI_FILE, $filtered);
+    });
 }
 
 function get_zapowiedz(string $id): ?array {
@@ -140,12 +237,17 @@ function get_zapowiedz(string $id): ?array {
     return null;
 }
 
-// Safe file path — basename only from the zawody/ directory
-function safe_json_path(string $filename): string {
+// Safe file path — basename-only *.json lookup, confined to $dir.
+function safe_path(string $dir, string $filename): string {
     $name = basename($filename);
     if (!preg_match('/^[a-zA-Z0-9_\-]+\.json$/', $name)) return '';
-    $path = ZAWODY_DIR . '/' . $name;
+    $path = rtrim($dir, '/') . '/' . $name;
     return file_exists($path) ? $path : '';
+}
+
+// Safe file path — basename only from the zawody/ directory
+function safe_json_path(string $filename): string {
+    return safe_path(ZAWODY_DIR, $filename);
 }
 
 // Shortens event name: "Kobiet, 400m zmienny" + nr 3 → "K3 400m zmienny"
