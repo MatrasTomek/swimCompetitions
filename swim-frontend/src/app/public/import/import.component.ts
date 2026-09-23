@@ -32,7 +32,7 @@ interface ImportFormState {
   imports: [FormsModule, RouterLink, InputText, Button, Message, Card, Toast, HeaderComponent],
   providers: [MessageService],
   template: `
-    <app-header [isAdmin]="auth.isLoggedIn()" />
+    <app-header />
     <div class="swim-page">
       <a routerLink="/" class="back">← Zawody</a>
       <h1 class="swim-page-title">Pobierz listę startową</h1>

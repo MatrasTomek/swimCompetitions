@@ -18,7 +18,6 @@ import { AuthService } from '../../core/services/auth.service';
         @if (isAdmin) {
           <a routerLink="/admin/zawody" routerLinkActive="active">Zawody</a>
           <a routerLink="/admin/zawodnicy" routerLinkActive="active">Zawodnicy</a>
-          <a routerLink="/import" routerLinkActive="active">Import PDF</a>
           <a routerLink="/admin/live" routerLinkActive="active">Live</a>
           <p-button label="Wyloguj" severity="secondary" size="small" (onClick)="auth.logout()" />
         } @else {
