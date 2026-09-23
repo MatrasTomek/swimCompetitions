@@ -44,7 +44,7 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 | `/auth/*` | `api/v1/auth.php` | Login → JWT |
 | `/competitions[/{slug}[/pdf]]` | `api/v1/competitions.php` | CRUD + results PDF (includes `api/generuj_pdf.php`) |
 | `/athletes[/{slug}\|export]` | `api/v1/athletes.php` | Athlete profiles |
-| `/startlist/{preview\|save}` | `api/v1/startlist.php` | Start list import from livetiming.pl PDF — `preview` is public (per-IP rate limit), `save` requires auth; accepts only a `livetiming.pl/contest/{uuid}` page URL (`sl_contest_uuid()`), never a direct PDF link; name, city, dates, pool length (`basen`) and the start list PDF link (file titled "Lista startowa") are read from the contest object embedded in the contest page's `window.__data` (so the name matches the contest search); blocks come from Splash session headers (`1 - Blok 1  19.09.2026 - 16:00`; the block keeps the PDF's session number, since e.g. finals sessions may be missing; dates may also be `20/9/2026` or ISO `2026-09-20`), or per day from each event's `20.09.2026 - 9:30` line when the PDF has none |
+| `/startlist/preview` | `api/v1/startlist.php` | Start list import from livetiming.pl PDF — public (per-IP rate limit); returns the competition JSON to the browser only (nothing is saved server-side); accepts only a `livetiming.pl/contest/{uuid}` page URL (`sl_contest_uuid()`), never a direct PDF link; name, city, dates, pool length (`basen`) and the start list PDF link (file titled "Lista startowa") are read from the contest object embedded in the contest page's `window.__data` (so the name matches the contest search); blocks come from Splash session headers (`1 - Blok 1  19.09.2026 - 16:00`; the block keeps the PDF's session number, since e.g. finals sessions may be missing; dates may also be `20/9/2026` or ISO `2026-09-20`), or per day from each event's `20.09.2026 - 9:30` line when the PDF has none |
 | `/results/fetch` | `api/v1/results.php` | Live result fetching |
 | `/live` | `api/v1/live.php` | Live mode config |
 | `/announcements[/{id}]` | `api/v1/announcements.php` | Announcements |
@@ -70,7 +70,7 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 
 - `src/app/public/` — home (competition grid + visitor's own imported lists), start-list, results, import (one short form: livetiming cache status, contest search by name/city, club → `/import`, no login needed; form fields kept in `sessionStorage`)
 - `src/app/admin/` — login, competitions (list/edit), athletes, live (LENEX)
-- Visitor imports are kept only in the browser (`sessionStorage`, `LocalCompetitionsService`) and shown at `/moje/:id/lista`; a logged-in admin can additionally publish the import to the server
+- Start list imports (visitors and admins alike) are kept only in the browser (`localStorage`, `LocalCompetitionsService`) and shown at `/moje/:id/lista` — they are never written to `zawody/` on the server
 - `src/app/core/` — `ApiService` (all HTTP calls, base URL from `src/environments/`), auth service + guard, error interceptor, models
 - Standalone components with signals; PrimeNG for UI
 

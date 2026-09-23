@@ -137,15 +137,11 @@ interface ImportFormState {
           @if (error()) { <p-message severity="error" [text]="error()!" /> }
 
           <div class="actions">
-            <p-button label="Pobierz listę startową" [loading]="loading() === 'local'"
-              [disabled]="loading() !== null" (onClick)="doImport('local')" />
-            @if (auth.isLoggedIn()) {
-              <p-button label="Pobierz i opublikuj" severity="secondary" [loading]="loading() === 'server'"
-                [disabled]="loading() !== null" (onClick)="doImport('server')" />
-            }
+            <p-button label="Pobierz listę startową" [loading]="loading()"
+              [disabled]="loading()" (onClick)="doImport()" />
           </div>
           <small class="hint">
-            Lista zostanie zapisana tylko w tej przeglądarce (do zamknięcia karty) — nie jest publikowana na stronie.
+            Lista zostanie zapisana tylko w tej przeglądarce — nie trafia na serwer i nie jest publikowana na stronie.
           </small>
         </div>
       </p-card>
@@ -220,7 +216,7 @@ export class ImportComponent implements OnInit, OnDestroy {
   };
 
   // ── Import state ─────────────────────────────────────────────────────
-  loading = signal<'local' | 'server' | null>(null);
+  loading = signal(false);
   error   = signal<string | null>(null);
 
   ngOnInit() {
@@ -313,7 +309,7 @@ export class ImportComponent implements OnInit, OnDestroy {
     return c ? `https://livetiming.pl/contest/${c.uuid}` : this.manualUrl.trim();
   }
 
-  doImport(target: 'local' | 'server') {
+  doImport() {
     const url  = this.contestUrl;
     const klub = this.klub.trim();
     if (!url)  { this.error.set('Wybierz zawody z listy lub wklej link.'); return; }
@@ -323,14 +319,12 @@ export class ImportComponent implements OnInit, OnDestroy {
     }
     if (!klub) { this.error.set('Wpisz nazwę klubu.'); return; }
 
-    this.loading.set(target);
+    this.loading.set(true);
     this.error.set(null);
     this.api.previewStartlist(url, klub).subscribe({
       next: res => {
         if (!res.ok) { this.fail(res.error ?? 'Błąd parsowania.'); return; }
-        const zawody = this.withContestFallbacks(res.zawody);
-        if (target === 'server') { this.saveServer(zawody); return; }
-        const item = this.local.add(zawody);
+        const item = this.local.add(this.withContestFallbacks(res.zawody));
         this.router.navigate(['/moje', item.id, 'lista']);
       },
       error: err => this.fail(err.error?.error ?? 'Błąd połączenia.'),
@@ -352,19 +346,8 @@ export class ImportComponent implements OnInit, OnDestroy {
     };
   }
 
-  private saveServer(zawody: Competition) {
-    this.api.saveStartlist(zawody).subscribe({
-      next: res => {
-        this.msg.add({ severity: 'success', summary: 'Zapisano!', detail: res.filename });
-        const slug = res.filename.replace(/\.json$/, '');
-        this.router.navigate(['/admin/zawody', slug, 'edytuj']);
-      },
-      error: err => this.fail(err.error?.error ?? 'Błąd zapisu.'),
-    });
-  }
-
   private fail(message: string) {
     this.error.set(message);
-    this.loading.set(null);
+    this.loading.set(false);
   }
 }

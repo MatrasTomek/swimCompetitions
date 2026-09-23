@@ -70,10 +70,6 @@ export class ApiService {
     });
   }
 
-  saveStartlist(zawody: Competition) {
-    return this.http.post<{ ok: boolean; filename: string }>(`${this.base}/startlist/save`, { zawody });
-  }
-
   // ── Results ─────────────────────────────────────────────────────────
   fetchResults(contestUrl: string, jsonFile: string) {
     return this.http.post<ResultFetchResponse>(`${this.base}/results/fetch`, {

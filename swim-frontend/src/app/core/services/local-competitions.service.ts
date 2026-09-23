@@ -3,7 +3,7 @@ import { Competition } from '../models';
 
 const STORAGE_KEY = 'swim_local_competitions';
 
-/** Start list imported by a visitor — kept only in this browser session, never sent to the server. */
+/** Start list imported by a visitor — kept only in this browser (localStorage), never sent to the server. */
 export interface LocalCompetition extends Competition {
   id: string;
   imported_at: string;
@@ -35,7 +35,7 @@ export class LocalCompetitionsService {
 
   private load(): LocalCompetition[] {
     try {
-      const data = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? '[]');
+      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
       return Array.isArray(data) ? data : [];
     } catch {
       return [];
@@ -45,7 +45,7 @@ export class LocalCompetitionsService {
   private persist(items: LocalCompetition[]): void {
     this._items.set(items);
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
     } catch {
       // Storage full or unavailable — keep the in-memory copy for this page view.
     }

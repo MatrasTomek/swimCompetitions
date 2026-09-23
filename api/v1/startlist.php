@@ -2,13 +2,13 @@
 /**
  * Start list import:
  *   POST /api/v1/startlist/preview → parse PDF, return zawody JSON + stats (public, rate-limited per IP)
- *   POST /api/v1/startlist/save    → write zawody JSON to zawody/ (auth required)
+ *
+ * The imported start list is kept only in the visitor's browser — it is never written to zawody/.
  */
 
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/startlist_parse.php';
-require_once __DIR__ . '/require_auth.php';
 
 function handle_startlist(string $sub, string $method): void {
     if ($method !== 'POST') {
@@ -56,33 +56,6 @@ function handle_startlist(string $sub, string $method): void {
         return;
     }
 
-    if ($sub === 'save') {
-        api_require_auth();
-
-        $zawody = $body['zawody'] ?? null;
-        if (!is_array($zawody) || empty($zawody['bloki'])) {
-            echo json_encode(['error' => 'Brak danych do zapisania.']);
-            return;
-        }
-
-        $zawody['nazwa']   = mb_substr(trim($zawody['nazwa']   ?? ''), 0, 255, 'UTF-8');
-        $zawody['miejsce'] = mb_substr(trim($zawody['miejsce'] ?? ''), 0, 100, 'UTF-8');
-        $zawody['data']    = mb_substr(trim($zawody['data']    ?? ''), 0,  30, 'UTF-8');
-        $zawody['klub']    = mb_substr(trim($zawody['klub']    ?? ''), 0, 255, 'UTF-8');
-        $zawody['basen']   = in_array($zawody['basen'] ?? '', ['25m','50m'], true) ? $zawody['basen'] : '25m';
-
-        $filename = unique_filename(slugify($zawody['nazwa'] ?: 'zawody'));
-        $dest     = ZAWODY_DIR . '/' . $filename;
-
-        if (file_put_contents($dest, json_encode($zawody, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) === false) {
-            echo json_encode(['error' => 'Nie udało się zapisać pliku.']);
-            return;
-        }
-
-        echo json_encode(['ok' => true, 'filename' => $filename], JSON_UNESCAPED_UNICODE);
-        return;
-    }
-
     http_response_code(404);
-    echo json_encode(['error' => 'Unknown action. Use: preview, save']);
+    echo json_encode(['error' => 'Unknown action. Use: preview']);
 }
