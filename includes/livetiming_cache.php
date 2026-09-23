@@ -9,6 +9,41 @@ define('LT_CACHE_TTL',     86400);   // 24 h
 define('LT_SCRAPE_TIMEOUT', 10);
 
 /**
+ * Year of a cache entry's date ("dd/mm/yyyy"), or 0 when it can't be read.
+ */
+function ltcache_entry_year(array $e): int {
+    return preg_match('/(\d{4})$/', $e['date'] ?? '', $m) ? (int)$m[1] : 0;
+}
+
+/**
+ * Only competitions from the current year onward are cached and listed —
+ * the full livetiming.pl archive goes back to 2007 (3500+ contests).
+ */
+function ltcache_in_scope(array $e): bool {
+    return ltcache_entry_year($e) >= (int)date('Y');
+}
+
+/**
+ * Reads the cached competitions, limited to the current year.
+ */
+function ltcache_load(): array {
+    if (!file_exists(LT_CACHE_FILE)) return [];
+    $data = json_decode(file_get_contents(LT_CACHE_FILE), true);
+    return array_values(array_filter($data['competitions'] ?? [], 'ltcache_in_scope'));
+}
+
+/**
+ * A cache built in a previous year (or before the year limit existed) must be rebuilt.
+ */
+function ltcache_is_fresh(): bool {
+    clearstatcache(true, LT_CACHE_FILE); // another request may have just rebuilt it
+    if (!file_exists(LT_CACHE_FILE)) return false;
+    if (time() - filemtime(LT_CACHE_FILE) >= LT_CACHE_TTL) return false;
+    $data = json_decode(file_get_contents(LT_CACHE_FILE), true);
+    return (int)($data['year'] ?? 0) === (int)date('Y');
+}
+
+/**
  * Scrapes one category page and returns an array of competition entries.
  * Each entry: {uuid, name, date, city, category}
  */
@@ -76,12 +111,9 @@ function ltcache_is_last_page(string $category, int $page): bool {
  * @return array {ok, count, duration, skipped}
  */
 function ltcache_refresh(int $max_pages_per_category = 30, bool $force = false): array {
-    clearstatcache(true, LT_CACHE_FILE); // another request may have just rebuilt it
-    if (!$force && file_exists(LT_CACHE_FILE)) {
+    if (!$force && ltcache_is_fresh()) {
         $age = time() - filemtime(LT_CACHE_FILE);
-        if ($age < LT_CACHE_TTL) {
-            return ['ok' => true, 'skipped' => true, 'reason' => 'Cache is fresh (' . round($age / 3600, 1) . 'h old)'];
-        }
+        return ['ok' => true, 'skipped' => true, 'reason' => 'Cache is fresh (' . round($age / 3600, 1) . 'h old)'];
     }
 
     $categories   = ['regional', 'national', 'calendar', 'international'];
@@ -94,6 +126,11 @@ function ltcache_refresh(int $max_pages_per_category = 30, bool $force = false):
             $entries = ltcache_scrape_page($cat, $page);
             if (empty($entries)) break; // no more results on this page → stop
 
+            // Listings are sorted newest first: once a page has nothing from the
+            // current year, every following page is older too → stop.
+            $entries = array_filter($entries, 'ltcache_in_scope');
+            if (empty($entries)) break;
+
             foreach ($entries as $e) {
                 if (isset($seen_uuids[$e['uuid']])) continue;
                 $seen_uuids[$e['uuid']] = true;
@@ -104,6 +141,7 @@ function ltcache_refresh(int $max_pages_per_category = 30, bool $force = false):
 
     $cache = [
         'updated_at'   => date('c'),
+        'year'         => (int)date('Y'),
         'competitions' => $all,
     ];
     write_json_atomic(LT_CACHE_FILE, $cache);
@@ -128,9 +166,9 @@ function ltcache_status(): array {
     return [
         'exists'     => true,
         'updated_at' => $data['updated_at'] ?? '',
-        'count'      => count($data['competitions'] ?? []),
+        'count'      => count(ltcache_load()),
         'age_hours'  => round($age / 3600, 1),
-        'is_fresh'   => $age < LT_CACHE_TTL,
+        'is_fresh'   => ltcache_is_fresh(),
     ];
 }
 
@@ -151,11 +189,11 @@ function ltcache_search(string $q, int $limit = 20): array {
     $q_norm = $norm($q);
     $tokens = array_filter(explode(' ', $q_norm), fn($t) => strlen($t) >= 2);
 
-    $data = json_decode(file_get_contents(LT_CACHE_FILE), true);
-    if (empty($data['competitions'])) return [];
+    $competitions = ltcache_load();
+    if (empty($competitions)) return [];
 
     $results = [];
-    foreach ($data['competitions'] as $c) {
+    foreach ($competitions as $c) {
         $haystack = $norm($c['name'] . ' ' . $c['city'] . ' ' . $c['date']);
 
         $matched = 0;

@@ -61,7 +61,7 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 | `includes/athlete.php` | Athlete profile load/save/dedup — `save_athlete_result()` deduplicates by competition+date+event_nr |
 | `includes/result_fetch.php` | Live-config load/save + orchestrates result fetching: `fetch_and_apply_lenex()` downloads the LENEX file for a contest and applies all results to the competition JSON in one pass |
 | `includes/lenex_fetch.php` | Low-level LENEX (.lxf) download/parsing: `lenex_download()`, `lenex_parse_xml()`, `lenex_find_athlete()` |
-| `includes/livetiming_cache.php` | livetiming.pl contest list cache (`ltcache_status()`, `ltcache_refresh()`) |
+| `includes/livetiming_cache.php` | livetiming.pl contest list cache (`ltcache_status()`, `ltcache_refresh()`) — only contests from the current year onward are scraped, cached and searched (`ltcache_in_scope()`); a cache built in an earlier year counts as stale |
 | `includes/startlist_parse.php` | Start list PDF parsing |
 | `includes/pdf_extract.php` | PDF text extraction: tries `pdftotext` (poppler-utils) first, falls back to pure PHP FlateDecode/BT-ET parser |
 
