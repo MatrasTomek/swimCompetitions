@@ -141,8 +141,18 @@ function sl_int_to_roman(int $n): string {
     return $map[$n - 1] ?? (string)$n;
 }
 
+/**
+ * A date as start lists print it: "20.09.2026", "20/9/2026" or ISO "2026-09-20"
+ * (Splash uses the date format of the PC it runs on).
+ */
+const SL_DATE_RE = '\d{1,2}[.\/]\d{1,2}[.\/]\d{4}|\d{4}-\d{1,2}-\d{1,2}';
+
+/** Any SL_DATE_RE date → "d/m/Y". */
 function sl_normalize_date_str(string $raw): string {
     $raw = trim($raw);
+    if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $raw, $m)) {
+        return (int)$m[3] . '/' . (int)$m[2] . '/' . $m[1];
+    }
     if (preg_match('/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/', $raw, $m)) {
         return (int)$m[1] . '/' . (int)$m[2] . '/' . $m[3];
     }
@@ -178,24 +188,26 @@ function sl_date_str_ts(string $d): int {
 
 /**
  * Event date/time line printed under each event header by Splash Meet Manager:
- * "20.09.2026 - 9:30" or "20/9/2026 - 13:45". Returns [date "d/m/Y", time "H:MM"] or null.
+ * "20.09.2026 - 9:30", "20/9/2026 - 13:45" or "2026-09-20 - 8:00". Returns [date "d/m/Y", time "H:MM"] or null.
  */
 function sl_match_event_when(string $trimmed): ?array {
-    if (!preg_match('/^(\d{1,2}[.\/]\d{1,2}[.\/]\d{4})\s+-\s+(\d{1,2}:\d{2})\b/', $trimmed, $m)) return null;
+    if (!preg_match('/^(' . SL_DATE_RE . ')\s+-\s+(\d{1,2}:\d{2})\b/', $trimmed, $m)) return null;
     return [sl_normalize_date_str($m[1]), $m[2]];
 }
 
 /**
  * Starts a new block (session), moving the current one — with its buffered heat — into $sessions.
+ * $nr is the session number printed in the PDF ("3 - BLOK III") — the start list may skip sessions
+ * (e.g. finals, published later), so the block keeps that number instead of a running count.
  */
 function sl_open_session(array &$sessions, ?array &$cur_session, ?array &$cur_heat, int &$session_idx,
-                         string $data = '', string $godz = ''): void {
+                         string $data = '', string $godz = '', int $nr = 0): void {
     if ($cur_session !== null) {
         sl_flush_heat($cur_session, $cur_heat);
         $sessions[] = $cur_session;
     }
     $cur_heat = null;
-    $session_idx++;
+    $session_idx = $nr > $session_idx ? $nr : $session_idx + 1;
     $cur_session = [
         'blok'       => sl_int_to_roman($session_idx),
         'data'       => $data,
@@ -451,12 +463,12 @@ function parse_startlist_text(string $text, string $club_filter, string $basen):
         // --- Session / Block ---
         // "Sesja II …" or Splash's "2 - Blok 2          20.09.2026 - 11:00"
         $splash_session = preg_match(
-            '/^\d{1,2}\s+-\s+\S.*?\s{2,}(\d{1,2}[.\/]\d{1,2}[.\/]\d{4})\s+-\s+(\d{1,2}:\d{2})\s*$/u', $trimmed, $sm);
+            '/^(\d{1,2})\s+-\s+\S.*?\s{2,}(?:' . SL_DATE_RE . ')\s+-\s+\d{1,2}:\d{2}\s*$/u', $trimmed, $sm);
         if ($splash_session || preg_match('/^(Sesja|Session)\s+([IVX]+|\d+)/iu', $trimmed)) {
             $explicit_sessions = true;
-            sl_open_session($sessions, $cur_session, $cur_heat, $session_idx);
+            sl_open_session($sessions, $cur_session, $cur_heat, $session_idx, '', '', $splash_session ? (int)$sm[1] : 0);
             $cur_event = null;
-            if (preg_match('/(\d{1,2}[.\/]\d{1,2}[.\/]\d{4})/', $trimmed, $dm)) {
+            if (preg_match('/(' . SL_DATE_RE . ')/', $trimmed, $dm)) {
                 $cur_session['data'] = sl_normalize_date_str($dm[1]);
             }
             if (preg_match('/\b(\d{1,2}:\d{2})\s*$/', $trimmed, $hm)) {
@@ -596,7 +608,7 @@ function parse_startlist_text_vertical(string $text, string $club_filter, string
             $explicit_sessions = true;
             sl_open_session($sessions, $cur_session, $cur_heat, $session_idx);
             $cur_event = null;
-            if (preg_match('/(\d{1,2}[.\/]\d{1,2}[.\/]\d{4})/', $trimmed, $dm)) {
+            if (preg_match('/(' . SL_DATE_RE . ')/', $trimmed, $dm)) {
                 $cur_session['data'] = sl_normalize_date_str($dm[1]);
             }
             continue;
@@ -611,7 +623,7 @@ function parse_startlist_text_vertical(string $text, string $club_filter, string
             if ($when !== null && $k < $n && preg_match('/^(Konkurencja|Event)\b/iu', trim($lines[$k]))) {
                 $state = 'IDLE';
                 $explicit_sessions = true;
-                sl_open_session($sessions, $cur_session, $cur_heat, $session_idx, $when[0], $when[1]);
+                sl_open_session($sessions, $cur_session, $cur_heat, $session_idx, $when[0], $when[1], (int)$trimmed);
                 $cur_event = null;
                 $i = $j;
                 continue;

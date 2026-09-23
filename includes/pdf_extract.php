@@ -2,8 +2,10 @@
 /**
  * PDF text extraction — no external Python packages.
  * Method 1: pdftotext (poppler-utils, commonly available on Linux servers).
- * Method 2: pure PHP — zlib stream decompression + BT/ET parsing.
+ * Method 2: pure PHP — layout-preserving extractor (includes/pdf_layout.php), same line format as pdftotext -layout.
+ * Method 3: pure PHP — zlib stream decompression + BT/ET parsing (one text run per line).
  */
+require_once __DIR__ . '/pdf_layout.php';
 
 function pdf_download(string $url) {
     $ctx = stream_context_create([
@@ -27,7 +29,17 @@ function pdf_extract_text(string $pdf_data): string {
         }
     }
 
-    // Method 2: pure PHP — stream decompression + BT/ET
+    // Method 2: pure PHP, keeps the layout (no pdftotext on e.g. local Windows PHP)
+    try {
+        $out = pdf_layout_extract($pdf_data);
+        if (strlen(trim($out)) > 20) {
+            return $out;
+        }
+    } catch (Throwable $e) {
+        // fall through to the simple extractor
+    }
+
+    // Method 3: pure PHP — stream decompression + BT/ET
     return pdf_extract_text_php($pdf_data);
 }
 
