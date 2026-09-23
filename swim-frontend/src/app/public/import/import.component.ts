@@ -15,6 +15,10 @@ import { Competition, LtContest, LtCacheStatus } from '../../core/models';
 
 const FORM_STORAGE_KEY = 'swim_import_form';
 
+/** Start lists are imported only from a livetiming.pl contest page (mirrors `sl_contest_uuid()` on the server). */
+const CONTEST_URL_RE =
+  /^https?:\/\/(www\.)?livetiming\.pl\/contest\/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\/?([?#].*)?$/i;
+
 /** Import form fields remembered in this browser session. */
 interface ImportFormState {
   searchQuery: string;
@@ -116,7 +120,7 @@ interface ImportFormState {
               }
 
               <details class="manual-url" [open]="!!manualUrl">
-                <summary>Masz link do zawodów? Wklej go</summary>
+                <summary>Masz link do strony zawodów na livetiming.pl? Wklej go</summary>
                 <input pInputText [(ngModel)]="manualUrl" (ngModelChange)="saveForm()"
                   placeholder="https://livetiming.pl/contest/..." class="w-full" />
               </details>
@@ -313,6 +317,10 @@ export class ImportComponent implements OnInit, OnDestroy {
     const url  = this.contestUrl;
     const klub = this.klub.trim();
     if (!url)  { this.error.set('Wybierz zawody z listy lub wklej link.'); return; }
+    if (!CONTEST_URL_RE.test(url)) {
+      this.error.set('Wklej link do strony zawodów z livetiming.pl (https://livetiming.pl/contest/…), nie do pliku PDF.');
+      return;
+    }
     if (!klub) { this.error.set('Wpisz nazwę klubu.'); return; }
 
     this.loading.set(target);
@@ -329,13 +337,16 @@ export class ImportComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Fills name/place/date missing from the PDF with what livetiming.pl listed for the chosen contest. */
+  /**
+   * Names the competition exactly as the contest search showed it, and fills place/date the server
+   * couldn't read with what livetiming.pl listed for the chosen contest.
+   */
   private withContestFallbacks(zawody: Competition): Competition {
     const c = this.contest();
     if (!c) return zawody;
     return {
       ...zawody,
-      nazwa:   zawody.nazwa   || c.name,
+      nazwa:   c.name         || zawody.nazwa,
       miejsce: zawody.miejsce || c.city,
       data:    zawody.data    || c.date,
     };

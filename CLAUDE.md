@@ -44,7 +44,7 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 | `/auth/*` | `api/v1/auth.php` | Login → JWT |
 | `/competitions[/{slug}[/pdf]]` | `api/v1/competitions.php` | CRUD + results PDF (includes `api/generuj_pdf.php`) |
 | `/athletes[/{slug}\|export]` | `api/v1/athletes.php` | Athlete profiles |
-| `/startlist/{preview\|save}` | `api/v1/startlist.php` | Start list import from livetiming.pl PDF — `preview` is public (per-IP rate limit), `save` requires auth; pool length (`basen`) is read from the contest page's `"pool":{…"length"}` data, not from the PDF or the user |
+| `/startlist/{preview\|save}` | `api/v1/startlist.php` | Start list import from livetiming.pl PDF — `preview` is public (per-IP rate limit), `save` requires auth; accepts only a `livetiming.pl/contest/{uuid}` page URL (`sl_contest_uuid()`), never a direct PDF link; name, city, dates, pool length (`basen`) and the start list PDF link (file titled "Lista startowa") are read from the contest object embedded in the contest page's `window.__data` (so the name matches the contest search); blocks come from Splash session headers (`1 - Blok 1  19.09.2026 - 16:00`), or per day from each event's `20.09.2026 - 9:30` line when the PDF has none |
 | `/results/fetch` | `api/v1/results.php` | Live result fetching |
 | `/live` | `api/v1/live.php` | Live mode config |
 | `/announcements[/{id}]` | `api/v1/announcements.php` | Announcements |
