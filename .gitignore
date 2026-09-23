@@ -7,3 +7,4 @@
 /includes/secrets.php
 /startlist_preview_rate.json
 /startlist_preview_rate.json.lock
+/livetiming_cache.json.lock

@@ -6,10 +6,12 @@
 require_once __DIR__ . '/pdf_extract.php';
 
 /**
- * Fetches the contest page HTML and finds the start list PDF link.
- * Returns the resolved absolute URL or a fallback.
+ * Fetches the contest page and reads what the start list import needs from it:
+ * the start list PDF link and the pool length.
+ *
+ * @return array{pdf_url: string, basen: string}  basen is '25m'/'50m', or '' when the page doesn't say
  */
-function resolve_startlist_pdf_url(string $contest_url): string {
+function resolve_contest_page(string $contest_url): array {
     $base = rtrim($contest_url, '/');
     $ctx  = stream_context_create([
         'http' => [
@@ -18,7 +20,32 @@ function resolve_startlist_pdf_url(string $contest_url): string {
         ],
     ]);
     $html = @file_get_contents($base, false, $ctx);
-    if ($html !== false && $html !== '') {
+    if ($html === false) $html = '';
+
+    return [
+        'pdf_url' => sl_find_startlist_pdf_url($html, $base),
+        'basen'   => sl_find_pool_length($html),
+    ];
+}
+
+/**
+ * Reads the pool length from the contest page — the start list PDF itself doesn't state it.
+ * livetiming.pl embeds it as `"pool":{"name":"Gdańsk - 25m",…,"length":"25m",…}`.
+ * Returns '25m', '50m' or ''.
+ */
+function sl_find_pool_length(string $html): string {
+    if (preg_match('/"pool"\s*:\s*\{[^{}]*"length"\s*:\s*"(25|50)\s*m"/i', $html, $m)) {
+        return $m[1] . 'm';
+    }
+    return '';
+}
+
+/**
+ * Finds the start list PDF link in the contest page HTML.
+ * Returns the resolved absolute URL or a fallback.
+ */
+function sl_find_startlist_pdf_url(string $html, string $base): string {
+    if ($html !== '') {
         if (preg_match_all('/href=["\']([^"\']*\.pdf)["\']/', $html, $m)) {
             // Prefer links that look like start lists
             foreach ($m[1] as $href) {
@@ -553,8 +580,9 @@ function parse_startlist_text_vertical(string $text, string $club_filter, string
 
 /**
  * Main entry point: resolves PDF URL, downloads, extracts text, parses, and returns result.
+ * Pool length comes from the contest page; a direct PDF link has no page to read it from, so it defaults to 25m.
  */
-function build_startlist_from_pdf(string $contest_url, string $club, string $basen = '25m'): array {
+function build_startlist_from_pdf(string $contest_url, string $club): array {
     if (!filter_var($contest_url, FILTER_VALIDATE_URL)) {
         return ['ok' => false, 'error' => 'Nieprawidłowy URL zawodów.'];
     }
@@ -562,9 +590,11 @@ function build_startlist_from_pdf(string $contest_url, string $club, string $bas
         return ['ok' => false, 'error' => 'Niedozwolony host — dozwolone są tylko adresy livetiming.pl.'];
     }
 
-    $pdf_url = preg_match('/\.pdf(\?.*)?$/i', $contest_url)
-        ? $contest_url
-        : resolve_startlist_pdf_url($contest_url);
+    $page = preg_match('/\.pdf(\?.*)?$/i', $contest_url)
+        ? ['pdf_url' => $contest_url, 'basen' => '']
+        : resolve_contest_page($contest_url);
+    $pdf_url = $page['pdf_url'];
+    $basen   = $page['basen'] ?: '25m';
 
     if ($pdf_url === '') {
         return [

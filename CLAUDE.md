@@ -44,11 +44,11 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 | `/auth/*` | `api/v1/auth.php` | Login → JWT |
 | `/competitions[/{slug}[/pdf]]` | `api/v1/competitions.php` | CRUD + results PDF (includes `api/generuj_pdf.php`) |
 | `/athletes[/{slug}\|export]` | `api/v1/athletes.php` | Athlete profiles |
-| `/startlist/{preview\|save}` | `api/v1/startlist.php` | Start list import from livetiming.pl PDF — `preview` is public (per-IP rate limit), `save` requires auth |
+| `/startlist/{preview\|save}` | `api/v1/startlist.php` | Start list import from livetiming.pl PDF — `preview` is public (per-IP rate limit), `save` requires auth; pool length (`basen`) is read from the contest page's `"pool":{…"length"}` data, not from the PDF or the user |
 | `/results/fetch` | `api/v1/results.php` | Live result fetching |
 | `/live` | `api/v1/live.php` | Live mode config |
 | `/announcements[/{id}]` | `api/v1/announcements.php` | Announcements |
-| `/contests/*` | `api/v1/contests.php` | livetiming.pl search + cache status/refresh |
+| `/contests/*` | `api/v1/contests.php` | livetiming.pl search + cache status/refresh — refresh is public but only rebuilds a stale cache (admin forces it) |
 
 ### Key includes
 
@@ -67,7 +67,7 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 
 ### Frontend — Angular SPA (`swim-frontend/`)
 
-- `src/app/public/` — home (competition grid + visitor's own imported lists), start-list, results, import (PDF start list, `/import`, no login needed)
+- `src/app/public/` — home (competition grid + visitor's own imported lists), start-list, results, import (one short form: livetiming cache status, contest search by name/city, club → `/import`, no login needed; form fields kept in `sessionStorage`)
 - `src/app/admin/` — login, competitions (list/edit), athletes, live (LENEX)
 - Visitor imports are kept only in the browser (`sessionStorage`, `LocalCompetitionsService`) and shown at `/moje/:id/lista`; a logged-in admin can additionally publish the import to the server
 - `src/app/core/` — `ApiService` (all HTTP calls, base URL from `src/environments/`), auth service + guard, error interceptor, models

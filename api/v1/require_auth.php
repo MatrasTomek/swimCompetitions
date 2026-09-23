@@ -27,6 +27,14 @@ function api_auth_header(): string {
     return '';
 }
 
+/** Returns the JWT payload when a valid Bearer token is present, null otherwise (never exits). */
+function api_optional_auth(): ?array {
+    if (!preg_match('/^Bearer\s+(.+)$/i', api_auth_header(), $m)) {
+        return null;
+    }
+    return jwt_decode($m[1], JWT_SECRET);
+}
+
 function api_require_auth(): array {
     $header = api_auth_header();
     if (!preg_match('/^Bearer\s+(.+)$/i', $header, $m)) {

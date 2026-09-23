@@ -76,6 +76,7 @@ function ltcache_is_last_page(string $category, int $page): bool {
  * @return array {ok, count, duration, skipped}
  */
 function ltcache_refresh(int $max_pages_per_category = 30, bool $force = false): array {
+    clearstatcache(true, LT_CACHE_FILE); // another request may have just rebuilt it
     if (!$force && file_exists(LT_CACHE_FILE)) {
         $age = time() - filemtime(LT_CACHE_FILE);
         if ($age < LT_CACHE_TTL) {
