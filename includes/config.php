@@ -51,9 +51,12 @@ define('ZAPOWIEDZI_FILE', __DIR__ . '/../zapowiedzi.json');
 // JWT token time-to-live in seconds (default: 24 h)
 define('JWT_TTL', 86400);
 
-// Allowed CORS origin for the Angular SPA
-// Change to production URL when deploying (e.g. 'https://swim.example.com')
-define('CORS_ALLOWED_ORIGIN', 'http://localhost:4200');
+// Allowed CORS origin for the Angular SPA. The production domain is set in
+// gitignored includes/secrets.php so it is not committed; without it the
+// local dev server origin is allowed.
+if (!defined('CORS_ALLOWED_ORIGIN')) {
+    define('CORS_ALLOWED_ORIGIN', 'http://localhost:4200');
+}
 
 // ============================================================
 // Login rate limiting (api/v1/auth.php)
@@ -68,8 +71,7 @@ define('LOGIN_LOCKOUT_SECONDS', 300); // 5 min
 // Preview is available without login and triggers a server-side PDF
 // download + parse, so it is throttled per IP.
 // ============================================================
-// TEMP: limit tymczasowo wyłączony — ustaw na true, żeby go przywrócić.
-define('STARTLIST_PREVIEW_RATE_LIMIT', false);
+define('STARTLIST_PREVIEW_RATE_LIMIT', true);
 define('STARTLIST_PREVIEW_RATE_FILE', __DIR__ . '/../startlist_preview_rate.json');
 define('STARTLIST_PREVIEW_MAX',       20);   // requests per window
 define('STARTLIST_PREVIEW_WINDOW',    3600); // 1 h

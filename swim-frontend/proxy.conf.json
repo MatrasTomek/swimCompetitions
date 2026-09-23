@@ -1,9 +1,0 @@
-{
-  "/api/v1/index.php": {
-    "_comment": "Zmiana target na 127.0.0.1:8000 jest tylko do pracy lokalnej. Przed wypchnięciem zmian na produkcję przywróć tu https://www.zawody.developerweb.pl, bo inaczej wdrożenie/dev innych osób przestanie działać.",
-    "target": "http://127.0.0.1:8000",
-    "secure": false,
-    "changeOrigin": true,
-    "logLevel": "debug"
-  }
-}

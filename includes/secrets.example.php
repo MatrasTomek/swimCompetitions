@@ -11,3 +11,7 @@ define('ADMIN_PASSWORD_HASH', 'CHANGE_THIS_PASSWORD_HASH');
 // JWT signing secret — a long random string (64+ chars recommended). Generate with:
 //   php -r "echo bin2hex(random_bytes(32));"
 define('JWT_SECRET', 'CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_STRING_AT_LEAST_64_CHARS_RECOMMENDED');
+
+// Origin of the Angular SPA in production (scheme + host, no trailing slash).
+// Omit locally — the dev server origin http://localhost:4200 is used then.
+// define('CORS_ALLOWED_ORIGIN', 'https://www.example.com');
