@@ -839,6 +839,13 @@ function build_startlist_from_pdf(string $contest_url, string $club): array {
         if ($page[$field] !== '') $zawody[$field] = $page[$field];
     }
     $starts = array_sum(array_map(fn($b) => count($b['starty']), $zawody['bloki']));
+    if ($starts === 0) {
+        return [
+            'ok'      => false,
+            'error'   => 'Nie ma takiego klubu na liście startowej: „' . $club . '”. Sprawdź pisownię nazwy klubu.',
+            'pdf_url' => $pdf_url,
+        ];
+    }
     $athletes = [];
     foreach ($zawody['bloki'] as $b) {
         foreach ($b['starty'] as $s) {
