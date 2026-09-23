@@ -34,7 +34,17 @@ function normalize(s: string): string {
             @if (competition()!.basen)   { <span>🏊 Basen {{ competition()!.basen }}</span> }
           </div>
           <div class="sl-actions">
-            <input pInputText placeholder="Szukaj zawodnika..." [ngModel]="query()" (ngModelChange)="query.set($event)" class="search-input" />
+            <span class="swim-search" [class.swim-search--active]="filterActive()">
+              <input #searchInput pInputText placeholder="Szukaj zawodnika..." [ngModel]="query()" (ngModelChange)="query.set($event)"
+                (keydown.escape)="query.set('')" class="search-input" />
+              @if (query()) {
+                <button type="button" class="swim-search__clear" title="Wyczyść wyszukiwanie" aria-label="Wyczyść wyszukiwanie"
+                  (click)="query.set(''); searchInput.focus()"><i class="pi pi-times"></i></button>
+              }
+            </span>
+            @if (filterActive()) {
+              <span class="swim-filter-badge">🔍 Filtr aktywny: {{ filteredCount() }} {{ startsLabel(filteredCount()) }}</span>
+            }
             @if (slug && !isLocal) {
               <a [href]="pdfUrl" target="_blank" rel="noopener" class="pdf-btn">⬇ PDF wyniki</a>
             }
@@ -78,7 +88,7 @@ function normalize(s: string): string {
 .local-note   { color: var(--swim-muted); font-size: .8rem; margin: .25rem 0 0; }
     .sl-meta      { display: flex; gap: 1rem; color: var(--swim-muted); font-size: .9rem; margin: .5rem 0 1rem; }
     .sl-actions   { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-    .search-input { background: #1c1c1c; border-color: #333; color: #fff; min-width: 220px; }
+    .search-input { background: #1c1c1c; border-color: #333; color: #fff; min-width: 240px; }
     .pdf-btn      { color: var(--swim-gold); border: 1px solid var(--swim-gold); border-radius: 4px; padding: .4rem .8rem; text-decoration: none; font-size: .85rem; }
     .center-spin  { display: flex; justify-content: center; padding: 3rem; }
     .empty        { color: var(--swim-muted); text-align: center; padding: 2rem; }
@@ -123,6 +133,16 @@ export class StartListComponent implements OnInit {
       })
     })).filter(b => b.starty.length > 0);
   });
+
+  filterActive = computed(() => this.query().trim() !== '');
+  filteredCount = computed(() => this.filteredBloki().reduce((n, b) => n + b.starty.length, 0));
+
+  /** Polish plural: 1 start, 2–4 starty (but 12–14 startów), otherwise startów. */
+  startsLabel(n: number): string {
+    if (n === 1) return 'start';
+    const d = n % 10, dd = n % 100;
+    return d >= 2 && d <= 4 && (dd < 12 || dd > 14) ? 'starty' : 'startów';
+  }
 
   ngOnInit() {
     this.isLocal = !!this.route.snapshot.data['local'];

@@ -21,8 +21,19 @@ import { AthleteRow } from '../../core/models';
       </div>
 
       <div class="search-row">
-        <input pInputText [(ngModel)]="query" (ngModelChange)="search()" placeholder="Szukaj po imieniu, nazwisku, klubie..." class="search-input" />
-        <span class="count">{{ total() }} zawodników</span>
+        <span class="swim-search search-box" [class.swim-search--active]="query.trim()">
+          <input #searchInput pInputText [(ngModel)]="query" (ngModelChange)="search()" (keydown.escape)="clearSearch()"
+            placeholder="Szukaj po imieniu, nazwisku, klubie..." class="search-input" />
+          @if (query) {
+            <button type="button" class="swim-search__clear" title="Wyczyść wyszukiwanie" aria-label="Wyczyść wyszukiwanie"
+              (click)="clearSearch(); searchInput.focus()"><i class="pi pi-times"></i></button>
+          }
+        </span>
+        @if (query.trim()) {
+          <span class="swim-filter-badge">🔍 Filtr aktywny: {{ total() }} zawodników</span>
+        } @else {
+          <span class="count">{{ total() }} zawodników</span>
+        }
       </div>
 
       @if (loadError()) {
@@ -55,7 +66,8 @@ import { AthleteRow } from '../../core/models';
     .page-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
     .export-btn   { color: var(--swim-gold); border: 1px solid var(--swim-gold); border-radius: 4px; padding: .4rem .8rem; text-decoration: none; font-size: .85rem; }
     .search-row   { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
-    .search-input { flex: 1; background: #1c1c1c; border-color: #333; color: #fff; }
+    .search-box   { flex: 1; }
+    .search-input { background: #1c1c1c; border-color: #333; color: #fff; }
     .count        { color: var(--swim-muted); font-size: .85rem; white-space: nowrap; }
     .center-spin  { display: flex; justify-content: center; padding: 3rem; }
     .download-link{ color: var(--swim-gold); }
@@ -104,6 +116,13 @@ export class AthletesComponent implements OnInit {
   }
 
   search() { this.page = 1; this.requests.next(300); }
+
+  clearSearch() {
+    if (!this.query) return;
+    this.query = '';
+    this.page = 1;
+    this.requests.next(0);
+  }
 
   onPage(event: any) { this.page = Math.floor(event.first / event.rows) + 1; this.requests.next(0); }
 }
