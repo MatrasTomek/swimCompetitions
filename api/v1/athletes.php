@@ -10,6 +10,18 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/require_auth.php';
 
+/**
+ * Lowercases (UTF-8 aware) and folds Polish diacritics for athlete search.
+ * E.g. "WĄS Łucja" → "was lucja".
+ */
+function athlete_search_normalize(string $s): string {
+    static $map = [
+        'ą'=>'a','ć'=>'c','ę'=>'e','ł'=>'l','ń'=>'n','ó'=>'o','ś'=>'s','ź'=>'z','ż'=>'z',
+        'Ą'=>'a','Ć'=>'c','Ę'=>'e','Ł'=>'l','Ń'=>'n','Ó'=>'o','Ś'=>'s','Ź'=>'z','Ż'=>'z',
+    ];
+    return mb_strtolower(trim(strtr($s, $map)), 'UTF-8');
+}
+
 function handle_athletes(string $slug, string $method): void {
     api_require_auth();
 
@@ -60,7 +72,9 @@ function handle_athletes(string $slug, string $method): void {
         return;
     }
 
-    $q       = strtolower(trim($_GET['q'] ?? ''));
+    // Every query word must appear somewhere in name/surname/club, in any order
+    // ("Wąs Amelia" and "amelia was" both match), ignoring case and Polish diacritics.
+    $terms   = preg_split('/\s+/u', athlete_search_normalize((string)($_GET['q'] ?? '')), -1, PREG_SPLIT_NO_EMPTY);
     $page    = max(1, (int)($_GET['page']     ?? 1));
     $perPage = min(200, max(1, (int)($_GET['per_page'] ?? 50)));
 
@@ -79,9 +93,11 @@ function handle_athletes(string $slug, string $method): void {
             'klub'          => $data['klub']          ?? '',
             'starty'        => count($data['starty']  ?? []),
         ];
-        if ($q !== '') {
-            $haystack = strtolower($row['imie'] . ' ' . $row['nazwisko'] . ' ' . $row['klub']);
-            if (strpos($haystack, $q) === false) continue;
+        if ($terms) {
+            $haystack = athlete_search_normalize($row['nazwisko'] . ' ' . $row['imie'] . ' ' . $row['klub']);
+            foreach ($terms as $term) {
+                if (strpos($haystack, $term) === false) continue 2;
+            }
         }
         $athletes[] = $row;
     }

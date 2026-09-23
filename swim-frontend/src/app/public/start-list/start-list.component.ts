@@ -8,6 +8,11 @@ import { ApiService } from '../../core/services/api.service';
 import { LocalCompetitionsService } from '../../core/services/local-competitions.service';
 import { Competition, Blok, Start } from '../../core/models';
 
+/** Lowercases and strips diacritics (incl. "ł", which NFD doesn't decompose). */
+function normalize(s: string): string {
+  return (s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
+}
+
 @Component({
   selector: 'app-start-list',
   imports: [RouterLink, FormsModule, InputText, ProgressSpinner, HeaderComponent],
@@ -29,7 +34,7 @@ import { Competition, Blok, Start } from '../../core/models';
             @if (competition()!.basen)   { <span>🏊 Basen {{ competition()!.basen }}</span> }
           </div>
           <div class="sl-actions">
-            <input pInputText placeholder="Szukaj zawodnika..." [(ngModel)]="query" class="search-input" />
+            <input pInputText placeholder="Szukaj zawodnika..." [ngModel]="query()" (ngModelChange)="query.set($event)" class="search-input" />
             @if (slug && !isLocal) {
               <a [href]="pdfUrl" target="_blank" rel="noopener" class="pdf-btn">⬇ PDF wyniki</a>
             }
@@ -96,7 +101,7 @@ export class StartListComponent implements OnInit {
   loading = signal(true);
   competition = signal<Competition | null>(null);
   loadError = signal<string | null>(null);
-  query = '';
+  query = signal('');
   slug = '';
   isLocal = false;
 
@@ -107,13 +112,15 @@ export class StartListComponent implements OnInit {
   filteredBloki = computed(() => {
     const comp = this.competition();
     if (!comp?.bloki) return [];
-    const q = this.query.toLowerCase();
-    if (!q) return comp.bloki;
+    // Every query word must match the athlete or event, in any order ("amelia wąs" finds "Wąs Amelia").
+    const terms = normalize(this.query()).split(/\s+/).filter(Boolean);
+    if (!terms.length) return comp.bloki;
     return comp.bloki.map(blok => ({
       ...blok,
-      starty: blok.starty.filter(s =>
-        s.imie.toLowerCase().includes(q) || s.konkurencja.toLowerCase().includes(q)
-      )
+      starty: blok.starty.filter(s => {
+        const haystack = normalize(`${s.imie} ${s.konkurencja}`);
+        return terms.every(t => haystack.includes(t));
+      })
     })).filter(b => b.starty.length > 0);
   });
 

@@ -1,4 +1,6 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, OnInit, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subject, timer, switchMap, catchError, of } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { InputText } from 'primeng/inputtext';
@@ -19,18 +21,18 @@ import { AthleteRow } from '../../core/models';
       </div>
 
       <div class="search-row">
-        <input pInputText [(ngModel)]="query" (input)="search()" placeholder="Szukaj po imieniu, nazwisku, klubie..." class="search-input" />
+        <input pInputText [(ngModel)]="query" (ngModelChange)="search()" placeholder="Szukaj po imieniu, nazwisku, klubie..." class="search-input" />
         <span class="count">{{ total() }} zawodników</span>
       </div>
 
       @if (loadError()) {
         <p class="load-error">⚠ {{ loadError() }}</p>
       }
-      @if (loading()) {
+      @if (loading() && !loaded) {
         <div class="center-spin"><p-progressSpinner /></div>
       } @else {
-        <p-table [value]="athletes()" styleClass="swim-datatable"
-          [paginator]="true" [rows]="50" [totalRecords]="total()" [lazy]="true"
+        <p-table [value]="athletes()" styleClass="swim-datatable" [loading]="loading()"
+          [paginator]="true" [rows]="50" [first]="(page - 1) * 50" [totalRecords]="total()" [lazy]="true"
           (onPage)="onPage($event)">
           <ng-template pTemplate="header">
             <tr><th>Nazwisko</th><th>Imię</th><th>Rok ur.</th><th>Klub</th><th>Startów</th><th></th></tr>
@@ -68,26 +70,40 @@ export class AthletesComponent implements OnInit {
   loadError = signal<string | null>(null);
   query     = '';
   page      = 1;
+  loaded    = false;
+
+  private readonly requests = new Subject<number>();  // debounce delay in ms
+  private readonly destroyRef = inject(DestroyRef);
 
   athleteUrl(file: string): string {
     return this.api.getAthleteFileUrl(file);
   }
 
-  ngOnInit() { this.load(); }
-
-  search() { this.page = 1; this.load(); }
-
-  onPage(event: any) { this.page = Math.floor(event.first / event.rows) + 1; this.load(); }
-
-  private load() {
-    this.loading.set(true);
-    this.loadError.set(null);
-    this.api.getAthletes(this.query, this.page).subscribe({
-      next: res => { this.athletes.set(res.athletes); this.total.set(res.total); this.loading.set(false); },
-      error: err => {
-        this.loading.set(false);
-        this.loadError.set(err.error?.error ?? 'Nie udało się wczytać zawodników.');
-      },
+  ngOnInit() {
+    // switchMap cancels the in-flight request, so a slow earlier query can't overwrite newer results.
+    this.requests.pipe(
+      switchMap(delay => timer(delay).pipe(
+        switchMap(() => {
+          this.loading.set(true);
+          this.loadError.set(null);
+          return this.api.getAthletes(this.query.trim(), this.page).pipe(
+            catchError(err => {
+              this.loadError.set(err.error?.error ?? 'Nie udało się wczytać zawodników.');
+              return of(null);
+            }),
+          );
+        }),
+      )),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(res => {
+      if (res) { this.athletes.set(res.athletes); this.total.set(res.total); }
+      this.loading.set(false);
+      this.loaded = true;
     });
+    this.requests.next(0);
   }
+
+  search() { this.page = 1; this.requests.next(300); }
+
+  onPage(event: any) { this.page = Math.floor(event.first / event.rows) + 1; this.requests.next(0); }
 }
