@@ -5,3 +5,5 @@
 /livetiming_cache.json
 /login_attempts.json
 /includes/secrets.php
+/startlist_preview_rate.json
+/startlist_preview_rate.json.lock

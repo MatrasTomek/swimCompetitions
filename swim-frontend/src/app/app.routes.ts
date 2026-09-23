@@ -15,6 +15,15 @@ export const routes: Routes = [
     loadComponent: () => import('./public/results/results.component').then(m => m.ResultsComponent),
   },
   {
+    path: 'import',
+    loadComponent: () => import('./public/import/import.component').then(m => m.ImportComponent),
+  },
+  {
+    path: 'moje/:id/lista',
+    loadComponent: () => import('./public/start-list/start-list.component').then(m => m.StartListComponent),
+    data: { local: true },
+  },
+  {
     path: 'admin/login',
     loadComponent: () => import('./admin/login/login.component').then(m => m.LoginComponent),
   },
@@ -34,10 +43,6 @@ export const routes: Routes = [
       {
         path: 'zawody/:slug/edytuj',
         loadComponent: () => import('./admin/competitions/competition-form.component').then(m => m.CompetitionFormComponent),
-      },
-      {
-        path: 'import',
-        loadComponent: () => import('./admin/import/import.component').then(m => m.ImportComponent),
       },
       {
         path: 'zawodnicy',

@@ -7,6 +7,7 @@ import { Tag } from 'primeng/tag';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { HeaderComponent } from '../../shared/header/header.component';
 import { ApiService } from '../../core/services/api.service';
+import { LocalCompetitionsService } from '../../core/services/local-competitions.service';
 import { Competition } from '../../core/models';
 
 @Component({
@@ -19,7 +20,30 @@ import { Competition } from '../../core/models';
         <input pInputText placeholder="Szukaj zawodów..." [(ngModel)]="query" class="search-input" />
         <p-selectbutton [options]="scopeOpts" [(ngModel)]="scope" optionLabel="label" optionValue="value" />
         <p-selectbutton [options]="viewOpts" [(ngModel)]="view" optionLabel="label" optionValue="value" />
+        <a routerLink="/import" class="card-link gold import-link">⇪ Import PDF</a>
       </div>
+
+      @if (local.items().length > 0) {
+        <section class="local-section">
+          <h2 class="local-title">Moje listy <small>(tylko w tej przeglądarce)</small></h2>
+          <div class="competition-grid">
+            @for (c of local.items(); track c.id) {
+              <div class="competition-card">
+                <div class="competition-card__name">{{ c.nazwa }}</div>
+                <div class="competition-card__meta">
+                  @if (c.data)    { <span>📅 {{ c.data }}</span> }
+                  @if (c.miejsce) { <span>📍 {{ c.miejsce }}</span> }
+                  @if (c.klub)    { <span>🏊 {{ c.klub }}</span> }
+                </div>
+                <div class="competition-card__actions">
+                  <a [routerLink]="['/moje', c.id, 'lista']" class="card-link">Lista startowa</a>
+                  <button type="button" class="card-link remove-btn" (click)="local.remove(c.id)">Usuń</button>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
 
       @if (loadError()) {
         <p class="empty error-text">⚠ {{ loadError() }}</p>
@@ -86,6 +110,12 @@ import { Competition } from '../../core/models';
     .card-link:hover { border-color: var(--swim-gold); color: var(--swim-gold); }
     .card-link.gold  { color: var(--swim-gold); border-color: var(--swim-gold); }
     .announcement { opacity: .7; }
+    .import-link  { padding: .45rem .8rem; font-size: .85rem; }
+    .local-section { margin-bottom: 2rem; }
+    .local-title  { color: var(--swim-gold); font-size: 1.05rem; margin: 0 0 .75rem; }
+    .local-title small { color: var(--swim-muted); font-weight: 400; font-size: .8rem; }
+    .remove-btn   { background: none; cursor: pointer; font-family: inherit; }
+    .remove-btn:hover { border-color: var(--swim-red); color: var(--swim-red); }
     .swim-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
     .swim-table th, .swim-table td { padding: .6rem .8rem; border-bottom: 1px solid var(--swim-border); text-align: left; }
     .swim-table th { color: var(--swim-gold); font-weight: 600; }
@@ -95,6 +125,7 @@ import { Competition } from '../../core/models';
 })
 export class HomeComponent implements OnInit {
   private api = inject(ApiService);
+  readonly local = inject(LocalCompetitionsService);
 
   loading   = signal(true);
   loadError = signal<string | null>(null);

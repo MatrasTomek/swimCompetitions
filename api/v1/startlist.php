@@ -1,8 +1,8 @@
 <?php
 /**
- * Start list import (auth required):
- *   POST /api/v1/startlist/preview → parse PDF, return zawody JSON + stats
- *   POST /api/v1/startlist/save    → write zawody JSON to zawody/
+ * Start list import:
+ *   POST /api/v1/startlist/preview → parse PDF, return zawody JSON + stats (public, rate-limited per IP)
+ *   POST /api/v1/startlist/save    → write zawody JSON to zawody/ (auth required)
  */
 
 require_once __DIR__ . '/../../includes/config.php';
@@ -11,8 +11,6 @@ require_once __DIR__ . '/../../includes/startlist_parse.php';
 require_once __DIR__ . '/require_auth.php';
 
 function handle_startlist(string $sub, string $method): void {
-    api_require_auth();
-
     if ($method !== 'POST') {
         http_response_code(405);
         echo json_encode(['error' => 'Method Not Allowed']);
@@ -22,6 +20,12 @@ function handle_startlist(string $sub, string $method): void {
     $body = json_decode(file_get_contents('php://input'), true) ?? [];
 
     if ($sub === 'preview') {
+        if (STARTLIST_PREVIEW_RATE_LIMIT && startlist_preview_rate_limited($_SERVER['REMOTE_ADDR'] ?? 'unknown')) {
+            http_response_code(429);
+            echo json_encode(['error' => 'Zbyt wiele zapytań. Spróbuj ponownie później.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
         $contest_url = trim($body['contest_url'] ?? '');
         $klub        = trim($body['klub']        ?? '');
         $basen       = in_array($body['basen'] ?? '', ['25m','50m'], true) ? $body['basen'] : '25m';
@@ -54,6 +58,8 @@ function handle_startlist(string $sub, string $method): void {
     }
 
     if ($sub === 'save') {
+        api_require_auth();
+
         $zawody = $body['zawody'] ?? null;
         if (!is_array($zawody) || empty($zawody['bloki'])) {
             echo json_encode(['error' => 'Brak danych do zapisania.']);

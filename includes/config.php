@@ -63,5 +63,16 @@ define('LOGIN_MAX_ATTEMPTS',    5);
 define('LOGIN_WINDOW_SECONDS',  900); // 15 min
 define('LOGIN_LOCKOUT_SECONDS', 300); // 5 min
 
+// ============================================================
+// Public start list preview rate limiting (api/v1/startlist.php)
+// Preview is available without login and triggers a server-side PDF
+// download + parse, so it is throttled per IP.
+// ============================================================
+// TEMP: limit tymczasowo wyłączony — ustaw na true, żeby go przywrócić.
+define('STARTLIST_PREVIEW_RATE_LIMIT', false);
+define('STARTLIST_PREVIEW_RATE_FILE', __DIR__ . '/../startlist_preview_rate.json');
+define('STARTLIST_PREVIEW_MAX',       20);   // requests per window
+define('STARTLIST_PREVIEW_WINDOW',    3600); // 1 h
+
 // Only livetiming.pl contest URLs may be fetched server-side (SSRF guard)
 define('ALLOWED_CONTEST_HOST_SUFFIX', 'livetiming.pl');

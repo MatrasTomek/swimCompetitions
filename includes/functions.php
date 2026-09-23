@@ -122,6 +122,34 @@ function login_rate_limit_clear(string $ip): void {
     });
 }
 
+/**
+ * Per-IP sliding-window limiter for the public start list preview.
+ * Records the request and returns true when $ip exceeded STARTLIST_PREVIEW_MAX
+ * requests within STARTLIST_PREVIEW_WINDOW seconds.
+ */
+function startlist_preview_rate_limited(string $ip): bool {
+    return (bool)with_file_lock(STARTLIST_PREVIEW_RATE_FILE . '.lock', function () use ($ip) {
+        $data = [];
+        if (file_exists(STARTLIST_PREVIEW_RATE_FILE)) {
+            $data = json_decode(file_get_contents(STARTLIST_PREVIEW_RATE_FILE), true);
+            if (!is_array($data)) $data = [];
+        }
+        $now    = time();
+        $cutoff = $now - STARTLIST_PREVIEW_WINDOW;
+
+        foreach ($data as $k => $hits) {
+            $data[$k] = array_values(array_filter((array)$hits, fn($t) => $t > $cutoff));
+            if (!$data[$k]) unset($data[$k]);
+        }
+
+        $limited = count($data[$ip] ?? []) >= STARTLIST_PREVIEW_MAX;
+        if (!$limited) $data[$ip][] = $now;
+
+        write_json_atomic(STARTLIST_PREVIEW_RATE_FILE, $data);
+        return $limited;
+    });
+}
+
 function validate_json_upload(array $file): array {
     if ($file['error'] !== UPLOAD_ERR_OK) {
         return ['ok' => false, 'msg' => 'Błąd przesyłania pliku (kod ' . $file['error'] . ').'];

@@ -11,16 +11,18 @@ import { Toast } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { HeaderComponent } from '../../shared/header/header.component';
 import { ApiService } from '../../core/services/api.service';
-import { Competition, StartlistPreviewResponse, LtContest, LtCacheStatus } from '../../core/models';
+import { AuthService } from '../../core/services/auth.service';
+import { LocalCompetitionsService } from '../../core/services/local-competitions.service';
+import { StartlistPreviewResponse, LtContest, LtCacheStatus } from '../../core/models';
 
 @Component({
   selector: 'app-import',
   imports: [FormsModule, RouterLink, Steps, InputText, SelectButton, Button, Message, Card, Toast, HeaderComponent],
   providers: [MessageService],
   template: `
-    <app-header [isAdmin]="true" />
+    <app-header [isAdmin]="auth.isLoggedIn()" />
     <div class="swim-page">
-      <a routerLink="/admin/zawody" class="back">← Lista zawodów</a>
+      <a routerLink="/" class="back">← Zawody</a>
       <h1 class="swim-page-title">Import listy startowej z PDF</h1>
 
       <p-steps [model]="steps" [activeIndex]="activeStep" styleClass="import-steps" />
@@ -47,7 +49,7 @@ import { Competition, StartlistPreviewResponse, LtContest, LtCacheStatus } from 
               </span>
               @if (cacheRefreshing()) {
                 <span class="cache-refreshing"><span class="lt-spinner"></span>…Trwa łączenie z LiveTiming</span>
-              } @else if (cacheStatus() && !cacheStatus()!.is_fresh) {
+              } @else if (auth.isLoggedIn() && cacheStatus() && !cacheStatus()!.is_fresh) {
                 <p-button
                   label="↺ Odśwież"
                   size="small"
@@ -97,8 +99,8 @@ import { Competition, StartlistPreviewResponse, LtContest, LtCacheStatus } from 
 
             @if (searchQuery.length >= 2 && !searchLoading() && searchResults().length === 0) {
               <div class="search-hint">
-                Nie znaleziono. Spróbuj innej frazy lub
-                <button type="button" class="link-btn" (click)="doRefreshCache()">odśwież cache</button>.
+                Nie znaleziono. Spróbuj innej frazy@if (auth.isLoggedIn()) { lub
+                <button type="button" class="link-btn" (click)="doRefreshCache()">odśwież cache</button>}.
               </div>
             }
 
@@ -156,9 +158,15 @@ import { Competition, StartlistPreviewResponse, LtContest, LtCacheStatus } from 
               </div>
             </div>
             @if (saveError()) { <p-message severity="error" [text]="saveError()!" /> }
+            <small class="hint">
+              „Zapisz” przechowuje listę tylko w tej przeglądarce (do zamknięcia karty) — nie jest publikowana na stronie.
+            </small>
             <div class="step-btns">
               <p-button label="← Wróć" severity="secondary" (onClick)="activeStep=0" />
-              <p-button label="Zapisz →" [loading]="saveLoading()" (onClick)="doSave()" />
+              <p-button label="Zapisz →" (onClick)="doSaveLocal()" />
+              @if (auth.isLoggedIn()) {
+                <p-button label="Opublikuj na serwerze" severity="secondary" [loading]="saveLoading()" (onClick)="doSaveServer()" />
+              }
             </div>
 
             @if (preview()!.raw_text) {
@@ -223,6 +231,8 @@ export class ImportComponent implements OnInit, OnDestroy {
   private api    = inject(ApiService);
   private router = inject(Router);
   private msg    = inject(MessageService);
+  private local  = inject(LocalCompetitionsService);
+  readonly auth  = inject(AuthService);
 
   // ── Search state ─────────────────────────────────────────────────────
   searchQuery   = '';
@@ -320,7 +330,14 @@ export class ImportComponent implements OnInit, OnDestroy {
     });
   }
 
-  doSave() {
+  doSaveLocal() {
+    const zawody = this.preview()?.zawody;
+    if (!zawody) return;
+    const item = this.local.add(zawody);
+    this.router.navigate(['/moje', item.id, 'lista']);
+  }
+
+  doSaveServer() {
     const zawody = this.preview()?.zawody;
     if (!zawody) return;
     this.saveLoading.set(true);

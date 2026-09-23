@@ -44,7 +44,7 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 | `/auth/*` | `api/v1/auth.php` | Login → JWT |
 | `/competitions[/{slug}[/pdf]]` | `api/v1/competitions.php` | CRUD + results PDF (includes `api/generuj_pdf.php`) |
 | `/athletes[/{slug}\|export]` | `api/v1/athletes.php` | Athlete profiles |
-| `/startlist/{preview\|save}` | `api/v1/startlist.php` | Start list import from livetiming.pl PDF |
+| `/startlist/{preview\|save}` | `api/v1/startlist.php` | Start list import from livetiming.pl PDF — `preview` is public (per-IP rate limit), `save` requires auth |
 | `/results/fetch` | `api/v1/results.php` | Live result fetching |
 | `/live` | `api/v1/live.php` | Live mode config |
 | `/announcements[/{id}]` | `api/v1/announcements.php` | Announcements |
@@ -67,8 +67,9 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 
 ### Frontend — Angular SPA (`swim-frontend/`)
 
-- `src/app/public/` — home (competition grid), start-list, results
-- `src/app/admin/` — login, competitions (list/edit), athletes, import (PDF start list), live (LENEX)
+- `src/app/public/` — home (competition grid + visitor's own imported lists), start-list, results, import (PDF start list, `/import`, no login needed)
+- `src/app/admin/` — login, competitions (list/edit), athletes, live (LENEX)
+- Visitor imports are kept only in the browser (`sessionStorage`, `LocalCompetitionsService`) and shown at `/moje/:id/lista`; a logged-in admin can additionally publish the import to the server
 - `src/app/core/` — `ApiService` (all HTTP calls, base URL from `src/environments/`), auth service + guard, error interceptor, models
 - Standalone components with signals; PrimeNG for UI
 
@@ -94,6 +95,7 @@ Only `http(s)://livetiming.pl` (or a subdomain) URLs are fetched server-side —
 ## Security Patterns
 
 - API auth via JWT (`Authorization: Bearer`, HS256, mandatory `exp`), issued on login; mutating endpoints require auth
+- Public start list preview (`POST /startlist/preview`) is rate-limited per IP (`startlist_preview_rate_limited()`, `STARTLIST_PREVIEW_*` in config) since it triggers a server-side PDF download — **temporarily disabled** via `STARTLIST_PREVIEW_RATE_LIMIT = false`
 - Login endpoint is rate-limited per IP (`login_rate_limit_*()` in `includes/functions.php`) — 5 failed attempts locks out for 5 minutes
 - Secrets (`ADMIN_PASSWORD_HASH`, `JWT_SECRET`) live in gitignored `includes/secrets.php`, never committed; `config.php` refuses to boot with a missing/placeholder secret
 - Admin-supplied `contest_url` (results fetch, live config, start-list import) is restricted to the `livetiming.pl` host via `is_allowed_contest_host()` — an SSRF guard, since these trigger server-side HTTP requests

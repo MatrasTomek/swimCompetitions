@@ -5,6 +5,7 @@ import { InputText } from 'primeng/inputtext';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { HeaderComponent } from '../../shared/header/header.component';
 import { ApiService } from '../../core/services/api.service';
+import { LocalCompetitionsService } from '../../core/services/local-competitions.service';
 import { Competition, Blok, Start } from '../../core/models';
 
 @Component({
@@ -19,6 +20,9 @@ import { Competition, Blok, Start } from '../../core/models';
         <div class="sl-header">
           <a routerLink="/" class="back">← Zawody</a>
           <h1 class="swim-page-title">{{ competition()!.nazwa }}</h1>
+          @if (isLocal) {
+            <p class="local-note">Lista zaimportowana przez Ciebie — widoczna tylko w tej przeglądarce.</p>
+          }
           <div class="sl-meta">
             @if (competition()!.data)    { <span>📅 {{ competition()!.data }}</span> }
             @if (competition()!.miejsce) { <span>📍 {{ competition()!.miejsce }}</span> }
@@ -26,7 +30,7 @@ import { Competition, Blok, Start } from '../../core/models';
           </div>
           <div class="sl-actions">
             <input pInputText placeholder="Szukaj zawodnika..." [(ngModel)]="query" class="search-input" />
-            @if (slug) {
+            @if (slug && !isLocal) {
               <a [href]="pdfUrl" target="_blank" rel="noopener" class="pdf-btn">⬇ PDF wyniki</a>
             }
           </div>
@@ -66,6 +70,7 @@ import { Competition, Blok, Start } from '../../core/models';
     .sl-header    { margin-bottom: 1.5rem; }
     .back         { color: var(--swim-muted); font-size: .85rem; text-decoration: none; }
     .back:hover   { color: var(--swim-gold); }
+.local-note   { color: var(--swim-muted); font-size: .8rem; margin: .25rem 0 0; }
     .sl-meta      { display: flex; gap: 1rem; color: var(--swim-muted); font-size: .9rem; margin: .5rem 0 1rem; }
     .sl-actions   { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
     .search-input { background: #1c1c1c; border-color: #333; color: #fff; min-width: 220px; }
@@ -86,12 +91,14 @@ import { Competition, Blok, Start } from '../../core/models';
 export class StartListComponent implements OnInit {
   private api    = inject(ApiService);
   private route  = inject(ActivatedRoute);
+  private local  = inject(LocalCompetitionsService);
 
   loading = signal(true);
   competition = signal<Competition | null>(null);
   loadError = signal<string | null>(null);
   query = '';
   slug = '';
+  isLocal = false;
 
   get pdfUrl(): string {
     return this.api.getCompetitionPdfUrl(this.slug);
@@ -111,6 +118,13 @@ export class StartListComponent implements OnInit {
   });
 
   ngOnInit() {
+    this.isLocal = !!this.route.snapshot.data['local'];
+    if (this.isLocal) {
+      this.competition.set(this.local.get(this.route.snapshot.paramMap.get('id') ?? ''));
+      this.loading.set(false);
+      return;
+    }
+
     this.slug = this.route.snapshot.paramMap.get('slug') ?? '';
     this.api.getCompetition(this.slug).subscribe({
       next: data => { this.competition.set(data); this.loading.set(false); },
