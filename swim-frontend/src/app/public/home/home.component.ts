@@ -7,7 +7,8 @@ import { Tag } from 'primeng/tag';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { HeaderComponent } from '../../shared/header/header.component';
 import { ApiService } from '../../core/services/api.service';
-import { LocalCompetitionsService } from '../../core/services/local-competitions.service';
+import { LocalCompetitionsService, LocalCompetition } from '../../core/services/local-competitions.service';
+import { ConfirmDeleteService } from '../../core/services/confirm-delete.service';
 import { Competition } from '../../core/models';
 
 @Component({
@@ -38,7 +39,7 @@ import { Competition } from '../../core/models';
                   </div>
                   <div class="competition-card__actions">
                     <a [routerLink]="['/moje', c.id, 'lista']" class="card-link">Lista startowa</a>
-                    <button type="button" class="card-link remove-btn" (click)="local.remove(c.id)">Usuń</button>
+                    <button type="button" class="card-link remove-btn" (click)="removeLocal(c)">Usuń</button>
                   </div>
                 </div>
               }
@@ -55,7 +56,7 @@ import { Competition } from '../../core/models';
                     <td>{{ c.klub }}</td>
                     <td class="actions">
                       <a [routerLink]="['/moje', c.id, 'lista']">Lista</a>
-                      <button type="button" class="remove-link" (click)="local.remove(c.id)">Usuń</button>
+                      <button type="button" class="remove-link" (click)="removeLocal(c)">Usuń</button>
                     </td>
                   </tr>
                 }
@@ -150,6 +151,7 @@ import { Competition } from '../../core/models';
 export class HomeComponent implements OnInit {
   private api = inject(ApiService);
   readonly local = inject(LocalCompetitionsService);
+  private deletion = inject(ConfirmDeleteService);
 
   loading   = signal(true);
   loadError = signal<string | null>(null);
@@ -188,6 +190,10 @@ export class HomeComponent implements OnInit {
 
   setScope(value: 'latest' | 'all') { this.scope.set(value); writePref('swim-scope', value); }
   setView(value: 'grid' | 'list')   { this.view.set(value);  writePref('swim-view',  value); }
+
+  async removeLocal(c: LocalCompetition) {
+    if (await this.deletion.confirm({ name: c.nazwa })) this.local.remove(c.id);
+  }
 }
 
 function matchesQuery<T extends Competition>(list: T[], q: string): T[] {

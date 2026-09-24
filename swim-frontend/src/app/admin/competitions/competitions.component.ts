@@ -6,18 +6,18 @@ import { Button } from 'primeng/button';
 import { Tag } from 'primeng/tag';
 import { Dialog } from 'primeng/dialog';
 import { InputText } from 'primeng/inputtext';
-import { ConfirmDialog } from 'primeng/confirmdialog';
 import { Toast } from 'primeng/toast';
 import { ProgressSpinner } from 'primeng/progressspinner';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { MessageService } from 'primeng/api';
 import { HeaderComponent } from '../../shared/header/header.component';
 import { ApiService } from '../../core/services/api.service';
+import { ConfirmDeleteService } from '../../core/services/confirm-delete.service';
 import { Competition, AthleteRow, ResultFetchResponse } from '../../core/models';
 
 @Component({
   selector: 'app-competitions',
-  imports: [RouterLink, FormsModule, TableModule, Button, Tag, Dialog, InputText, ConfirmDialog, Toast, ProgressSpinner, HeaderComponent],
-  providers: [MessageService, ConfirmationService],
+  imports: [RouterLink, FormsModule, TableModule, Button, Tag, Dialog, InputText, Toast, ProgressSpinner, HeaderComponent],
+  providers: [MessageService],
   template: `
     <app-header [isAdmin]="true" />
     <div class="swim-page">
@@ -116,7 +116,6 @@ import { Competition, AthleteRow, ResultFetchResponse } from '../../core/models'
       </p-table>
     </p-dialog>
 
-    <p-confirmDialog />
     <p-toast />
   `,
   styles: [`
@@ -138,7 +137,7 @@ import { Competition, AthleteRow, ResultFetchResponse } from '../../core/models'
 export class CompetitionsComponent implements OnInit {
   api     = inject(ApiService);
   private msg    = inject(MessageService);
-  private confirm= inject(ConfirmationService);
+  private deletion = inject(ConfirmDeleteService);
 
   loading      = signal(true);
   competitions = signal<Competition[]>([]);
@@ -211,13 +210,8 @@ export class CompetitionsComponent implements OnInit {
     });
   }
 
-  confirmDelete(c: Competition) {
-    this.confirm.confirm({
-      message: `Usunąć "${c.nazwa}"?`,
-      header: 'Potwierdzenie',
-      icon: 'pi pi-trash',
-      accept: () => this.deleteCompetition(c),
-    });
+  async confirmDelete(c: Competition) {
+    if (await this.deletion.confirm({ name: c.nazwa })) this.deleteCompetition(c);
   }
 
   deleteCompetition(c: Competition) {
