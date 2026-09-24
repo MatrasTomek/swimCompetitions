@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import {
   Competition, AthletesResponse, ResultFetchResponse,
-  StartlistPreviewResponse, LiveConfig, LtContest, LtCacheStatus, AthleteProfile
+  StartlistPreviewResponse, LiveConfig, LtContest, LtCacheStatus, AthleteProfile, ContactRequest
 } from '../models';
 
 @Injectable({ providedIn: 'root' })
@@ -102,5 +102,10 @@ export class ApiService {
 
   refreshContestCache() {
     return this.http.post<{ ok: boolean; status: LtCacheStatus }>(`${this.base}/contests/cache-refresh`, {});
+  }
+
+  // ── Registration / contact form ─────────────────────────────────────
+  sendContact(data: ContactRequest) {
+    return this.http.post<{ ok: boolean }>(`${this.base}/contact`, data);
   }
 }

@@ -10,6 +10,7 @@
  *   /api/v1/results/fetch
  *   /api/v1/live
  *   /api/v1/announcements[/{id}]
+ *   /api/v1/contact
  */
 
 require_once __DIR__ . '/cors.php';      // Must be first — sets CORS headers + handles OPTIONS
@@ -77,6 +78,11 @@ switch ($resource) {
     case 'contests':
         require_once __DIR__ . '/contests.php';
         handle_contests($seg1, $method);
+        break;
+
+    case 'contact':
+        require_once __DIR__ . '/contact.php';
+        handle_contact($seg1, $method);
         break;
 
     default:

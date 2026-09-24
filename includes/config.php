@@ -76,5 +76,20 @@ define('STARTLIST_PREVIEW_RATE_FILE', __DIR__ . '/../startlist_preview_rate.json
 define('STARTLIST_PREVIEW_MAX',       20);   // requests per window
 define('STARTLIST_PREVIEW_WINDOW',    3600); // 1 h
 
+// ============================================================
+// Contact / registration form (api/v1/contact.php)
+// Public endpoint that sends an e-mail via PHP mail() (OVH web hosting).
+// ============================================================
+define('CONTACT_TO_EMAIL', 'info@nd-soft.pl');
+// Sender address — on OVH it must be a mailbox in a domain hosted on the
+// same account, otherwise mail() messages are rejected or land in spam.
+// Override in includes/secrets.php, e.g. define('CONTACT_FROM_EMAIL', 'formularz@twojadomena.pl');
+if (!defined('CONTACT_FROM_EMAIL')) {
+    define('CONTACT_FROM_EMAIL', CONTACT_TO_EMAIL);
+}
+define('CONTACT_RATE_FILE', __DIR__ . '/../contact_rate.json');
+define('CONTACT_MAX',       5);    // messages per window
+define('CONTACT_WINDOW',    3600); // 1 h
+
 // Only livetiming.pl contest URLs may be fetched server-side (SSRF guard)
 define('ALLOWED_CONTEST_HOST_SUFFIX', 'livetiming.pl');

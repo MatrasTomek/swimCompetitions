@@ -24,6 +24,14 @@ export const routes: Routes = [
     data: { local: true },
   },
   {
+    path: 'rejestracja',
+    loadComponent: () => import('./public/register/register.component').then(m => m.RegisterComponent),
+  },
+  {
+    path: 'rodo',
+    loadComponent: () => import('./public/rodo/rodo.component').then(m => m.RodoComponent),
+  },
+  {
     path: 'admin/login',
     loadComponent: () => import('./admin/login/login.component').then(m => m.LoginComponent),
   },

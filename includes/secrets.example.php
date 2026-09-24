@@ -15,3 +15,7 @@ define('JWT_SECRET', 'CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_STRING_AT_LEAST_64_CHA
 // Origin of the Angular SPA in production (scheme + host, no trailing slash).
 // Omit locally — the dev server origin http://localhost:4200 is used then.
 // define('CORS_ALLOWED_ORIGIN', 'https://www.example.com');
+
+// Sender (From) of registration form e-mails. On OVH it must be a mailbox in
+// a domain hosted on this account. Omit to send from info@nd-soft.pl.
+// define('CONTACT_FROM_EMAIL', 'formularz@example.com');

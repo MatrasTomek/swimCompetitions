@@ -117,3 +117,15 @@ export interface LtCacheStatus {
   is_fresh?: boolean;
   updated_at?: string;
 }
+
+/** Registration form sent by e-mail via `POST /contact`. `website` is a honeypot — always empty for humans. */
+export interface ContactRequest {
+  imie: string;
+  email: string;
+  telefon: string;
+  klub: string;
+  zawodnicy: string;
+  wiadomosc: string;
+  zgoda: boolean;
+  website: string;
+}

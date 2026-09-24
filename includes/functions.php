@@ -128,24 +128,41 @@ function login_rate_limit_clear(string $ip): void {
  * requests within STARTLIST_PREVIEW_WINDOW seconds.
  */
 function startlist_preview_rate_limited(string $ip): bool {
-    return (bool)with_file_lock(STARTLIST_PREVIEW_RATE_FILE . '.lock', function () use ($ip) {
+    return ip_rate_limited(STARTLIST_PREVIEW_RATE_FILE, STARTLIST_PREVIEW_MAX, STARTLIST_PREVIEW_WINDOW, $ip);
+}
+
+/**
+ * Per-IP sliding-window limiter for the public contact/registration form.
+ * Returns true when $ip exceeded CONTACT_MAX messages within CONTACT_WINDOW seconds.
+ */
+function contact_rate_limited(string $ip): bool {
+    return ip_rate_limited(CONTACT_RATE_FILE, CONTACT_MAX, CONTACT_WINDOW, $ip);
+}
+
+/**
+ * Generic per-IP sliding-window limiter backed by a JSON file.
+ * Records the request and returns true when $ip already made $max
+ * requests within the last $window seconds.
+ */
+function ip_rate_limited(string $file, int $max, int $window, string $ip): bool {
+    return (bool)with_file_lock($file . '.lock', function () use ($file, $max, $window, $ip) {
         $data = [];
-        if (file_exists(STARTLIST_PREVIEW_RATE_FILE)) {
-            $data = json_decode(file_get_contents(STARTLIST_PREVIEW_RATE_FILE), true);
+        if (file_exists($file)) {
+            $data = json_decode(file_get_contents($file), true);
             if (!is_array($data)) $data = [];
         }
         $now    = time();
-        $cutoff = $now - STARTLIST_PREVIEW_WINDOW;
+        $cutoff = $now - $window;
 
         foreach ($data as $k => $hits) {
             $data[$k] = array_values(array_filter((array)$hits, fn($t) => $t > $cutoff));
             if (!$data[$k]) unset($data[$k]);
         }
 
-        $limited = count($data[$ip] ?? []) >= STARTLIST_PREVIEW_MAX;
+        $limited = count($data[$ip] ?? []) >= $max;
         if (!$limited) $data[$ip][] = $now;
 
-        write_json_atomic(STARTLIST_PREVIEW_RATE_FILE, $data);
+        write_json_atomic($file, $data);
         return $limited;
     });
 }

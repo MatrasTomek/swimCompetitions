@@ -51,6 +51,7 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 | `/results/fetch` | `api/v1/results.php` | Live result fetching |
 | `/live` | `api/v1/live.php` | Live mode config |
 | `/announcements[/{id}]` | `api/v1/announcements.php` | Announcements |
+| `/contact` | `api/v1/contact.php` | Registration form (`/rejestracja` page) — public, per-IP rate limit (`CONTACT_*` in config), honeypot field `website`; sends a UTF-8 e-mail via PHP `mail()` (OVH hosting) to `CONTACT_TO_EMAIL` (info@nd-soft.pl) with the visitor in `Reply-To`; `From` = `CONTACT_FROM_EMAIL` (override in `secrets.php` — on OVH it must be a mailbox in a domain hosted on the account) |
 | `/contests/*` | `api/v1/contests.php` | livetiming.pl search + cache status/refresh — refresh is public but only rebuilds a stale cache (admin forces it) |
 
 ### Key includes
@@ -72,6 +73,7 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 ### Frontend — Angular SPA (`swim-frontend/`)
 
 - `src/app/public/` — home (competition grid + visitor's own imported lists), start-list, results, import (one short form: livetiming cache status, contest search by name/city, club → `/import`, no login needed; form fields kept in `sessionStorage`)
+- `src/app/public/register/` — registration form at `/rejestracja` (linked from the login page), sent via `POST /contact`; its consent links to the RODO information clause at `/rodo` (`public/rodo/`, opens in a new tab)
 - `src/app/admin/` — login, competitions (list/edit), athletes, live (LENEX)
 - Start list imports (visitors and admins alike) are kept only in the browser (`localStorage`, `LocalCompetitionsService`) and shown at `/moje/:id/lista` — they are never written to `zawody/` on the server
 - `src/app/core/` — `ApiService` (all HTTP calls, base URL from `src/environments/`), auth service + guard, error interceptor, models
