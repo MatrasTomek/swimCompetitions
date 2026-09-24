@@ -2,7 +2,7 @@ Options -Indexes
 
 # Runtime data files written by the API into the web root — never serve them
 # over HTTP (login_attempts.json holds client IPs).
-<FilesMatch "^(login_attempts|startlist_preview_rate|livetiming_cache|live_config|zapowiedzi)\.json(\.lock)?$">
+<FilesMatch "^(login_attempts|startlist_preview_rate|contact_rate|livetiming_cache|live_config|zapowiedzi)\.json(\.lock)?$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
