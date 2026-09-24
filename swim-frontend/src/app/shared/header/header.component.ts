@@ -23,7 +23,7 @@ import { AuthService } from '../../core/services/auth.service';
         } @else {
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Zawody</a>
           <a routerLink="/import" routerLinkActive="active">Listy Startowe</a>
-          <a routerLink="/admin/login" class="admin-link">Admin</a>
+          <a routerLink="/admin/login" class="admin-link">Wyniki</a>
         }
       </nav>
     </header>

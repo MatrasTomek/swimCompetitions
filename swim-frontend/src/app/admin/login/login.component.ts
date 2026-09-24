@@ -13,7 +13,7 @@ import { AuthService } from '../../core/services/auth.service';
   imports: [FormsModule, InputText, Password, Button, Card, Message],
   template: `
     <div class="login-page">
-      <p-card header="Panel administracyjny" styleClass="login-card">
+      <p-card header="Wyniki i Statystyki" styleClass="login-card">
         <form (ngSubmit)="submit()" class="login-form">
           <div class="field">
             <label>Login</label>
@@ -34,6 +34,7 @@ import { AuthService } from '../../core/services/auth.service';
   styles: [`
     .login-page  { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--swim-dark); }
     .login-card  { width: 360px; background: var(--swim-card) !important; }
+    .login-card ::ng-deep .p-card-title { color: var(--swim-gold); text-align: center; }
     .login-form  { display: flex; flex-direction: column; gap: 1rem; }
     .field       { display: flex; flex-direction: column; gap: .4rem; }
     .field label { font-size: .85rem; color: var(--swim-muted); }
