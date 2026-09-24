@@ -1,17 +1,17 @@
 import { Component, inject, signal, OnInit, DestroyRef } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, timer, switchMap, catchError, of } from 'rxjs';
-import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
-import { InputText } from 'primeng/inputtext';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { HeaderComponent } from '../../shared/header/header.component';
+import { SearchInputComponent } from '../../shared/search-input/search-input.component';
+import { plural } from '../../shared/plural';
 import { ApiService } from '../../core/services/api.service';
 import { AthleteRow } from '../../core/models';
 
 @Component({
   selector: 'app-athletes',
-  imports: [FormsModule, TableModule, InputText, ProgressSpinner, HeaderComponent],
+  imports: [TableModule, ProgressSpinner, HeaderComponent, SearchInputComponent],
   template: `
     <app-header [isAdmin]="true" />
     <div class="swim-page">
@@ -21,18 +21,10 @@ import { AthleteRow } from '../../core/models';
       </div>
 
       <div class="search-row">
-        <span class="swim-search search-box" [class.swim-search--active]="query.trim()">
-          <input #searchInput pInputText [(ngModel)]="query" (ngModelChange)="search()" (keydown.escape)="clearSearch()"
-            placeholder="Szukaj po imieniu, nazwisku, klubie..." class="search-input" />
-          @if (query) {
-            <button type="button" class="swim-search__clear" title="Wyczyść wyszukiwanie" aria-label="Wyczyść wyszukiwanie"
-              (click)="clearSearch(); searchInput.focus()"><i class="pi pi-times"></i></button>
-          }
-        </span>
-        @if (query.trim()) {
-          <span class="swim-filter-badge">🔍 Filtr aktywny: {{ total() }} zawodników</span>
-        } @else {
-          <span class="count">{{ total() }} zawodników</span>
+        <app-search-input class="search-box" placeholder="Szukaj po imieniu, nazwisku, klubie..."
+          [value]="query" (valueChange)="onQuery($event)" [badge]="athletesLabel(total())" />
+        @if (!query.trim()) {
+          <span class="count">{{ athletesLabel(total()) }}</span>
         }
       </div>
 
@@ -67,7 +59,6 @@ import { AthleteRow } from '../../core/models';
     .export-btn   { color: var(--swim-gold); border: 1px solid var(--swim-gold); border-radius: 4px; padding: .4rem .8rem; text-decoration: none; font-size: .85rem; }
     .search-row   { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
     .search-box   { flex: 1; }
-    .search-input { background: #1c1c1c; border-color: #333; color: #fff; }
     .count        { color: var(--swim-muted); font-size: .85rem; white-space: nowrap; }
     .center-spin  { display: flex; justify-content: center; padding: 3rem; }
     .download-link{ color: var(--swim-gold); }
@@ -115,14 +106,14 @@ export class AthletesComponent implements OnInit {
     this.requests.next(0);
   }
 
-  search() { this.page = 1; this.requests.next(300); }
-
-  clearSearch() {
-    if (!this.query) return;
-    this.query = '';
+  /** Typing is debounced; clearing the box reloads the full list at once. */
+  onQuery(q: string) {
+    this.query = q;
     this.page = 1;
-    this.requests.next(0);
+    this.requests.next(q ? 300 : 0);
   }
+
+  athletesLabel(n: number): string { return `${n} ${plural(n, 'zawodnik', 'zawodników', 'zawodników')}`; }
 
   onPage(event: any) { this.page = Math.floor(event.first / event.rows) + 1; this.requests.next(0); }
 }

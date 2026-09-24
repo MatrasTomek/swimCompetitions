@@ -10,13 +10,15 @@ import { Toast } from 'primeng/toast';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { MessageService } from 'primeng/api';
 import { HeaderComponent } from '../../shared/header/header.component';
+import { SearchInputComponent } from '../../shared/search-input/search-input.component';
+import { plural } from '../../shared/plural';
 import { ApiService } from '../../core/services/api.service';
 import { ConfirmDeleteService } from '../../core/services/confirm-delete.service';
 import { Competition, AthleteRow, ResultFetchResponse } from '../../core/models';
 
 @Component({
   selector: 'app-competitions',
-  imports: [RouterLink, FormsModule, TableModule, Button, Tag, Dialog, InputText, Toast, ProgressSpinner, HeaderComponent],
+  imports: [RouterLink, FormsModule, TableModule, Button, Tag, Dialog, InputText, Toast, ProgressSpinner, HeaderComponent, SearchInputComponent],
   providers: [MessageService],
   template: `
     <app-header [isAdmin]="true" />
@@ -96,7 +98,8 @@ import { Competition, AthleteRow, ResultFetchResponse } from '../../core/models'
     <!-- Athletes Dialog -->
     <p-dialog header="Zawodnicy" [(visible)]="athletesVisible" [style]="{width:'700px'}" [modal]="true">
       <div class="athletes-search">
-        <input pInputText [(ngModel)]="athleteQ" (input)="loadAthletes()" placeholder="Szukaj..." />
+        <app-search-input class="search-box" placeholder="Szukaj..." [value]="athleteQ"
+          (valueChange)="athleteQ = $event; loadAthletes()" [badge]="athletesBadge()" />
         <a [href]="api.getAthletesExportUrl()" class="export-link">⬇ Eksportuj wszystkich</a>
       </div>
       <p-table [value]="athletes()" styleClass="swim-datatable" [loading]="athletesLoading()">
@@ -130,6 +133,7 @@ import { Competition, AthleteRow, ResultFetchResponse } from '../../core/models'
     .lenex-result   { background: #1a2a1a; border: 1px solid var(--swim-green); border-radius: 6px; padding: .75rem; color: var(--swim-green); }
     .error-text     { color: var(--swim-red); font-size: .8rem; }
     .athletes-search{ display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; }
+    .search-box     { flex: 1; }
     .export-link    { color: var(--swim-gold); font-size: .85rem; }
     .small-link     { color: var(--swim-gold); }
   `]
@@ -151,7 +155,13 @@ export class CompetitionsComponent implements OnInit {
   athletesVisible  = false;
   athletesLoading  = signal(false);
   athletes         = signal<AthleteRow[]>([]);
+  athletesTotal    = signal(0);
   athleteQ         = '';
+
+  athletesBadge(): string {
+    const n = this.athletesTotal();
+    return `${n} ${plural(n, 'zawodnik', 'zawodników', 'zawodników')}`;
+  }
 
   slug(c: Competition): string { return c.file?.replace(/\.json$/, '') ?? ''; }
 
@@ -202,7 +212,7 @@ export class CompetitionsComponent implements OnInit {
   loadAthletes() {
     this.athletesLoading.set(true);
     this.api.getAthletes(this.athleteQ).subscribe({
-      next: res => { this.athletes.set(res.athletes); this.athletesLoading.set(false); },
+      next: res => { this.athletes.set(res.athletes); this.athletesTotal.set(res.total); this.athletesLoading.set(false); },
       error: err => {
         this.athletesLoading.set(false);
         this.msg.add({ severity: 'error', summary: 'Błąd', detail: err.error?.error ?? 'Nie udało się wczytać zawodników.' });

@@ -8,6 +8,7 @@ import { Card } from 'primeng/card';
 import { Toast } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { HeaderComponent } from '../../shared/header/header.component';
+import { SearchInputComponent } from '../../shared/search-input/search-input.component';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LocalCompetitionsService } from '../../core/services/local-competitions.service';
@@ -29,7 +30,7 @@ interface ImportFormState {
 
 @Component({
   selector: 'app-import',
-  imports: [FormsModule, RouterLink, InputText, Button, Message, Card, Toast, HeaderComponent],
+  imports: [FormsModule, RouterLink, InputText, Button, Message, Card, Toast, HeaderComponent, SearchInputComponent],
   providers: [MessageService],
   template: `
     <app-header />
@@ -92,14 +93,9 @@ interface ImportFormState {
                 <button type="button" class="link-btn" (click)="clearContest()">zmień</button>
               </div>
             } @else {
-              <input
-                id="search-input"
-                pInputText
-                [(ngModel)]="searchQuery"
-                (ngModelChange)="onSearchChange()"
+              <app-search-input class="w-full" inputId="search-input" [highlight]="false"
                 placeholder="np. Kraków, Mistrzostwa Małopolski…"
-                class="w-full"
-                autocomplete="off" />
+                [value]="searchQuery" (valueChange)="searchQuery = $event; onSearchChange()" />
 
               @if (searchLoading()) {
                 <div class="search-hint">Wyszukiwanie…</div>

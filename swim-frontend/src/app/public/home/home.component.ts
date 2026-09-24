@@ -1,11 +1,12 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { InputText } from 'primeng/inputtext';
 import { SelectButton } from 'primeng/selectbutton';
 import { Tag } from 'primeng/tag';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { HeaderComponent } from '../../shared/header/header.component';
+import { SearchInputComponent } from '../../shared/search-input/search-input.component';
+import { plural } from '../../shared/plural';
 import { ApiService } from '../../core/services/api.service';
 import { LocalCompetitionsService, LocalCompetition } from '../../core/services/local-competitions.service';
 import { ConfirmDeleteService } from '../../core/services/confirm-delete.service';
@@ -13,12 +14,12 @@ import { Competition } from '../../core/models';
 
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, FormsModule, InputText, SelectButton, Tag, ProgressSpinner, HeaderComponent],
+  imports: [RouterLink, FormsModule, SelectButton, Tag, ProgressSpinner, HeaderComponent, SearchInputComponent],
   template: `
     <app-header />
     <div class="swim-page">
       <div class="home-toolbar">
-        <input pInputText placeholder="Szukaj zawodów..." [ngModel]="query()" (ngModelChange)="query.set($event)" class="search-input" />
+        <app-search-input class="search-box" placeholder="Szukaj zawodów..." [(value)]="query" [badge]="resultsBadge()" />
         <p-selectbutton [options]="scopeOpts" [ngModel]="scope()" (ngModelChange)="setScope($event)" [allowEmpty]="false" optionLabel="label" optionValue="value" />
         <p-selectbutton [options]="viewOpts" [ngModel]="view()" (ngModelChange)="setView($event)" [allowEmpty]="false" optionLabel="label" optionValue="value" />
         <a routerLink="/import" class="card-link gold import-link">⇪ Listy Startowe</a>
@@ -125,7 +126,7 @@ import { Competition } from '../../core/models';
   `,
   styles: [`
     .home-toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
-    .search-input { flex: 1; min-width: 200px; background: #1c1c1c; border-color: #333; color: #fff; }
+    .search-box   { flex: 1; min-width: 200px; }
     .center-spin  { display: flex; justify-content: center; padding: 3rem; }
     .empty        { color: var(--swim-muted); text-align: center; padding: 2rem; }
     .error-text   { color: var(--swim-red); }
@@ -165,14 +166,19 @@ export class HomeComponent implements OnInit {
   viewOpts  = [{ label: '⊞ Karty', value: 'grid' },  { label: '☰ Tabela', value: 'list' }];
 
   filtered = computed(() => {
-    const q = this.query().toLowerCase();
+    const q = this.query().trim().toLowerCase();
     let list = matchesQuery(this.all() ?? [], q);
     if (this.scope() === 'latest' && !q) list = list.slice(0, 4);
     return list;
   });
 
   /** Visitor's own imported lists — searched too, but never cut by the "latest" scope. */
-  localFiltered = computed(() => matchesQuery(this.local.items(), this.query().toLowerCase()));
+  localFiltered = computed(() => matchesQuery(this.local.items(), this.query().trim().toLowerCase()));
+
+  resultsBadge = computed(() => {
+    const n = this.filtered().length + this.localFiltered().length;
+    return `${n} ${plural(n, 'wynik', 'wyniki', 'wyników')}`;
+  });
 
   slug(c: Competition): string {
     return c.file ? c.file.replace(/\.json$/, '') : '';

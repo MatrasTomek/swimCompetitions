@@ -76,54 +76,6 @@ body {
   &__actions { margin-top: 1rem; display: flex; gap: .5rem; }
 }
 
-// ── Search box with clear button ("x") and active-filter highlight ───────────
-.swim-search {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-
-  > input { width: 100%; padding-right: 2.25rem; }
-
-  &__clear {
-    position: absolute;
-    right: .4rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.6rem;
-    height: 1.6rem;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
-    background: transparent;
-    color: var(--swim-muted);
-    cursor: pointer;
-    &:hover, &:focus-visible { color: var(--swim-gold); background: rgba(255, 215, 0, .12); outline: none; }
-  }
-
-  // Pulsing gold frame while a filter is applied, so a narrowed list is never mistaken for the full one.
-  &.swim-search--active > input {
-    border-color: var(--swim-gold);
-    animation: swim-search-pulse 1.6s ease-in-out infinite;
-  }
-}
-
-.swim-filter-badge {
-  color: var(--swim-gold);
-  font-size: .8rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-@keyframes swim-search-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, .55); }
-  50%      { box-shadow: 0 0 0 4px rgba(255, 215, 0, .15); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .swim-search.swim-search--active > input { animation: none; box-shadow: 0 0 0 2px rgba(255, 215, 0, .35); }
-}
-
 // ── Results table ─────────────────────────────────────────────────────────────
 .result-better { color: var(--swim-green); font-weight: 700; }
 .result-none   { color: var(--swim-muted); }

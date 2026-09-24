@@ -76,6 +76,7 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 - Start list imports (visitors and admins alike) are kept only in the browser (`localStorage`, `LocalCompetitionsService`) and shown at `/moje/:id/lista` — they are never written to `zawody/` on the server
 - `src/app/core/` — `ApiService` (all HTTP calls, base URL from `src/environments/`), auth service + guard, error interceptor, models
 - Standalone components with signals; PrimeNG for UI
+- Every search/filter box uses the shared `<app-search-input [(value)]>` (`src/app/shared/search-input/`): clear "x" + Esc, pulsing gold frame and optional "Filtr aktywny: …" `[badge]` while a filter is applied (`[highlight]="false"` for plain lookups); Polish plurals via `shared/plural.ts`
 
 ### Result fetching pipeline
 
