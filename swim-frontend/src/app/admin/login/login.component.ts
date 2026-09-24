@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { InputText } from 'primeng/inputtext';
 import { Password } from 'primeng/password';
 import { Button } from 'primeng/button';
@@ -10,7 +10,7 @@ import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-login',
-  imports: [FormsModule, InputText, Password, Button, Card, Message],
+  imports: [FormsModule, RouterLink, InputText, Password, Button, Card, Message],
   template: `
     <div class="login-page">
       <p-card header="Wyniki i Statystyki" styleClass="login-card">
@@ -28,6 +28,16 @@ import { AuthService } from '../../core/services/auth.service';
           }
           <p-button type="submit" label="Zaloguj się" [loading]="loading()" styleClass="w-full" />
         </form>
+        <div class="register">
+          <p class="register-info">
+            <i class="pi pi-lock"></i>
+            Wyniki i statystyki zawodników to płatna opcja — dostęp wymaga rejestracji konta.
+            Nie masz jeszcze konta? Zarejestruj się, aby śledzić wyniki i postępy swoich zawodników.
+          </p>
+          <a routerLink="/rejestracja" class="register-link">
+            <p-button type="button" label="Rejestracja" icon="pi pi-user-plus" severity="secondary" [outlined]="true" styleClass="w-full" />
+          </a>
+        </div>
       </p-card>
     </div>
   `,
@@ -38,6 +48,10 @@ import { AuthService } from '../../core/services/auth.service';
     .login-form  { display: flex; flex-direction: column; gap: 1rem; }
     .field       { display: flex; flex-direction: column; gap: .4rem; }
     .field label { font-size: .85rem; color: var(--swim-muted); }
+    .register      { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--swim-border); display: flex; flex-direction: column; gap: .9rem; }
+    .register-info { margin: 0; font-size: .85rem; line-height: 1.45; color: var(--swim-muted); text-align: center; }
+    .register-info .pi { color: var(--swim-gold); margin-right: .3rem; }
+    .register-link { display: block; text-decoration: none; }
     input[pinputtext], ::ng-deep .p-password input { width: 100%; }
   `]
 })
