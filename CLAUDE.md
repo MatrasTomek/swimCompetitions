@@ -18,6 +18,9 @@ php -l api/v1/index.php
 # Generate a bcrypt password hash for admin login
 php -r "echo password_hash('password', PASSWORD_BCRYPT);"
 
+# Local backend in Docker (dev only; PHP 8.3 like production, mbstring/openssl/zip included)
+docker compose -f dev/docker-compose.yml up --build   # http://127.0.0.1:8000, repo mounted at /app
+
 # Frontend (from swim-frontend/)
 npm install --legacy-peer-deps   # primeng 21 vs Angular 22 peer conflict
 npm start                        # dev server on http://localhost:4200

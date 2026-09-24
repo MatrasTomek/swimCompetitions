@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { InputText } from 'primeng/inputtext';
@@ -47,6 +47,8 @@ interface ImportFormState {
               <span class="cache-status-label">
                 @if (cacheRefreshing()) {
                   <span class="cache-refreshing"><span class="lt-spinner"></span>Trwa łączenie z livetiming.pl…</span>
+                } @else if (cacheError()) {
+                  <span class="warn">brak połączenia</span>
                 } @else if (!cacheStatus()) {
                   <span class="muted">sprawdzanie…</span>
                 } @else if (!cacheStatus()!.exists) {
@@ -61,9 +63,9 @@ interface ImportFormState {
                   }
                 }
               </span>
-              @if (!cacheRefreshing() && cacheStatus() && (!cacheStatus()!.is_fresh || auth.isLoggedIn())) {
+              @if (!cacheRefreshing() && (cacheError() || (cacheStatus() && (!connected() || auth.isLoggedIn())))) {
                 <p-button
-                  [label]="cacheStatus()!.is_fresh ? '↺ Odśwież' : 'Połącz'"
+                  [label]="connected() ? '↺ Odśwież' : 'Połącz'"
                   size="small"
                   severity="secondary"
                   (onClick)="doRefreshCache()"
@@ -71,6 +73,12 @@ interface ImportFormState {
               }
             </div>
           </div>
+
+          @if (!connected()) {
+            @if (cacheStatus() || cacheError()) {
+              <small class="hint">Połącz się z livetiming.pl, aby wyszukać zawody i pobrać listę startową.</small>
+            }
+          } @else {
 
           <!-- 2. Competition -->
           <div class="field">
@@ -143,6 +151,7 @@ interface ImportFormState {
           <small class="hint">
             Lista zostanie zapisana tylko w tej przeglądarce — nie trafia na serwer i nie jest publikowana na stronie.
           </small>
+          }
         </div>
       </p-card>
     </div>
@@ -205,6 +214,9 @@ export class ImportComponent implements OnInit, OnDestroy {
 
   cacheStatus     = signal<LtCacheStatus | null>(null);
   cacheRefreshing = signal(false);
+  cacheError      = signal(false);
+  /** Search and import fields are shown only with an up-to-date contest list from livetiming.pl. */
+  connected       = computed(() => !!this.cacheStatus()?.is_fresh);
 
   readonly CAT_LABEL: Record<string, string> = {
     regional: 'okręgowe', national: 'centralne',
@@ -224,7 +236,7 @@ export class ImportComponent implements OnInit, OnDestroy {
     if (!this.contest() && this.searchQuery.trim().length >= 2) this.onSearchChange();
     this.api.getCacheStatus().subscribe({
       next: s => this.cacheStatus.set(s),
-      error: () => {},
+      error: () => this.cacheError.set(true),
     });
   }
 
@@ -293,7 +305,12 @@ export class ImportComponent implements OnInit, OnDestroy {
     this.api.refreshContestCache().subscribe({
       next: res => {
         this.cacheStatus.set(res.status);
+        this.cacheError.set(false);
         this.cacheRefreshing.set(false);
+        if (!res.ok || !res.status.is_fresh) {
+          this.msg.add({ severity: 'error', summary: 'Błąd', detail: 'Nie udało się połączyć z livetiming.pl.' });
+          return;
+        }
         if (!this.contest() && this.searchQuery.trim().length >= 2) this.onSearchChange();
       },
       error: () => {

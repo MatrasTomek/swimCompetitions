@@ -17,31 +17,51 @@ import { Competition } from '../../core/models';
     <app-header />
     <div class="swim-page">
       <div class="home-toolbar">
-        <input pInputText placeholder="Szukaj zawodów..." [(ngModel)]="query" class="search-input" />
-        <p-selectbutton [options]="scopeOpts" [(ngModel)]="scope" optionLabel="label" optionValue="value" />
-        <p-selectbutton [options]="viewOpts" [(ngModel)]="view" optionLabel="label" optionValue="value" />
-        <a routerLink="/import" class="card-link gold import-link">⇪ Import PDF</a>
+        <input pInputText placeholder="Szukaj zawodów..." [ngModel]="query()" (ngModelChange)="query.set($event)" class="search-input" />
+        <p-selectbutton [options]="scopeOpts" [ngModel]="scope()" (ngModelChange)="setScope($event)" [allowEmpty]="false" optionLabel="label" optionValue="value" />
+        <p-selectbutton [options]="viewOpts" [ngModel]="view()" (ngModelChange)="setView($event)" [allowEmpty]="false" optionLabel="label" optionValue="value" />
+        <a routerLink="/import" class="card-link gold import-link">⇪ Listy Startowe</a>
       </div>
 
-      @if (local.items().length > 0) {
+      @if (localFiltered().length > 0) {
         <section class="local-section">
           <h2 class="local-title">Moje listy <small>(tylko w tej przeglądarce)</small></h2>
-          <div class="competition-grid">
-            @for (c of local.items(); track c.id) {
-              <div class="competition-card">
-                <div class="competition-card__name">{{ c.nazwa }}</div>
-                <div class="competition-card__meta">
-                  @if (c.data)    { <span>📅 {{ c.data }}</span> }
-                  @if (c.miejsce) { <span>📍 {{ c.miejsce }}</span> }
-                  @if (c.klub)    { <span>🏊 {{ c.klub }}</span> }
+          @if (view() === 'grid') {
+            <div class="competition-grid">
+              @for (c of localFiltered(); track c.id) {
+                <div class="competition-card">
+                  <div class="competition-card__name">{{ c.nazwa }}</div>
+                  <div class="competition-card__meta">
+                    @if (c.data)    { <span>📅 {{ c.data }}</span> }
+                    @if (c.miejsce) { <span>📍 {{ c.miejsce }}</span> }
+                    @if (c.klub)    { <span>🏊 {{ c.klub }}</span> }
+                  </div>
+                  <div class="competition-card__actions">
+                    <a [routerLink]="['/moje', c.id, 'lista']" class="card-link">Lista startowa</a>
+                    <button type="button" class="card-link remove-btn" (click)="local.remove(c.id)">Usuń</button>
+                  </div>
                 </div>
-                <div class="competition-card__actions">
-                  <a [routerLink]="['/moje', c.id, 'lista']" class="card-link">Lista startowa</a>
-                  <button type="button" class="card-link remove-btn" (click)="local.remove(c.id)">Usuń</button>
-                </div>
-              </div>
-            }
-          </div>
+              }
+            </div>
+          } @else {
+            <table class="swim-table">
+              <thead><tr><th>Nazwa</th><th>Data</th><th>Miejsce</th><th>Klub</th><th></th></tr></thead>
+              <tbody>
+                @for (c of localFiltered(); track c.id) {
+                  <tr>
+                    <td>{{ c.nazwa }}</td>
+                    <td>{{ c.data }}</td>
+                    <td>{{ c.miejsce }}</td>
+                    <td>{{ c.klub }}</td>
+                    <td class="actions">
+                      <a [routerLink]="['/moje', c.id, 'lista']">Lista</a>
+                      <button type="button" class="remove-link" (click)="local.remove(c.id)">Usuń</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
         </section>
       }
 
@@ -51,8 +71,10 @@ import { Competition } from '../../core/models';
       @if (loading()) {
         <div class="center-spin"><p-progressSpinner /></div>
       } @else if (filtered().length === 0) {
-        <p class="empty">Nie znaleziono zawodów.</p>
-      } @else if (view === 'grid') {
+        @if (localFiltered().length === 0) {
+          <p class="empty">Nie znaleziono zawodów.</p>
+        }
+      } @else if (view() === 'grid') {
         <div class="competition-grid">
           @for (c of filtered(); track c.file || c.id) {
             <div class="competition-card" [class.announcement]="!c.has_file">
@@ -121,6 +143,8 @@ import { Competition } from '../../core/models';
     .swim-table th { color: var(--swim-gold); font-weight: 600; }
     .swim-table .actions { display: flex; gap: .5rem; }
     .swim-table .actions a { color: var(--swim-gold); text-decoration: none; font-size: .8rem; }
+    .swim-table .remove-link { background: none; border: none; padding: 0; cursor: pointer; font: inherit; font-size: .8rem; color: #ccc; }
+    .swim-table .remove-link:hover { color: var(--swim-red); }
   `]
 })
 export class HomeComponent implements OnInit {
@@ -131,24 +155,22 @@ export class HomeComponent implements OnInit {
   loadError = signal<string | null>(null);
   private all = signal<Competition[]>([]);
 
-  query = '';
-  scope: 'latest' | 'all' = (localStorage.getItem('swim-scope') as any) ?? 'latest';
-  view: 'grid' | 'list' = (localStorage.getItem('swim-view') as any) ?? 'grid';
+  query = signal('');
+  scope = signal<'latest' | 'all'>(readPref('swim-scope', ['latest', 'all'], 'latest'));
+  view  = signal<'grid' | 'list'>(readPref('swim-view', ['grid', 'list'], 'grid'));
 
   scopeOpts = [{ label: 'Najnowsze', value: 'latest' }, { label: 'Wszystko', value: 'all' }];
   viewOpts  = [{ label: '⊞ Karty', value: 'grid' },  { label: '☰ Tabela', value: 'list' }];
 
   filtered = computed(() => {
-    const q = this.query.toLowerCase();
-    let list = this.all() ?? [];
-    if (q) {
-      list = list.filter(c =>
-        [c.nazwa, c.data, c.miejsce, c.klub].some(f => f?.toLowerCase().includes(q))
-      );
-    }
-    if (this.scope === 'latest' && !q) list = list.slice(0, 4);
+    const q = this.query().toLowerCase();
+    let list = matchesQuery(this.all() ?? [], q);
+    if (this.scope() === 'latest' && !q) list = list.slice(0, 4);
     return list;
   });
+
+  /** Visitor's own imported lists — searched too, but never cut by the "latest" scope. */
+  localFiltered = computed(() => matchesQuery(this.local.items(), this.query().toLowerCase()));
 
   slug(c: Competition): string {
     return c.file ? c.file.replace(/\.json$/, '') : '';
@@ -164,6 +186,24 @@ export class HomeComponent implements OnInit {
     });
   }
 
-  onScopeChange() { localStorage.setItem('swim-scope', this.scope); }
-  onViewChange()  { localStorage.setItem('swim-view',  this.view);  }
+  setScope(value: 'latest' | 'all') { this.scope.set(value); writePref('swim-scope', value); }
+  setView(value: 'grid' | 'list')   { this.view.set(value);  writePref('swim-view',  value); }
+}
+
+function matchesQuery<T extends Competition>(list: T[], q: string): T[] {
+  if (!q) return list;
+  return list.filter(c => [c.nazwa, c.data, c.miejsce, c.klub].some(f => f?.toLowerCase().includes(q)));
+}
+
+function readPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    return allowed.includes(v as T) ? (v as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writePref(key: string, value: string): void {
+  try { localStorage.setItem(key, value); } catch { /* storage unavailable — keep in-memory only */ }
 }
