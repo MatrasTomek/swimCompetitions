@@ -22,7 +22,7 @@ import { AuthService } from '../../core/services/auth.service';
           <p-button label="Wyloguj" severity="secondary" size="small" (onClick)="auth.logout()" />
         } @else {
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Zawody</a>
-          <a routerLink="/import" routerLinkActive="active">Import PDF</a>
+          <a routerLink="/import" routerLinkActive="active">Listy Startowe</a>
           <a routerLink="/admin/login" class="admin-link">Admin</a>
         }
       </nav>
