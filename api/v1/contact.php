@@ -80,6 +80,9 @@ function handle_contact(string $sub, string $method): void {
     );
 
     if (!$sent) {
+        $last = error_get_last();
+        error_log('contact: mail() to ' . CONTACT_TO_EMAIL . ' from ' . CONTACT_FROM_EMAIL . ' failed'
+            . ($last ? ': ' . $last['message'] : ''));
         http_response_code(500);
         echo json_encode(['error' => 'Nie udało się wysłać zgłoszenia. Spróbuj ponownie później lub napisz na ' . CONTACT_TO_EMAIL . '.'], JSON_UNESCAPED_UNICODE);
         return;
