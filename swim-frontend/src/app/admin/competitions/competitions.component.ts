@@ -76,7 +76,7 @@ import { Competition, AthleteRow, ResultFetchResponse } from '../../core/models'
     </div>
 
     <!-- LENEX Dialog -->
-    <p-dialog header="Pobierz wyniki LENEX" [(visible)]="lenexVisible" [style]="{width:'500px'}" [modal]="true">
+    <p-dialog header="Pobierz wyniki LENEX" [(visible)]="lenexVisible" [style]="{width:'500px'}" [breakpoints]="{'640px':'95vw'}" [modal]="true">
       <div class="dialog-content">
         <p class="field-label">URL zawodów (livetiming.pl)</p>
         <input pInputText [(ngModel)]="lenexUrl" placeholder="https://livetiming.pl/contest/..." class="w-full" />
@@ -96,7 +96,7 @@ import { Competition, AthleteRow, ResultFetchResponse } from '../../core/models'
     </p-dialog>
 
     <!-- Athletes Dialog -->
-    <p-dialog header="Zawodnicy" [(visible)]="athletesVisible" [style]="{width:'700px'}" [modal]="true">
+    <p-dialog header="Zawodnicy" [(visible)]="athletesVisible" [style]="{width:'700px'}" [breakpoints]="{'800px':'95vw'}" [modal]="true">
       <div class="athletes-search">
         <app-search-input class="search-box" placeholder="Szukaj..." [value]="athleteQ"
           (valueChange)="athleteQ = $event; loadAthletes()" [badge]="athletesBadge()" />
@@ -122,8 +122,9 @@ import { Competition, AthleteRow, ResultFetchResponse } from '../../core/models'
     <p-toast />
   `,
   styles: [`
-    .page-toolbar   { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
-    .toolbar-actions{ display: flex; gap: .75rem; align-items: center; }
+    .page-toolbar   { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-bottom: 1.5rem; }
+    .page-toolbar .swim-page-title { margin: 0; }
+    .toolbar-actions{ display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
     .action-cell    { display: flex; gap: .5rem; flex-wrap: wrap; }
     .center-spin    { display: flex; justify-content: center; padding: 3rem; }
     code            { font-size: .75rem; background: #222; padding: .1rem .3rem; border-radius: 3px; color: #ccc; }
@@ -132,7 +133,7 @@ import { Competition, AthleteRow, ResultFetchResponse } from '../../core/models'
     .w-full         { width: 100%; }
     .lenex-result   { background: #1a2a1a; border: 1px solid var(--swim-green); border-radius: 6px; padding: .75rem; color: var(--swim-green); }
     .error-text     { color: var(--swim-red); font-size: .8rem; }
-    .athletes-search{ display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem; }
+    .athletes-search{ display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1rem; }
     .search-box     { flex: 1; }
     .export-link    { color: var(--swim-gold); font-size: .85rem; }
     .small-link     { color: var(--swim-gold); }

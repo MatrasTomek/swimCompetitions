@@ -181,6 +181,9 @@ interface ImportFormState {
     .result-card.selected { cursor: default; border-color: #f0a800; }
     .result-info    { flex: 1; min-width: 0; }
     .result-name    { color: #e8e8e8; font-size: .85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 640px) {
+      .result-name  { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    }
     .result-meta    { color: #555; font-size: .74rem; margin-top: .1rem; }
     .cat-badge      { font-size: .66rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; background: #111; flex-shrink: 0; }
     .search-hint    { color: #555; font-size: .82rem; }

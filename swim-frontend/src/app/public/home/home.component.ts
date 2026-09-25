@@ -46,16 +46,16 @@ import { Competition } from '../../core/models';
               }
             </div>
           } @else {
-            <table class="swim-table">
+            <table class="swim-table stack-mobile">
               <thead><tr><th>Nazwa</th><th>Data</th><th>Miejsce</th><th>Klub</th><th></th></tr></thead>
               <tbody>
                 @for (c of localFiltered(); track c.id) {
                   <tr>
-                    <td>{{ c.nazwa }}</td>
-                    <td>{{ c.data }}</td>
-                    <td>{{ c.miejsce }}</td>
-                    <td>{{ c.klub }}</td>
-                    <td class="actions">
+                    <td class="cell-main">{{ c.nazwa }}</td>
+                    <td data-label="📅">{{ c.data }}</td>
+                    <td data-label="📍">{{ c.miejsce }}</td>
+                    <td data-label="🏊">{{ c.klub }}</td>
+                    <td class="actions cell-actions">
                       <a [routerLink]="['/moje', c.id, 'lista']">Lista</a>
                       <button type="button" class="remove-link" (click)="removeLocal(c)">Usuń</button>
                     </td>
@@ -100,16 +100,16 @@ import { Competition } from '../../core/models';
           }
         </div>
       } @else {
-        <table class="swim-table">
+        <table class="swim-table stack-mobile">
           <thead><tr><th>Nazwa</th><th>Data</th><th>Miejsce</th><th>Klub</th><th></th></tr></thead>
           <tbody>
             @for (c of filtered(); track c.file || c.id) {
               <tr>
-                <td>{{ c.nazwa }}</td>
-                <td>{{ c.data }}</td>
-                <td>{{ c.miejsce }}</td>
-                <td>{{ c.klub }}</td>
-                <td class="actions">
+                <td class="cell-main">{{ c.nazwa }}</td>
+                <td data-label="📅">{{ c.data }}</td>
+                <td data-label="📍">{{ c.miejsce }}</td>
+                <td data-label="🏊">{{ c.klub }}</td>
+                <td class="actions cell-actions">
                   @if (c.has_file) {
                     <a [routerLink]="['/zawody', slug(c), 'lista']">Lista</a>
                     @if (c.has_results) { <a [routerLink]="['/zawody', slug(c), 'wyniki']">Wyniki</a> }

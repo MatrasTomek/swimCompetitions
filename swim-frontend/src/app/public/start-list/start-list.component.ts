@@ -48,17 +48,17 @@ function normalize(s: string): string {
               <span class="blok-nr">Blok {{ blok.blok }}</span>
               <span class="blok-meta">{{ blok.data }} &nbsp;⏰ {{ blok.godz_start }}</span>
             </div>
-            <table class="swim-table">
+            <table class="swim-table stack-mobile">
               <thead><tr><th>Zawodnik</th><th>Konkurencja</th><th>Seria</th><th>Godz.</th><th>Tor</th><th>Czas</th></tr></thead>
               <tbody>
                 @for (s of blok.starty; track s.imie + s.konkurencja_nr) {
                   <tr>
-                    <td>{{ s.imie }}</td>
-                    <td>{{ s.konkurencja }}</td>
-                    <td>{{ s.seria }}</td>
-                    <td>{{ s.godz }}</td>
-                    <td>{{ s.tor }}</td>
-                    <td>{{ s.czas }}</td>
+                    <td class="cell-main">{{ s.imie }}</td>
+                    <td class="cell-sub">{{ s.konkurencja }}</td>
+                    <td data-label="Seria">{{ s.seria }}</td>
+                    <td data-label="Godz.">{{ s.godz }}</td>
+                    <td data-label="Tor">{{ s.tor }}</td>
+                    <td data-label="Czas">{{ s.czas }}</td>
                   </tr>
                 }
               </tbody>
@@ -77,9 +77,9 @@ function normalize(s: string): string {
     .back         { color: var(--swim-muted); font-size: .85rem; text-decoration: none; }
     .back:hover   { color: var(--swim-gold); }
 .local-note   { color: var(--swim-muted); font-size: .8rem; margin: .25rem 0 0; }
-    .sl-meta      { display: flex; gap: 1rem; color: var(--swim-muted); font-size: .9rem; margin: .5rem 0 1rem; }
+    .sl-meta      { display: flex; flex-wrap: wrap; gap: .25rem 1rem; color: var(--swim-muted); font-size: .9rem; margin: .5rem 0 1rem; }
     .sl-actions   { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-    .search-box   { min-width: 240px; }
+    .search-box   { flex: 1; min-width: min(240px, 100%); }
     .pdf-btn      { color: var(--swim-gold); border: 1px solid var(--swim-gold); border-radius: 4px; padding: .4rem .8rem; text-decoration: none; font-size: .85rem; }
     .center-spin  { display: flex; justify-content: center; padding: 3rem; }
     .empty        { color: var(--swim-muted); text-align: center; padding: 2rem; }

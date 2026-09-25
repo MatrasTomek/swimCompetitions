@@ -83,5 +83,25 @@ body {
 // ── Responsive ────────────────────────────────────────────────────────────────
 @media (max-width: 640px) {
   .swim-page { padding: 1rem; }
+  .swim-page-title { font-size: 1.25rem; margin-bottom: 1rem; }
   .competition-grid { grid-template-columns: 1fr; }
+
+  // Tables marked .stack-mobile turn every row into a card: .cell-main / .cell-sub
+  // take a full line, other cells flow inline with their data-label as a prefix.
+  table.stack-mobile,
+  table.stack-mobile tbody,
+  table.stack-mobile tr,
+  table.stack-mobile td { display: block; }
+  table.stack-mobile thead { display: none; }
+  table.stack-mobile tr {
+    display: flex; flex-wrap: wrap; gap: .2rem .9rem;
+    padding: .6rem .25rem; border-bottom: 1px solid var(--swim-border);
+  }
+  table.stack-mobile td { padding: 0 !important; border: none !important; font-size: .8rem; color: #ccc; }
+  table.stack-mobile td[data-label]::before { content: attr(data-label) ' '; color: var(--swim-muted); }
+  table.stack-mobile td.cell-main { flex-basis: 100%; font-size: .9rem; font-weight: 600; color: var(--swim-text); }
+  table.stack-mobile td.cell-sub  { flex-basis: 100%; font-size: .85rem; color: var(--swim-text); }
+  table.stack-mobile td:empty { display: none; }
+  table.stack-mobile td.result-better { color: var(--swim-green); }
+  table.stack-mobile td.cell-actions { flex-basis: 100%; margin-top: .2rem; }
 }

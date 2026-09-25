@@ -68,6 +68,7 @@ import { Competition } from '../../core/models';
     .field       { display: flex; flex-direction: column; gap: .4rem; }
     .field label { font-size: .85rem; color: var(--swim-muted); }
     .field-row   { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 480px) { .field-row { grid-template-columns: 1fr; } }
     input[pinputtext] { width: 100%; }
     .file-name   { font-size: .8rem; color: var(--swim-muted); }
     .form-actions{ display: flex; gap: .75rem; justify-content: flex-end; }

@@ -50,17 +50,17 @@ function timeToSeconds(t?: string): number {
               <span class="blok-nr">Blok {{ blok.blok }}</span>
               <span class="blok-meta">{{ blok.data }} &nbsp;⏰ {{ blok.godz_start }}</span>
             </div>
-            <table class="swim-table">
+            <table class="swim-table stack-mobile">
               <thead><tr><th>Zawodnik</th><th>Konkurencja</th><th>Tor</th><th>Czas bazowy</th><th>Wynik</th><th>Punkty</th></tr></thead>
               <tbody>
                 @for (s of blok.starty; track s.imie + s.konkurencja_nr) {
                   <tr>
-                    <td>{{ s.imie }}</td>
-                    <td>{{ s.konkurencja }}</td>
-                    <td>{{ s.tor }}</td>
-                    <td>{{ s.czas }}</td>
-                    <td [class]="resultClass(s)">{{ s.czas_result ?? '—' }}</td>
-                    <td>{{ s.punkty ?? '—' }}</td>
+                    <td class="cell-main">{{ s.imie }}</td>
+                    <td class="cell-sub">{{ s.konkurencja }}</td>
+                    <td data-label="Tor">{{ s.tor }}</td>
+                    <td data-label="Czas bazowy">{{ s.czas }}</td>
+                    <td data-label="Wynik" [class]="resultClass(s)">{{ s.czas_result ?? '—' }}</td>
+                    <td data-label="Punkty">{{ s.punkty ?? '—' }}</td>
                   </tr>
                 }
               </tbody>
@@ -78,7 +78,7 @@ function timeToSeconds(t?: string): number {
     .res-header    { margin-bottom: 1.5rem; }
     .back          { color: var(--swim-muted); font-size: .85rem; text-decoration: none; }
     .back:hover    { color: var(--swim-gold); }
-    .res-meta      { display: flex; gap: 1rem; color: var(--swim-muted); font-size: .9rem; margin: .5rem 0 .75rem; }
+    .res-meta      { display: flex; flex-wrap: wrap; gap: .25rem 1rem; color: var(--swim-muted); font-size: .9rem; margin: .5rem 0 .75rem; }
     .res-progress  { margin-bottom: .75rem; }
     .progress-label{ font-size: .8rem; color: var(--swim-muted); margin-bottom: .25rem; }
     ::ng-deep .slim-bar .p-progressbar { height: 6px; }

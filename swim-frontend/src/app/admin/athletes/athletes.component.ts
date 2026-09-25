@@ -55,7 +55,8 @@ import { AthleteRow } from '../../core/models';
     </div>
   `,
   styles: [`
-    .page-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .page-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
+    .page-toolbar .swim-page-title { margin: 0; }
     .export-btn   { color: var(--swim-gold); border: 1px solid var(--swim-gold); border-radius: 4px; padding: .4rem .8rem; text-decoration: none; font-size: .85rem; }
     .search-row   { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
     .search-box   { flex: 1; }
