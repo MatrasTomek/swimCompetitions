@@ -3,7 +3,9 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import {
   Competition, AthletesResponse, ResultFetchResponse,
-  StartlistPreviewResponse, LiveConfig, LtContest, LtCacheStatus, AthleteProfile, ContactRequest
+  StartlistPreviewResponse, LiveConfig, LtContest, LtCacheStatus, AthleteProfile,
+  Account, AccountSummary, AccountStatus, AuthToken, ClubMember, ClubMemberInput, MemberTime, MemberTimeInput,
+  RegisterRequest
 } from '../models';
 
 @Injectable({ providedIn: 'root' })
@@ -104,8 +106,66 @@ export class ApiService {
     return this.http.post<{ ok: boolean; status: LtCacheStatus }>(`${this.base}/contests/cache-refresh`, {});
   }
 
-  // ── Registration / contact form ─────────────────────────────────────
-  sendContact(data: ContactRequest) {
-    return this.http.post<{ ok: boolean }>(`${this.base}/contact`, data);
+  // ── Club user accounts ──────────────────────────────────────────────
+  register(data: RegisterRequest) {
+    return this.http.post<{ ok: boolean }>(`${this.base}/account/register`, data);
+  }
+
+  verifyEmail(token: string) {
+    return this.http.post<{ ok: boolean }>(`${this.base}/account/verify-email`, { token });
+  }
+
+  forgotPassword(email: string) {
+    return this.http.post<{ ok: boolean }>(`${this.base}/account/forgot-password`, { email });
+  }
+
+  resetPassword(token: string, password: string) {
+    return this.http.post<{ ok: boolean }>(`${this.base}/account/reset-password`, { token, password });
+  }
+
+  getAccount() {
+    return this.http.get<Account>(`${this.base}/account/me`);
+  }
+
+  updateAccount(userClub: string) {
+    return this.http.patch<Account>(`${this.base}/account/me`, { userClub });
+  }
+
+  deleteAccount(password: string) {
+    return this.http.delete<{ ok: boolean }>(`${this.base}/account/me`, { body: { password } });
+  }
+
+  /** Returns a fresh token — other sessions of the account are logged out. */
+  changePassword(currentPassword: string, newPassword: string) {
+    return this.http.post<AuthToken>(`${this.base}/account/change-password`, { currentPassword, newPassword });
+  }
+
+  addMember(data: ClubMemberInput) {
+    return this.http.post<ClubMember>(`${this.base}/account/members`, data);
+  }
+
+  updateMember(memberId: string, data: Partial<ClubMemberInput>) {
+    return this.http.patch<{ ok: boolean }>(`${this.base}/account/members/${memberId}`, data);
+  }
+
+  deleteMember(memberId: string) {
+    return this.http.delete<{ ok: boolean }>(`${this.base}/account/members/${memberId}`);
+  }
+
+  addMemberTime(memberId: string, data: MemberTimeInput) {
+    return this.http.post<MemberTime>(`${this.base}/account/members/${memberId}/times`, data);
+  }
+
+  deleteMemberTime(memberId: string, competitionId: string) {
+    return this.http.delete<{ ok: boolean }>(`${this.base}/account/members/${memberId}/times/${competitionId}`);
+  }
+
+  // ── Club user accounts — admin ──────────────────────────────────────
+  getUsers() {
+    return this.http.get<AccountSummary[]>(`${this.base}/users`);
+  }
+
+  setUserStatus(userId: string, status: AccountStatus) {
+    return this.http.patch<AccountSummary>(`${this.base}/users/${userId}`, { status });
   }
 }

@@ -1,5 +1,8 @@
 # Local development backend: PHP built-in server in Docker, reachable only
-# from this machine on http://127.0.0.1:8000 (the Angular dev proxy target).
+# from this machine on http://127.0.0.1:8000 (the Angular dev proxy target),
+# plus a local MongoDB for user accounts (production uses MongoDB Atlas via
+# MONGO_URI in includes/secrets.php). E-mails sent by the API are appended to
+# /tmp/mails.log in the api container (base64 bodies).
 # Usage (from the repo root): docker compose -f dev/docker-compose.yml up
 services:
   api:
@@ -8,3 +11,17 @@ services:
       - "127.0.0.1:8000:8000"
     volumes:
       - ..:/app
+    environment:
+      MONGO_URI: mongodb://mongo:27017
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:

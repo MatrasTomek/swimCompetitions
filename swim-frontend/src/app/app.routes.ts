@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './core/guards/auth.guard';
+import { adminGuard, userGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -32,12 +32,39 @@ export const routes: Routes = [
     loadComponent: () => import('./public/rodo/rodo.component').then(m => m.RodoComponent),
   },
   {
-    path: 'admin/login',
-    loadComponent: () => import('./admin/login/login.component').then(m => m.LoginComponent),
+    path: 'logowanie',
+    loadComponent: () => import('./public/login/login.component').then(m => m.LoginComponent),
+  },
+  { path: 'admin/login', redirectTo: 'logowanie' },
+  {
+    path: 'konto/potwierdz',
+    loadComponent: () => import('./public/account/verify-email.component').then(m => m.VerifyEmailComponent),
+  },
+  {
+    path: 'konto/zapomniane-haslo',
+    loadComponent: () => import('./public/account/forgot-password.component').then(m => m.ForgotPasswordComponent),
+  },
+  {
+    path: 'konto/reset-hasla',
+    loadComponent: () => import('./public/account/reset-password.component').then(m => m.ResetPasswordComponent),
+  },
+  {
+    path: 'konto',
+    canActivate: [userGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./account/account.component').then(m => m.AccountComponent),
+      },
+      {
+        path: 'zawodnicy',
+        loadComponent: () => import('./account/members.component').then(m => m.MembersComponent),
+      },
+    ],
   },
   {
     path: 'admin',
-    canActivate: [authGuard],
+    canActivate: [adminGuard],
     children: [
       { path: '', redirectTo: 'zawody', pathMatch: 'full' },
       {
@@ -59,6 +86,10 @@ export const routes: Routes = [
       {
         path: 'live',
         loadComponent: () => import('./admin/live/live.component').then(m => m.LiveComponent),
+      },
+      {
+        path: 'uzytkownicy',
+        loadComponent: () => import('./admin/users/users.component').then(m => m.UsersComponent),
       },
     ],
   },

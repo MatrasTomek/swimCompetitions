@@ -7,7 +7,8 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
   return next(req).pipe(
     catchError(err => {
-      if (err.status === 401) {
+      // A failed login attempt is a 401 too — it must not wipe/redirect anything
+      if (err.status === 401 && auth.isLoggedIn()) {
         auth.logout();
       }
       return throwError(() => err);
