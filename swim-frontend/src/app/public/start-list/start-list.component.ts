@@ -23,7 +23,7 @@ function normalize(s: string): string {
         <div class="center-spin"><p-progressSpinner /></div>
       } @else if (competition()) {
         <div class="sl-header">
-          <a routerLink="/" class="back">← Zawody</a>
+          <a routerLink="/" class="back">← Listy startowe</a>
           <h1 class="swim-page-title">{{ competition()!.nazwa }}</h1>
           @if (isLocal) {
             <p class="local-note">Lista zaimportowana przez Ciebie — widoczna tylko w tej przeglądarce.</p>

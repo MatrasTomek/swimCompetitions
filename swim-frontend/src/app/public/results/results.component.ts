@@ -24,7 +24,7 @@ function timeToSeconds(t?: string): number {
         <div class="center-spin"><p-progressSpinner /></div>
       } @else if (competition()) {
         <div class="res-header">
-          <a routerLink="/" class="back">← Zawody</a>
+          <a routerLink="/" class="back">← Listy startowe</a>
           <h1 class="swim-page-title">{{ competition()!.nazwa }} — Wyniki</h1>
           <div class="res-meta">
             @if (competition()!.data)    { <span>📅 {{ competition()!.data }}</span> }

@@ -19,10 +19,10 @@ import { Competition } from '../../core/models';
     <app-header />
     <div class="swim-page">
       <div class="home-toolbar">
-        <app-search-input class="search-box" placeholder="Szukaj zawodów..." [(value)]="query" [badge]="resultsBadge()" />
+        <app-search-input class="search-box" placeholder="Szukaj list startowych..." [(value)]="query" [badge]="resultsBadge()" />
         <p-selectbutton [options]="scopeOpts" [ngModel]="scope()" (ngModelChange)="setScope($event)" [allowEmpty]="false" optionLabel="label" optionValue="value" />
         <p-selectbutton [options]="viewOpts" [ngModel]="view()" (ngModelChange)="setView($event)" [allowEmpty]="false" optionLabel="label" optionValue="value" />
-        <a routerLink="/import" class="card-link gold import-link">⇪ Listy Startowe</a>
+        <a routerLink="/import" class="card-link gold import-link">⇪ Pobierz zawody</a>
       </div>
 
       @if (localFiltered().length > 0) {
@@ -74,7 +74,11 @@ import { Competition } from '../../core/models';
         <div class="center-spin"><p-progressSpinner /></div>
       } @else if (filtered().length === 0) {
         @if (localFiltered().length === 0) {
-          <p class="empty">Nie znaleziono zawodów.</p>
+          @if (query().trim()) {
+            <p class="empty">Nie znaleziono list startowych.</p>
+          } @else {
+            <p class="empty"><a routerLink="/import" class="card-link gold import-link">⇪ Pobierz zawody</a></p>
+          }
         }
       } @else if (view() === 'grid') {
         <div class="competition-grid">

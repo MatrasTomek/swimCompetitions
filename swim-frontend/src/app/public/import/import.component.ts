@@ -35,7 +35,7 @@ interface ImportFormState {
   template: `
     <app-header />
     <div class="swim-page">
-      <a routerLink="/" class="back">← Zawody</a>
+      <a routerLink="/" class="back">← Listy startowe</a>
       <h1 class="swim-page-title">Pobierz listę startową</h1>
 
       <p-card styleClass="import-card">

@@ -23,8 +23,8 @@ import { AuthService } from '../../core/services/auth.service';
           <a routerLink="/admin/uzytkownicy" routerLinkActive="active">Konta</a>
           <p-button label="Wyloguj" icon="pi pi-sign-out" ariaLabel="Wyloguj" severity="secondary" size="small" styleClass="logout-btn" (onClick)="auth.logout()" />
         } @else {
-          <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Zawody</a>
-          <a routerLink="/import" routerLinkActive="active">Listy Startowe</a>
+          <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Listy startowe</a>
+          <a routerLink="/import" routerLinkActive="active">Pobierz zawody</a>
           @if (auth.isUser()) {
             <a routerLink="/konto/zawodnicy" routerLinkActive="active">Moi zawodnicy</a>
             <a routerLink="/konto" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Konto</a>
