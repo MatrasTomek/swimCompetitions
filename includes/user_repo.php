@@ -3,7 +3,8 @@
  * User accounts in MongoDB (collection "users") — the only place that talks
  * to the database, so the storage can be swapped without touching the API.
  *
- * Document: userId, userEmail (login), userPassword (hash), userClub, status,
+ * Document: userId, userEmail (login), userPassword (hash), userClub,
+ * userInvoice (invoice details: companyName, street, postalCode, city, nip), status,
  * tokenVersion, e-mail/reset token hashes, timestamps and
  * clubItems.clubMembers[].memberTimes[] (see CLAUDE.md).
  */
@@ -17,6 +18,7 @@ const MEMBER_SEXES  = ['M', 'K'];
 const SWIM_KINDS    = ['dowolny', 'grzbietowy', 'klasyczny', 'motylkowy', 'zmienny'];
 const SWIM_LENGTHS  = [25, 50, 100, 200, 400, 800, 1500];
 const POOL_LENGTHS  = [25, 50];
+const USER_INVOICE_FIELDS = ['companyName', 'street', 'postalCode', 'city', 'nip'];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -44,11 +46,20 @@ function user_public(array $u): array {
         'userId'      => $u['userId'],
         'userEmail'   => $u['userEmail'],
         'userClub'    => $u['userClub'] ?? '',
+        'userInvoice' => user_invoice_public($u['userInvoice'] ?? null),
         'status'      => $u['status'],
         'createdAt'   => $iso($u['createdAt'] ?? null),
         'lastLoginAt' => $iso($u['lastLoginAt'] ?? null),
         'clubItems'   => ['clubMembers' => array_values($u['clubItems']['clubMembers'] ?? [])],
     ];
+}
+
+/** Invoice details for the browser — accounts created before they were required have none (null). */
+function user_invoice_public($inv): ?array {
+    if (!is_array($inv) || empty($inv['nip'])) return null;
+    $out = [];
+    foreach (USER_INVOICE_FIELDS as $k) $out[$k] = (string)($inv[$k] ?? '');
+    return $out;
 }
 
 /** Short admin listing row (no club members). */
@@ -87,7 +98,7 @@ function user_find_by_id(string $userId): ?array {
  * Creates a pending_email account. Returns the e-mail confirmation token,
  * or null when the e-mail is already taken.
  */
-function user_create(string $email, string $passwordHash, string $club): ?string {
+function user_create(string $email, string $passwordHash, string $club, array $invoice): ?string {
     $token = user_new_token();
     try {
         mongo_users()->insertOne([
@@ -95,6 +106,7 @@ function user_create(string $email, string $passwordHash, string $club): ?string
             'userEmail'            => user_normalize_email($email),
             'userPassword'         => $passwordHash,
             'userClub'             => $club,
+            'userInvoice'          => $invoice,
             'status'               => 'pending_email',
             'tokenVersion'         => 1,
             'emailVerifyTokenHash' => user_token_hash($token),
@@ -192,12 +204,44 @@ function user_record_login(string $userId, ?string $newHash = null): void {
     mongo_users()->updateOne(['userId' => $userId], ['$set' => $set]);
 }
 
-function user_update_club(string $userId, string $club): bool {
+/** Updates the given profile fields ($fields: userClub and/or userInvoice). */
+function user_update_profile(string $userId, array $fields): bool {
     $r = mongo_users()->updateOne(
         ['userId' => $userId],
-        ['$set' => ['userClub' => $club, 'updatedAt' => mongo_now()]]
+        ['$set' => $fields + ['updatedAt' => mongo_now()]]
     );
     return $r->getMatchedCount() === 1;
+}
+
+/** Polish NIP: 10 digits, the last one a mod-11 checksum of the others. */
+function nip_valid(string $nip): bool {
+    if (!preg_match('/^\d{10}$/', $nip)) return false;
+    $sum = 0;
+    foreach ([6, 5, 7, 2, 3, 4, 5, 6, 7] as $i => $w) $sum += $w * (int)$nip[$i];
+    return $sum % 11 === (int)$nip[9];
+}
+
+/**
+ * Validates invoice details (all required): full company name, street address,
+ * postal code (00-000), city and NIP (dashes/spaces/"PL" prefix accepted, stored as 10 digits).
+ * Returns [fields, error].
+ */
+function user_invoice_validate($in): array {
+    if (!is_array($in)) return [null, 'Podaj dane do faktury.'];
+    $text = fn($v, int $max) => is_string($v) ? mb_substr(trim(preg_replace('/\p{C}/u', '', preg_replace('/\s+/u', ' ', $v))), 0, $max, 'UTF-8') : '';
+
+    $name = $text($in['companyName'] ?? null, 200);
+    if ($name === '') return [null, 'Podaj pełną nazwę firmy.'];
+    $street = $text($in['street'] ?? null, 150);
+    if ($street === '') return [null, 'Podaj ulicę i numer.'];
+    $postal = $text($in['postalCode'] ?? null, 6);
+    if (!preg_match('/^\d{2}-\d{3}$/', $postal)) return [null, 'Podaj kod pocztowy w formacie 00-000.'];
+    $city = $text($in['city'] ?? null, 100);
+    if ($city === '') return [null, 'Podaj miejscowość.'];
+    $nip = is_string($in['nip'] ?? null) ? preg_replace('/^PL|[\s-]/i', '', trim($in['nip'])) : '';
+    if (!nip_valid($nip)) return [null, 'Podaj poprawny NIP (10 cyfr).'];
+
+    return [['companyName' => $name, 'street' => $street, 'postalCode' => $postal, 'city' => $city, 'nip' => $nip], null];
 }
 
 function user_delete(string $userId): bool {

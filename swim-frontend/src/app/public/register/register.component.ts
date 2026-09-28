@@ -11,12 +11,14 @@ import { HeaderComponent } from '../../shared/header/header.component';
 import { ApiService } from '../../core/services/api.service';
 import { RegisterRequest } from '../../core/models';
 import { PASSWORD_MIN } from '../../shared/password';
+import { EMPTY_INVOICE, InvoiceFieldsComponent, invoiceValid } from '../../shared/invoice-fields/invoice-fields.component';
 
-const EMPTY_FORM: RegisterRequest = { email: '', password: '', userClub: '', zgoda: false, website: '' };
+const emptyForm = (): RegisterRequest =>
+  ({ email: '', password: '', userClub: '', userInvoice: { ...EMPTY_INVOICE }, zgoda: false, website: '' });
 
 @Component({
   selector: 'app-register',
-  imports: [FormsModule, RouterLink, InputText, Password, Checkbox, Button, Card, Message, HeaderComponent],
+  imports: [FormsModule, RouterLink, InputText, Password, Checkbox, Button, Card, Message, HeaderComponent, InvoiceFieldsComponent],
   template: `
     <app-header />
     <div class="swim-page">
@@ -69,6 +71,11 @@ const EMPTY_FORM: RegisterRequest = { email: '', password: '', userClub: '', zgo
               @if (klub.invalid && (klub.touched || f.submitted)) { <small class="err">Podaj nazwę klubu.</small> }
             </div>
 
+            <fieldset class="invoice">
+              <legend>Dane do faktury</legend>
+              <app-invoice-fields [value]="form.userInvoice" [submitted]="f.submitted" />
+            </fieldset>
+
             <!-- Honeypot: hidden from people, filled in only by spam bots -->
             <div class="hp" aria-hidden="true">
               <label for="website">Strona www</label>
@@ -107,6 +114,8 @@ const EMPTY_FORM: RegisterRequest = { email: '', password: '', userClub: '', zgo
     .field         { display: flex; flex-direction: column; gap: .4rem; min-width: 0; }
     .field label   { font-size: .85rem; color: var(--swim-muted); }
     .field input, .field ::ng-deep .p-password, .field ::ng-deep .p-password input { width: 100%; }
+    .invoice       { border: 1px solid var(--swim-border); border-radius: 8px; padding: 1rem 1.25rem 1.25rem; margin: 0; min-width: 0; }
+    .invoice legend { padding: 0 .4rem; font-size: .85rem; color: var(--swim-gold); }
     .consent       { display: flex; align-items: flex-start; gap: .6rem; }
     .consent label { font-size: .8rem; line-height: 1.45; color: var(--swim-muted); cursor: pointer; }
     .rodo-link     { color: var(--swim-gold); }
@@ -129,7 +138,7 @@ export class RegisterComponent {
   private api = inject(ApiService);
 
   readonly minPassword = PASSWORD_MIN;
-  form: RegisterRequest = { ...EMPTY_FORM };
+  form: RegisterRequest = emptyForm();
   password2 = '';
   loading = signal(false);
   error   = signal<string | null>(null);
@@ -137,7 +146,7 @@ export class RegisterComponent {
   sentTo  = signal('');
 
   submit(f: NgForm) {
-    if (f.invalid || !this.form.zgoda || this.password2 !== this.form.password) return;
+    if (f.invalid || !this.form.zgoda || this.password2 !== this.form.password || !invoiceValid(this.form.userInvoice)) return;
     this.loading.set(true);
     this.error.set(null);
     this.api.register({ ...this.form, email: this.form.email.trim() }).subscribe({
@@ -145,7 +154,7 @@ export class RegisterComponent {
         this.loading.set(false);
         this.sentTo.set(this.form.email);
         this.sent.set(true);
-        this.form = { ...EMPTY_FORM };
+        this.form = emptyForm();
         this.password2 = '';
       },
       error: err => {

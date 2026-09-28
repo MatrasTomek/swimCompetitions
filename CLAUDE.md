@@ -40,7 +40,7 @@ No automated tests are configured. Verify changes in a browser or via CLI.
 - `zawodnicy/*.json` — per-athlete race history, auto-generated from result fetching
 - `zapowiedzi.json` — competitions without a start list ("coming soon")
 - `live_config.json` — currently active live competition config
-- MongoDB `users` collection (database `MONGO_DB`, default `swim`) — club user accounts, one document per account: `userId` (UUID v4, unique), `userEmail` (login, lowercase, unique), `userPassword` (bcrypt), `userClub`, `status` (`pending_email` → `pending_approval` → `active` / `disabled`), `tokenVersion`, hashed one-time e-mail/reset tokens, `clubItems.clubMembers[]` (`memberId`, `memberName`, `memberSex` M/K, `memberBirthYear`, `memberTimes[]`: `competitionId`, `competitionName`, `competitionDate`, `poolLength`, `competitionKind`, `competitionLength`, `competitionTime`)
+- MongoDB `users` collection (database `MONGO_DB`, default `swim`) — club user accounts, one document per account: `userId` (UUID v4, unique), `userEmail` (login, lowercase, unique), `userPassword` (bcrypt), `userClub`, `userInvoice` (invoice details required at registration: `companyName`, `street`, `postalCode` 00-000, `city`, `nip` — 10 digits, checksum-validated; missing on older accounts → `null` in the API), `status` (`pending_email` → `pending_approval` → `active` / `disabled`), `tokenVersion`, hashed one-time e-mail/reset tokens, `clubItems.clubMembers[]` (`memberId`, `memberName`, `memberSex` M/K, `memberBirthYear`, `memberTimes[]`: `competitionId`, `competitionName`, `competitionDate`, `poolLength`, `competitionKind`, `competitionLength`, `competitionTime`)
 
 ### Backend — REST API (`api/v1/`)
 
@@ -49,8 +49,8 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 | Route | File | Role |
 |-------|------|------|
 | `/auth/*` | `api/v1/auth.php` | Login → JWT with `role`: username `admin` → admin (secrets.php hash); an e-mail → club user from MongoDB (only `active`; `tv` = tokenVersion) |
-| `/account/*` | `api/v1/account.php` | Club user accounts: public register (honeypot, per-IP `ACCOUNT_*` limit) / verify-email / forgot-password / reset-password (never reveal whether an e-mail exists); user-only `me` (GET/PATCH/DELETE), change-password (returns a fresh token), `members[/{id}[/times[/{id}]]]` CRUD |
-| `/users[/{userId}]` | `api/v1/users.php` | Admin: account list, `PATCH {status}` — activating e-mails the owner |
+| `/account/*` | `api/v1/account.php` | Club user accounts: public register (honeypot, per-IP `ACCOUNT_*` limit) / verify-email / forgot-password / reset-password (never reveal whether an e-mail exists); user-only `me` (GET/PATCH `{userClub?, userInvoice?}`/DELETE), change-password (returns a fresh token), `members[/{id}[/times[/{id}]]]` CRUD |
+| `/users[/{userId}]` | `api/v1/users.php` | Admin: account list (incl. invoice details), `PATCH {status}` — activating e-mails the owner |
 | `/competitions[/{slug}[/pdf]]` | `api/v1/competitions.php` | CRUD + results PDF (includes `api/generuj_pdf.php`) |
 | `/athletes[/{slug}\|export]` | `api/v1/athletes.php` | Athlete profiles |
 | `/startlist/preview` | `api/v1/startlist.php` | Start list import from livetiming.pl PDF — public (per-IP rate limit); returns the competition JSON to the browser only (nothing is saved server-side); accepts only a `livetiming.pl/contest/{uuid}` page URL (`sl_contest_uuid()`), never a direct PDF link; name, city, dates, pool length (`basen`) and the start list PDF link (file titled "Lista startowa") are read from the contest object embedded in the contest page's `window.__data` (so the name matches the contest search); blocks come from Splash session headers (`1 - Blok 1  19.09.2026 - 16:00`; the block keeps the PDF's session number, since e.g. finals sessions may be missing; dates may also be `20/9/2026` or ISO `2026-09-20`), or per day from each event's `20.09.2026 - 9:30` line when the PDF has none |
@@ -85,7 +85,7 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 - `src/app/public/register/` — account registration at `/rejestracja` (linked from the login page) via `POST /account/register`; its consent links to the RODO information clause at `/rodo` (`public/rodo/`, opens in a new tab). `POST /contact` (e-mail form) still exists in the API but the SPA no longer uses it
 - `src/app/public/login/` — the one login form at `/logowanie` (card "Wyniki i Statystyki"; `/admin/login` redirects): admin → `/admin/zawody`, club user → `/konto`
 - `src/app/public/account/` — `/konto/potwierdz`, `/konto/zapomniane-haslo`, `/konto/reset-hasla` (token links from e-mails)
-- `src/app/account/` — club user pages behind `userGuard`: `/konto` (club, password change, account removal), `/konto/zawodnicy` (club members + times)
+- `src/app/account/` — club user pages behind `userGuard`: `/konto` (club, invoice details, password change, account removal), `/konto/zawodnicy` (club members + times)
 - `src/app/admin/` — competitions (list/edit), athletes, live (LENEX), users (`/admin/uzytkownicy` — activate/block accounts); behind `adminGuard`
 - Start list imports (visitors and admins alike) are kept only in the browser (`localStorage`, `LocalCompetitionsService`) and shown at `/moje/:id/lista` — they are never written to `zawody/` on the server
 - `src/app/core/` — `ApiService` (all HTTP calls, base URL from `src/environments/`), `AuthService` (token + role in `localStorage`; tokens without a stored role are the admin's), `adminGuard`/`userGuard`, error interceptor (401 while logged in → logout), models

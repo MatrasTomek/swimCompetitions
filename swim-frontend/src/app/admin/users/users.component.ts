@@ -36,21 +36,30 @@ const STATUS: Record<AccountStatus, { label: string; severity: 'success' | 'warn
         <div class="center-spin"><p-progressSpinner /></div>
       } @else {
         <div class="search-row">
-          <app-search-input class="search-box" placeholder="Szukaj po e-mailu lub klubie..." [(value)]="query"
+          <app-search-input class="search-box" placeholder="Szukaj po e-mailu, klubie, firmie lub NIP..." [(value)]="query"
             [badge]="accountsLabel(filtered().length)" />
           @if (pendingCount()) {
             <span class="pending"><i class="pi pi-bell"></i> {{ pendingCount() }} {{ pendingLabel(pendingCount()) }}</span>
           }
         </div>
 
-        <p-table [value]="filtered()" dataKey="userId" [tableStyle]="{'min-width':'960px'}" styleClass="swim-datatable" [paginator]="filtered().length > 50" [rows]="50">
+        <p-table [value]="filtered()" dataKey="userId" [tableStyle]="{'min-width':'1180px'}" styleClass="swim-datatable" [paginator]="filtered().length > 50" [rows]="50">
           <ng-template pTemplate="header">
-            <tr><th>E-mail</th><th>Klub</th><th>Status</th><th>Zawodników</th><th>Utworzone</th><th>Ostatnie logowanie</th><th></th></tr>
+            <tr><th>E-mail</th><th>Klub</th><th>Dane do faktury</th><th>Status</th><th>Zawodników</th><th>Utworzone</th><th>Ostatnie logowanie</th><th></th></tr>
           </ng-template>
           <ng-template pTemplate="body" let-u>
             <tr>
               <td class="email">{{ u.userEmail }}</td>
               <td>{{ u.userClub }}</td>
+              <td class="invoice">
+                @if (u.userInvoice; as inv) {
+                  <strong>{{ inv.companyName }}</strong><br />
+                  {{ inv.street }}, {{ inv.postalCode }} {{ inv.city }}<br />
+                  <span class="nip">NIP {{ nip(inv.nip) }}</span>
+                } @else {
+                  <span class="missing">brak</span>
+                }
+              </td>
               <td class="nowrap"><p-tag [value]="status(u).label" [severity]="status(u).severity" /></td>
               <td>{{ u.memberCount }}</td>
               <td class="nowrap">{{ u.createdAt | date:'dd.MM.yyyy HH:mm' }}</td>
@@ -67,7 +76,7 @@ const STATUS: Record<AccountStatus, { label: string; severity: 'success' | 'warn
             </tr>
           </ng-template>
           <ng-template pTemplate="emptymessage">
-            <tr><td colspan="7" class="empty">Brak kont.</td></tr>
+            <tr><td colspan="8" class="empty">Brak kont.</td></tr>
           </ng-template>
         </p-table>
       }
@@ -79,6 +88,10 @@ const STATUS: Record<AccountStatus, { label: string; severity: 'success' | 'warn
     .pending     { color: var(--swim-gold); font-size: .85rem; }
     .email       { white-space: nowrap; }
     .nowrap      { white-space: nowrap; }
+    .invoice     { font-size: .82rem; line-height: 1.4; min-width: 220px; }
+    .invoice strong { color: var(--swim-text); }
+    .nip         { color: var(--swim-muted); white-space: nowrap; }
+    .missing     { color: var(--swim-muted); font-style: italic; }
     .actions-col { text-align: right; white-space: nowrap; }
     .actions-col p-button + p-button { margin-left: .4rem; }
     .empty       { text-align: center; color: var(--swim-muted); padding: 1.5rem; }
@@ -99,7 +112,12 @@ export class UsersComponent implements OnInit {
   filtered = computed(() => {
     const q = this.query().trim().toLocaleLowerCase('pl');
     const list = this.users();
-    return q ? list.filter(u => `${u.userEmail} ${u.userClub}`.toLocaleLowerCase('pl').includes(q)) : list;
+    if (!q) return list;
+    const hay = (u: AccountSummary) => {
+      const inv = u.userInvoice;
+      return [u.userEmail, u.userClub, inv?.companyName, inv?.city, inv?.nip, inv && this.nip(inv.nip)].join(' ');
+    };
+    return list.filter(u => hay(u).toLocaleLowerCase('pl').includes(q));
   });
   pendingCount = computed(() => this.users().filter(u => u.status === 'pending_approval').length);
 
@@ -112,6 +130,11 @@ export class UsersComponent implements OnInit {
 
   status(u: AccountSummary) {
     return STATUS[u.status];
+  }
+
+  /** 5261040828 → 526-104-08-28 */
+  nip(nip: string): string {
+    return nip.replace(/^(\d{3})(\d{3})(\d{2})(\d{2})$/, '$1-$2-$3-$4');
   }
 
   accountsLabel(n: number): string {

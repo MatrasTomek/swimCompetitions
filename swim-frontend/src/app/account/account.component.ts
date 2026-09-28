@@ -16,12 +16,13 @@ import { PASSWORD_MIN } from '../shared/password';
 import { plural } from '../shared/plural';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
-import { Account } from '../core/models';
+import { Account, UserInvoice } from '../core/models';
+import { EMPTY_INVOICE, InvoiceFieldsComponent, invoiceValid } from '../shared/invoice-fields/invoice-fields.component';
 
-/** /konto — club user's account: club name, password change, account removal. */
+/** /konto — club user's account: club name, invoice details, password change, account removal. */
 @Component({
   selector: 'app-account',
-  imports: [FormsModule, DatePipe, RouterLink, Card, InputText, Password, Button, Message, Dialog, Toast, ProgressSpinner, HeaderComponent],
+  imports: [FormsModule, DatePipe, RouterLink, Card, InputText, Password, Button, Message, Dialog, Toast, ProgressSpinner, HeaderComponent, InvoiceFieldsComponent],
   providers: [MessageService],
   template: `
     <app-header />
@@ -49,6 +50,16 @@ import { Account } from '../core/models';
               </div>
               <p-button type="submit" label="Zapisz" icon="pi pi-save" [loading]="savingClub()"
                 [disabled]="!club.trim() || club.trim() === account()!.userClub" />
+            </form>
+          </p-card>
+
+          <p-card header="Dane do faktury" styleClass="acc-card">
+            @if (!account()!.userInvoice) {
+              <p-message severity="warn" text="Uzupełnij dane do faktury — są potrzebne do rozliczenia konta." styleClass="inv-warn" />
+            }
+            <form #invf="ngForm" (ngSubmit)="saveInvoice(invf)" class="form" novalidate>
+              <app-invoice-fields [value]="invoice" [submitted]="invf.submitted" />
+              <p-button type="submit" label="Zapisz" icon="pi pi-save" [loading]="savingInvoice()" />
             </form>
           </p-card>
 
@@ -115,6 +126,7 @@ import { Account } from '../core/models';
     .hint        { color: var(--swim-muted); font-size: .8rem; line-height: 1.45; margin: 0 0 1rem; }
     .form .hint  { margin: 0; }
     .dialog-actions { display: flex; justify-content: flex-end; gap: .5rem; width: 100%; }
+    :host ::ng-deep .inv-warn { margin-bottom: 1rem; }
     .center-spin { display: flex; justify-content: center; padding: 3rem; }
   `]
 })
@@ -131,6 +143,9 @@ export class AccountComponent implements OnInit {
   club       = '';
   savingClub = signal(false);
 
+  invoice: UserInvoice = { ...EMPTY_INVOICE };
+  savingInvoice = signal(false);
+
   current    = '';
   newPwd     = '';
   newPwd2    = '';
@@ -144,7 +159,7 @@ export class AccountComponent implements OnInit {
 
   ngOnInit() {
     this.api.getAccount().subscribe({
-      next: a => { this.account.set(a); this.club = a.userClub; },
+      next: a => { this.account.set(a); this.club = a.userClub; this.invoice = { ...(a.userInvoice ?? EMPTY_INVOICE) }; },
       error: err => this.loadError.set(err.error?.error ?? 'Nie udało się wczytać konta.'),
     });
   }
@@ -156,7 +171,7 @@ export class AccountComponent implements OnInit {
   saveClub(f: NgForm) {
     if (f.invalid || !this.club.trim()) return;
     this.savingClub.set(true);
-    this.api.updateAccount(this.club.trim()).subscribe({
+    this.api.updateAccount({ userClub: this.club.trim() }).subscribe({
       next: a => {
         this.savingClub.set(false);
         this.account.set(a);
@@ -165,6 +180,23 @@ export class AccountComponent implements OnInit {
       },
       error: err => {
         this.savingClub.set(false);
+        this.messages.add({ severity: 'error', summary: 'Błąd', detail: err.error?.error ?? 'Nie udało się zapisać.' });
+      },
+    });
+  }
+
+  saveInvoice(f: NgForm) {
+    if (f.invalid || !invoiceValid(this.invoice)) return;
+    this.savingInvoice.set(true);
+    this.api.updateAccount({ userInvoice: this.invoice }).subscribe({
+      next: a => {
+        this.savingInvoice.set(false);
+        this.account.set(a);
+        this.invoice = { ...a.userInvoice! };
+        this.messages.add({ severity: 'success', summary: 'Zapisano', detail: 'Dane do faktury zostały zapisane.' });
+      },
+      error: err => {
+        this.savingInvoice.set(false);
         this.messages.add({ severity: 'error', summary: 'Błąd', detail: err.error?.error ?? 'Nie udało się zapisać.' });
       },
     });

@@ -129,10 +129,20 @@ export interface ClubMember {
   memberTimes: MemberTime[];
 }
 
+/** Invoice details — required at registration; null for accounts created before that. */
+export interface UserInvoice {
+  companyName: string;
+  street: string;
+  postalCode: string; // 00-000
+  city: string;
+  nip: string;        // 10 digits
+}
+
 export interface Account {
   userId: string;
   userEmail: string;
   userClub: string;
+  userInvoice: UserInvoice | null;
   status: AccountStatus;
   createdAt: string | null;
   lastLoginAt: string | null;
@@ -148,6 +158,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   userClub: string;
+  userInvoice: UserInvoice;
   zgoda: boolean;
   website: string;
 }
