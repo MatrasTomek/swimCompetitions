@@ -11,7 +11,7 @@ require_once __DIR__ . '/../../includes/result_fetch.php';
 require_once __DIR__ . '/require_auth.php';
 
 function handle_results(string $sub, string $method): void {
-    api_require_auth();
+    api_require_admin();
 
     if ($sub === 'fetch' && $method === 'POST') {
         $body        = json_decode(file_get_contents('php://input'), true) ?? [];

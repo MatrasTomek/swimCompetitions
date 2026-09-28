@@ -11,7 +11,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/require_auth.php';
 
 function handle_announcements(string $id, string $method): void {
-    api_require_auth();
+    api_require_admin();
 
     if ($id === '' && $method === 'GET') {
         echo json_encode(load_zapowiedzi(), JSON_UNESCAPED_UNICODE);

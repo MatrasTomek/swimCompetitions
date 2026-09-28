@@ -48,7 +48,7 @@ function handle_competitions(string $slug, string $sub, string $method): void {
 
     // ── POST /competitions ───────────────────────────────────────────
     if ($slug === '' && $method === 'POST') {
-        api_require_auth();
+        api_require_admin();
 
         // Multipart: JSON file upload
         if (!empty($_FILES['file'])) {
@@ -108,7 +108,7 @@ function handle_competitions(string $slug, string $sub, string $method): void {
 
     // ── PUT /competitions/{slug} ─────────────────────────────────────
     if ($slug !== '' && $sub === '' && $method === 'PUT') {
-        api_require_auth();
+        api_require_admin();
 
         $path = safe_json_path($slug . '.json');
         if (!$path) { http_response_code(404); echo json_encode(['error' => 'Nie znaleziono zawodów.']); return; }
@@ -134,7 +134,7 @@ function handle_competitions(string $slug, string $sub, string $method): void {
 
     // ── DELETE /competitions/{slug} ──────────────────────────────────
     if ($slug !== '' && $sub === '' && $method === 'DELETE') {
-        api_require_auth();
+        api_require_admin();
 
         $path = safe_json_path($slug . '.json');
         if (!$path) { http_response_code(404); echo json_encode(['error' => 'Nie znaleziono zawodów.']); return; }

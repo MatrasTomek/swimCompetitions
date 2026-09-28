@@ -11,7 +11,7 @@ require_once __DIR__ . '/../../includes/result_fetch.php';
 require_once __DIR__ . '/require_auth.php';
 
 function handle_live(string $method): void {
-    api_require_auth();
+    api_require_admin();
 
     if ($method === 'GET') {
         $config = load_live_config();

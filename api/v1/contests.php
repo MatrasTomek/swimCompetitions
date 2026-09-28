@@ -26,7 +26,7 @@ function handle_contests(string $sub, string $method): void {
         require_once __DIR__ . '/require_auth.php';
         // Visitors may only rebuild a stale cache (TTL-gated), admins can force it.
         // The lock makes concurrent requests wait for one scrape instead of each hitting livetiming.pl.
-        $force = api_optional_auth() !== null;
+        $force = api_optional_admin() !== null;
         set_time_limit(300);
         $result = with_file_lock(LT_CACHE_FILE . '.lock', fn() => ltcache_refresh(30, $force));
         $status = ltcache_status();

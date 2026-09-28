@@ -23,7 +23,7 @@ function athlete_search_normalize(string $s): string {
 }
 
 function handle_athletes(string $slug, string $method): void {
-    api_require_auth();
+    api_require_admin();
 
     if ($method !== 'GET') {
         http_response_code(405);
