@@ -15,3 +15,9 @@ export const ACCOUNT_CARD_STYLES = `
   .links      { margin-top: 1.25rem; text-align: center; font-size: .85rem; }
   .links a    { color: var(--swim-gold); text-decoration: none; }
 `;
+
+/** Tokens in e-mail links are 64 hex characters (bin2hex(random_bytes(32)) in includes/user_repo.php). */
+export const EMAIL_TOKEN_RE = /^[0-9a-f]{64}$/;
+
+export const INCOMPLETE_LINK_MSG =
+  'Link jest niekompletny — prawdopodobnie został ucięty przy kopiowaniu. Otwórz go z maila jeszcze raz, w całości.';

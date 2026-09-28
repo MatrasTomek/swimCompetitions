@@ -4,7 +4,7 @@ import { Card } from 'primeng/card';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { Message } from 'primeng/message';
 import { ApiService } from '../../core/services/api.service';
-import { ACCOUNT_CARD_STYLES } from './account-card.styles';
+import { ACCOUNT_CARD_STYLES, EMAIL_TOKEN_RE, INCOMPLETE_LINK_MSG } from './account-card.styles';
 
 /** /konto/potwierdz?token=… — link from the registration e-mail. */
 @Component({
@@ -38,7 +38,12 @@ export class VerifyEmailComponent implements OnInit {
   error = signal('');
 
   ngOnInit() {
-    const token = this.route.snapshot.queryParamMap.get('token') ?? '';
+    const token = (this.route.snapshot.queryParamMap.get('token') ?? '').trim();
+    if (!EMAIL_TOKEN_RE.test(token)) {
+      this.error.set(INCOMPLETE_LINK_MSG);
+      this.state.set('error');
+      return;
+    }
     this.api.verifyEmail(token).subscribe({
       next: () => this.state.set('ok'),
       error: err => {

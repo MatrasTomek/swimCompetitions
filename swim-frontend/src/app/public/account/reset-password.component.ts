@@ -7,7 +7,7 @@ import { Button } from 'primeng/button';
 import { Message } from 'primeng/message';
 import { ApiService } from '../../core/services/api.service';
 import { PASSWORD_MIN } from '../../shared/password';
-import { ACCOUNT_CARD_STYLES } from './account-card.styles';
+import { ACCOUNT_CARD_STYLES, EMAIL_TOKEN_RE, INCOMPLETE_LINK_MSG } from './account-card.styles';
 
 /** /konto/reset-hasla?token=… — link from the password reset e-mail. */
 @Component({
@@ -62,7 +62,11 @@ export class ResetPasswordComponent {
 
   submit(f: NgForm) {
     if (f.invalid || this.password !== this.password2) return;
-    const token = this.route.snapshot.queryParamMap.get('token') ?? '';
+    const token = (this.route.snapshot.queryParamMap.get('token') ?? '').trim();
+    if (!EMAIL_TOKEN_RE.test(token)) {
+      this.error.set(INCOMPLETE_LINK_MSG);
+      return;
+    }
     this.loading.set(true);
     this.error.set(null);
     this.api.resetPassword(token, this.password).subscribe({
