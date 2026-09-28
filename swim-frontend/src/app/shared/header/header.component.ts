@@ -20,11 +20,18 @@ import { AuthService } from '../../core/services/auth.service';
           <a routerLink="/admin/zawody" routerLinkActive="active">Zawody</a>
           <a routerLink="/admin/zawodnicy" routerLinkActive="active">Zawodnicy</a>
           <a routerLink="/admin/live" routerLinkActive="active">Live</a>
+          <a routerLink="/admin/uzytkownicy" routerLinkActive="active">Konta</a>
           <p-button label="Wyloguj" icon="pi pi-sign-out" ariaLabel="Wyloguj" severity="secondary" size="small" styleClass="logout-btn" (onClick)="auth.logout()" />
         } @else {
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Zawody</a>
           <a routerLink="/import" routerLinkActive="active">Listy Startowe</a>
-          <a routerLink="/admin/login" class="admin-link">Wyniki</a>
+          @if (auth.isUser()) {
+            <a routerLink="/konto/zawodnicy" routerLinkActive="active">Moi zawodnicy</a>
+            <a routerLink="/konto" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Konto</a>
+            <p-button label="Wyloguj" icon="pi pi-sign-out" ariaLabel="Wyloguj" severity="secondary" size="small" styleClass="logout-btn" (onClick)="auth.logout()" />
+          } @else {
+            <a routerLink="/logowanie" class="admin-link">Wyniki</a>
+          }
         }
       </nav>
     </header>

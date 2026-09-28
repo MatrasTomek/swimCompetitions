@@ -97,10 +97,63 @@ export interface LiveConfig {
   ostatnia_aktualizacja?: string;
 }
 
+export type UserRole = 'admin' | 'user';
+
 export interface AuthToken {
   token: string;
   expires_at: string;
+  role: UserRole;
+  username: string;
 }
+
+// ── Club user accounts (MongoDB) ──────────────────────────────────────
+export type AccountStatus = 'pending_email' | 'pending_approval' | 'active' | 'disabled';
+export type MemberSex = 'M' | 'K';
+export type SwimKind = 'dowolny' | 'grzbietowy' | 'klasyczny' | 'motylkowy' | 'zmienny';
+
+export interface MemberTime {
+  competitionId: string;
+  competitionName: string;
+  competitionDate: string;   // YYYY-MM-DD
+  poolLength: 25 | 50;
+  competitionKind: SwimKind;
+  competitionLength: number; // m
+  competitionTime: string;   // 1:02.34 / 29.87
+}
+
+export interface ClubMember {
+  memberId: string;
+  memberName: string;
+  memberSex: MemberSex;
+  memberBirthYear: number;
+  memberTimes: MemberTime[];
+}
+
+export interface Account {
+  userId: string;
+  userEmail: string;
+  userClub: string;
+  status: AccountStatus;
+  createdAt: string | null;
+  lastLoginAt: string | null;
+  clubItems: { clubMembers: ClubMember[] };
+}
+
+/** Admin's account list row. */
+export interface AccountSummary extends Omit<Account, 'clubItems'> {
+  memberCount: number;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  userClub: string;
+  zgoda: boolean;
+  website: string;
+}
+
+export type ClubMemberInput = Omit<ClubMember, 'memberId' | 'memberTimes'>;
+export type MemberTimeInput = Omit<MemberTime, 'competitionId'>;
 
 export interface LtContest {
   uuid: string;
@@ -119,13 +172,3 @@ export interface LtCacheStatus {
 }
 
 /** Registration form sent by e-mail via `POST /contact`. `website` is a honeypot — always empty for humans. */
-export interface ContactRequest {
-  imie: string;
-  email: string;
-  telefon: string;
-  klub: string;
-  zawodnicy: string;
-  wiadomosc: string;
-  zgoda: boolean;
-  website: string;
-}

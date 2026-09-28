@@ -10,3 +10,7 @@
 /livetiming_cache.json.lock
 /contact_rate.json
 /contact_rate.json.lock
+/vendor/
+/account_rate.json
+/account_rate.json.lock
+/login_attempts.json.lock

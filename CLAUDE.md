@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Web application for managing swimming competition start lists and live results for Olimpijczyk Proszówki. Two parts:
 
-- **Backend**: PHP 8.x REST API (`api/v1/`) — no framework, no database, all data stored as JSON files
+- **Backend**: PHP 8.x REST API (`api/v1/`) — no framework; competition data stored as JSON files, club user accounts in MongoDB (Atlas)
 - **Frontend**: Angular SPA (`swim-frontend/`) with PrimeNG — public pages and the admin panel
 
 ## Running and Testing
@@ -18,12 +18,15 @@ php -l api/v1/index.php
 # Generate a bcrypt password hash for admin login
 php -r "echo password_hash('password', PASSWORD_BCRYPT);"
 
-# Local backend in Docker (dev only; PHP 8.3 like production, mbstring/openssl/zip included)
+# Local backend in Docker (dev only; PHP 8.3 like production, mbstring/openssl/zip/mongodb included)
+# + local MongoDB (MONGO_URI env); mail() is written to /tmp/mails.log in the api container
 docker compose -f dev/docker-compose.yml up --build   # http://127.0.0.1:8000, repo mounted at /app
+docker compose -f dev/docker-compose.yml exec api composer install      # vendor/ (mongodb/mongodb)
+docker compose -f dev/docker-compose.yml exec api php scripts/mongo_init.php   # users indexes (idempotent)
 
 # Frontend (from swim-frontend/)
 npm install --legacy-peer-deps   # primeng 21 vs Angular 22 peer conflict
-npm start                        # dev server on http://localhost:4200
+npm start                        # dev server on http://localhost:4200 — proxies the API to API_TARGET from .env (may be production!)
 npm run build
 ```
 
@@ -31,12 +34,13 @@ No automated tests are configured. Verify changes in a browser or via CLI.
 
 ## Architecture
 
-### Data Storage (JSON files, no database)
+### Data Storage (JSON files + MongoDB for accounts)
 
 - `zawody/*.json` — one file per competition; required field: `bloki` (array of race blocks)
 - `zawodnicy/*.json` — per-athlete race history, auto-generated from result fetching
 - `zapowiedzi.json` — competitions without a start list ("coming soon")
 - `live_config.json` — currently active live competition config
+- MongoDB `users` collection (database `MONGO_DB`, default `swim`) — club user accounts, one document per account: `userId` (UUID v4, unique), `userEmail` (login, lowercase, unique), `userPassword` (bcrypt), `userClub`, `status` (`pending_email` → `pending_approval` → `active` / `disabled`), `tokenVersion`, hashed one-time e-mail/reset tokens, `clubItems.clubMembers[]` (`memberId`, `memberName`, `memberSex` M/K, `memberBirthYear`, `memberTimes[]`: `competitionId`, `competitionName`, `competitionDate`, `poolLength`, `competitionKind`, `competitionLength`, `competitionTime`)
 
 ### Backend — REST API (`api/v1/`)
 
@@ -44,14 +48,16 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 
 | Route | File | Role |
 |-------|------|------|
-| `/auth/*` | `api/v1/auth.php` | Login → JWT |
+| `/auth/*` | `api/v1/auth.php` | Login → JWT with `role`: username `admin` → admin (secrets.php hash); an e-mail → club user from MongoDB (only `active`; `tv` = tokenVersion) |
+| `/account/*` | `api/v1/account.php` | Club user accounts: public register (honeypot, per-IP `ACCOUNT_*` limit) / verify-email / forgot-password / reset-password (never reveal whether an e-mail exists); user-only `me` (GET/PATCH/DELETE), change-password (returns a fresh token), `members[/{id}[/times[/{id}]]]` CRUD |
+| `/users[/{userId}]` | `api/v1/users.php` | Admin: account list, `PATCH {status}` — activating e-mails the owner |
 | `/competitions[/{slug}[/pdf]]` | `api/v1/competitions.php` | CRUD + results PDF (includes `api/generuj_pdf.php`) |
 | `/athletes[/{slug}\|export]` | `api/v1/athletes.php` | Athlete profiles |
 | `/startlist/preview` | `api/v1/startlist.php` | Start list import from livetiming.pl PDF — public (per-IP rate limit); returns the competition JSON to the browser only (nothing is saved server-side); accepts only a `livetiming.pl/contest/{uuid}` page URL (`sl_contest_uuid()`), never a direct PDF link; name, city, dates, pool length (`basen`) and the start list PDF link (file titled "Lista startowa") are read from the contest object embedded in the contest page's `window.__data` (so the name matches the contest search); blocks come from Splash session headers (`1 - Blok 1  19.09.2026 - 16:00`; the block keeps the PDF's session number, since e.g. finals sessions may be missing; dates may also be `20/9/2026` or ISO `2026-09-20`), or per day from each event's `20.09.2026 - 9:30` line when the PDF has none |
 | `/results/fetch` | `api/v1/results.php` | Live result fetching |
 | `/live` | `api/v1/live.php` | Live mode config |
 | `/announcements[/{id}]` | `api/v1/announcements.php` | Announcements |
-| `/contact` | `api/v1/contact.php` | Registration form (`/rejestracja` page) — public, per-IP rate limit (`CONTACT_*` in config), honeypot field `website`; sends a UTF-8 e-mail via PHP `mail()` (OVH hosting) to `CONTACT_TO_EMAIL` (info@nd-soft.pl) with the visitor in `Reply-To`; `From` = `CONTACT_FROM_EMAIL` (override in `secrets.php` — on OVH it must be a mailbox in a domain hosted on the account) |
+| `/contact` | `api/v1/contact.php` | E-mail contact form (formerly `/rejestracja`, no longer used by the SPA) — public, per-IP rate limit (`CONTACT_*` in config), honeypot field `website`; sends a UTF-8 e-mail via PHP `mail()` (OVH hosting) to `CONTACT_TO_EMAIL` (info@nd-soft.pl) with the visitor in `Reply-To`; `From` = `CONTACT_FROM_EMAIL` (override in `secrets.php` — on OVH it must be a mailbox in a domain hosted on the account) |
 | `/contests/*` | `api/v1/contests.php` | livetiming.pl search + cache status/refresh — refresh is public but only rebuilds a stale cache (admin forces it) |
 
 ### Key includes
@@ -62,6 +68,9 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 | `includes/secrets.php` | `ADMIN_PASSWORD_HASH` and `JWT_SECRET` — gitignored, never committed; copy from `includes/secrets.example.php` |
 | `includes/functions.php` | Competition/announcement CRUD, `h()` (HTML escape), `slugify()`, `format_konkurencja()`, `write_json_atomic()`/`with_file_lock()` (safe concurrent writes), `is_allowed_contest_host()` (SSRF guard), login rate-limit helpers |
 | `includes/jwt.php` | JWT encode/verify for API auth (HS256, mandatory `exp`) |
+| `includes/mongo.php` | `mongo_available()` (MONGO_URI + ext-mongodb + vendor/), `mongo_db()`/`mongo_users()`, `uuid_v4()` |
+| `includes/user_repo.php` | All MongoDB access for accounts (the only file to change if storage moves): account lifecycle, tokens, admin list/status, validated atomic club member/time updates (`$push`/`$pull` + `arrayFilters`, limits `ACCOUNT_MAX_*`) |
+| `includes/mailer.php` | `send_mail_utf8()` (PHP `mail()`, From = `CONTACT_FROM_EMAIL`), `app_url()` — e-mail links to SPA routes (`APP_PUBLIC_URL` + `/#` hash routing) |
 | `includes/athlete.php` | Athlete profile load/save/dedup — `save_athlete_result()` deduplicates by competition+date+event_nr |
 | `includes/result_fetch.php` | Live-config load/save + orchestrates result fetching: `fetch_and_apply_lenex()` downloads the LENEX file for a contest and applies all results to the competition JSON in one pass |
 | `includes/lenex_fetch.php` | Low-level LENEX (.lxf) download/parsing: `lenex_download()`, `lenex_parse_xml()`, `lenex_find_athlete()` |
@@ -73,10 +82,13 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 ### Frontend — Angular SPA (`swim-frontend/`)
 
 - `src/app/public/` — home (competition grid + visitor's own imported lists), start-list, results, import (one short form: livetiming cache status, contest search by name/city, club → `/import`, no login needed; form fields kept in `sessionStorage`)
-- `src/app/public/register/` — registration form at `/rejestracja` (linked from the login page), sent via `POST /contact`; its consent links to the RODO information clause at `/rodo` (`public/rodo/`, opens in a new tab)
-- `src/app/admin/` — login, competitions (list/edit), athletes, live (LENEX)
+- `src/app/public/register/` — account registration at `/rejestracja` (linked from the login page) via `POST /account/register`; its consent links to the RODO information clause at `/rodo` (`public/rodo/`, opens in a new tab). `POST /contact` (e-mail form) still exists in the API but the SPA no longer uses it
+- `src/app/public/login/` — the one login form at `/logowanie` (card "Wyniki i Statystyki"; `/admin/login` redirects): admin → `/admin/zawody`, club user → `/konto`
+- `src/app/public/account/` — `/konto/potwierdz`, `/konto/zapomniane-haslo`, `/konto/reset-hasla` (token links from e-mails)
+- `src/app/account/` — club user pages behind `userGuard`: `/konto` (club, password change, account removal), `/konto/zawodnicy` (club members + times)
+- `src/app/admin/` — competitions (list/edit), athletes, live (LENEX), users (`/admin/uzytkownicy` — activate/block accounts); behind `adminGuard`
 - Start list imports (visitors and admins alike) are kept only in the browser (`localStorage`, `LocalCompetitionsService`) and shown at `/moje/:id/lista` — they are never written to `zawody/` on the server
-- `src/app/core/` — `ApiService` (all HTTP calls, base URL from `src/environments/`), auth service + guard, error interceptor, models
+- `src/app/core/` — `ApiService` (all HTTP calls, base URL from `src/environments/`), `AuthService` (token + role in `localStorage`; tokens without a stored role are the admin's), `adminGuard`/`userGuard`, error interceptor (401 while logged in → logout), models
 - Standalone components with signals; PrimeNG for UI
 - Every search/filter box uses the shared `<app-search-input [(value)]>` (`src/app/shared/search-input/`): clear "x" + Esc, pulsing gold frame and optional "Filtr aktywny: …" `[badge]` while a filter is applied (`[highlight]="false"` for plain lookups); Polish plurals via `shared/plural.ts`
 
@@ -92,7 +104,8 @@ Only `http(s)://livetiming.pl` (or a subdomain) URLs are fetched server-side —
 
 ## Configuration
 
-- `includes/secrets.php` (gitignored — copy from `includes/secrets.example.php`): `ADMIN_PASSWORD_HASH` (bcrypt hash of admin password), `JWT_SECRET` (long random string; the app refuses to boot if it's missing, too short, or still the example placeholder)
+- `includes/secrets.php` (gitignored — copy from `includes/secrets.example.php`): `ADMIN_PASSWORD_HASH` (bcrypt hash of admin password), `JWT_SECRET` (long random string; the app refuses to boot if it's missing, too short, or still the example placeholder), `MONGO_URI` (Atlas connection string; without it `/account` and `/users` answer 503, the rest works), optional `MONGO_DB`, `APP_PUBLIC_URL` (SPA address for e-mail links)
+- Accounts on OVH need the `mongodb` PHP extension, `vendor/` uploaded (`composer install --no-dev`) and outbound TCP 27017 to Atlas (Atlas Network Access must allow the hosting's IPs) — check once with `scripts/mongo_check.php` and delete it afterwards
 - `includes/config.php`:
   - `BASE_URL` — set to e.g. `'/swim'` if not deployed at web root (default: `''`)
   - `CORS_ALLOWED_ORIGIN` — Angular app origin (dev default: `http://localhost:4200`)
@@ -101,7 +114,8 @@ Only `http(s)://livetiming.pl` (or a subdomain) URLs are fetched server-side —
 
 ## Security Patterns
 
-- API auth via JWT (`Authorization: Bearer`, HS256, mandatory `exp`), issued on login; mutating endpoints require auth
+- API auth via JWT (`Authorization: Bearer`, HS256, mandatory `exp`), issued on login with a `role` claim. Admin endpoints use `api_require_admin()` (a club user's token gets 403; legacy tokens without `role` count as admin only when `sub` is `ADMIN_USER`); club user endpoints use `api_require_user()`, which re-reads the account on every request (status must be `active`, `tv` must equal `tokenVersion` — password change/reset logs out other sessions, blocking takes effect at once)
+- Account e-mail/reset tokens: 32 random bytes sent by e-mail, only the SHA-256 stored, with expiry (`ACCOUNT_VERIFY_TTL`, `ACCOUNT_RESET_TTL`), one-time; passwords `password_hash(PASSWORD_DEFAULT)`, min `ACCOUNT_PASSWORD_MIN` chars
 - Public start list preview (`POST /startlist/preview`) is rate-limited per IP (`startlist_preview_rate_limited()`, `STARTLIST_PREVIEW_*` in config) since it triggers a server-side PDF download — **temporarily disabled** via `STARTLIST_PREVIEW_RATE_LIMIT = false`
 - Login endpoint is rate-limited per IP (`login_rate_limit_*()` in `includes/functions.php`) — 5 failed attempts locks out for 5 minutes
 - Secrets (`ADMIN_PASSWORD_HASH`, `JWT_SECRET`) live in gitignored `includes/secrets.php`, never committed; `config.php` refuses to boot with a missing/placeholder secret
@@ -110,4 +124,4 @@ Only `http(s)://livetiming.pl` (or a subdomain) URLs are fetched server-side —
 - All HTML output through `h()` (`htmlspecialchars` with ENT_QUOTES/UTF-8)
 - File access restricted to `zawody/`/`zawodnicy/` via `safe_path()`/`safe_json_path()` (basename + alphanumeric/dash/underscore whitelist)
 - JSON writes go through `write_json_atomic()` (write-to-temp + rename, refuses to write on encode failure) and `with_file_lock()` (serializes read-modify-write cycles) to avoid corruption/lost updates from concurrent requests
-- `/includes/` is blocked by `.htaccess` from direct HTTP access
+- `/includes/` is blocked by `.htaccess` from direct HTTP access; so are `vendor/`, `dev/`, `composer.*` and the runtime rate-limit files; `scripts/mongo_init.php` runs only from the CLI

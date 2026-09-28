@@ -11,6 +11,8 @@
  *   /api/v1/live
  *   /api/v1/announcements[/{id}]
  *   /api/v1/contact
+ *   /api/v1/account/{register|verify-email|forgot-password|reset-password|me|change-password|members[/{id}[/times[/{id}]]]}
+ *   /api/v1/users[/{userId}]
  */
 
 require_once __DIR__ . '/cors.php';      // Must be first — sets CORS headers + handles OPTIONS
@@ -36,6 +38,8 @@ $method   = $_SERVER['REQUEST_METHOD'];
 $resource = $segs[0] ?? '';
 $seg1     = $segs[1] ?? '';   // slug / sub-resource / id
 $seg2     = $segs[2] ?? '';   // sub-sub (e.g. 'pdf')
+$seg3     = $segs[3] ?? '';
+$seg4     = $segs[4] ?? '';
 
 
 // ── Dispatch ─────────────────────────────────────────────────────────────────
@@ -83,6 +87,16 @@ switch ($resource) {
     case 'contact':
         require_once __DIR__ . '/contact.php';
         handle_contact($seg1, $method);
+        break;
+
+    case 'account':
+        require_once __DIR__ . '/account.php';
+        handle_account($seg1, $seg2, $seg3, $seg4, $method);
+        break;
+
+    case 'users':
+        require_once __DIR__ . '/users.php';
+        handle_users($seg1, $method);
         break;
 
     default:

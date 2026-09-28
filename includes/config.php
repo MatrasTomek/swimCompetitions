@@ -93,3 +93,29 @@ define('CONTACT_WINDOW',    3600); // 1 h
 
 // Only livetiming.pl contest URLs may be fetched server-side (SSRF guard)
 define('ALLOWED_CONTEST_HOST_SUFFIX', 'livetiming.pl');
+
+// ============================================================
+// User accounts (MongoDB) — api/v1/account.php, api/v1/users.php
+// MONGO_URI (with credentials) lives in includes/secrets.php; without it the
+// account endpoints answer 503 and the rest of the API works as before.
+// ============================================================
+// Local Docker dev sets MONGO_URI in the environment (dev/docker-compose.yml)
+if (!defined('MONGO_URI') && getenv('MONGO_URI')) {
+    define('MONGO_URI', getenv('MONGO_URI'));
+}
+if (!defined('MONGO_DB')) {
+    define('MONGO_DB', 'swim');
+}
+// Public address of the Angular app — links in account e-mails point here.
+// Set the production URL in includes/secrets.php.
+if (!defined('APP_PUBLIC_URL')) {
+    define('APP_PUBLIC_URL', 'http://localhost:4200');
+}
+define('ACCOUNT_PASSWORD_MIN',       10);
+define('ACCOUNT_VERIFY_TTL',         86400 * 2); // e-mail confirmation link: 48 h
+define('ACCOUNT_RESET_TTL',          3600);      // password reset link: 1 h
+define('ACCOUNT_RATE_FILE',          __DIR__ . '/../account_rate.json');
+define('ACCOUNT_MAX',                10);        // register / forgot-password requests per window
+define('ACCOUNT_WINDOW',             3600);      // 1 h
+define('ACCOUNT_MAX_MEMBERS',        300);       // club members per account
+define('ACCOUNT_MAX_TIMES',          1000);      // times per club member

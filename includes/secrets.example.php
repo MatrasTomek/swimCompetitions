@@ -19,3 +19,12 @@ define('JWT_SECRET', 'CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_STRING_AT_LEAST_64_CHA
 // Sender (From) of registration form e-mails. On OVH it must be a mailbox in
 // a domain hosted on this account. Omit to send from info@nd-soft.pl.
 // define('CONTACT_FROM_EMAIL', 'formularz@example.com');
+
+// MongoDB connection for user accounts (MongoDB Atlas in production), e.g.
+//   mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
+// Local Docker dev (dev/docker-compose.yml): mongodb://mongo:27017
+// define('MONGO_URI', 'mongodb://mongo:27017');
+// define('MONGO_DB', 'swim');
+
+// Public URL of the Angular app — used in account e-mail links (no trailing slash).
+// define('APP_PUBLIC_URL', 'https://www.example.com');
