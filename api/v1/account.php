@@ -6,7 +6,7 @@
  *   POST   /account/forgot-password                   → password reset link (public, rate-limited)
  *   POST   /account/reset-password                    → new password from the link (public)
  *   GET    /account/me                                → own account incl. club members
- *   PATCH  /account/me                                → {userClub}
+ *   PATCH  /account/me                                → {userClub?, userInvoice?}
  *   DELETE /account/me                                → {password} — removes the account
  *   POST   /account/change-password                   → {currentPassword, newPassword} → new token
  *   POST   /account/members                           → add a club member
@@ -45,8 +45,17 @@ function handle_account(string $seg1, string $seg2, string $seg3, string $seg4, 
             return;
         }
         if ($method === 'PATCH') {
-            $club = account_text($body['userClub'] ?? '', 150);
-            user_update_club($user['userId'], $club);
+            $fields = [];
+            if (array_key_exists('userClub', $body)) {
+                $fields['userClub'] = account_text($body['userClub'], 150);
+                if ($fields['userClub'] === '') { account_error(422, 'Podaj nazwę klubu.'); return; }
+            }
+            if (array_key_exists('userInvoice', $body)) {
+                [$invoice, $err] = user_invoice_validate($body['userInvoice']);
+                if ($err !== null) { account_error(422, $err); return; }
+                $fields['userInvoice'] = $invoice;
+            }
+            if ($fields) user_update_profile($user['userId'], $fields);
             echo json_encode(user_public(user_find_by_id($user['userId'])), JSON_UNESCAPED_UNICODE);
             return;
         }
@@ -110,13 +119,18 @@ function account_register(array $body): void {
         account_error(422, 'Podaj nazwę klubu.');
         return;
     }
+    [$invoice, $err] = user_invoice_validate($body['userInvoice'] ?? null);
+    if ($err !== null) {
+        account_error(422, $err);
+        return;
+    }
     if (($body['zgoda'] ?? false) !== true) {
         account_error(422, 'Zaakceptuj zgodę na przetwarzanie danych.');
         return;
     }
     if (account_rate_limited()) return;
 
-    $token = user_create($email, password_hash($password, PASSWORD_DEFAULT), $club);
+    $token = user_create($email, password_hash($password, PASSWORD_DEFAULT), $club, $invoice);
     if ($token !== null) {
         account_mail_verify($email, $token);
     } else {
@@ -154,6 +168,12 @@ function account_verify_email(array $body): void {
         '',
         'E-mail: ' . $user['userEmail'],
         'Klub:   ' . ($user['userClub'] ?? '—'),
+        '',
+        'Dane do faktury:',
+        '  ' . ($user['userInvoice']['companyName'] ?? '—'),
+        '  ' . ($user['userInvoice']['street'] ?? '—'),
+        '  ' . ($user['userInvoice']['postalCode'] ?? '') . ' ' . ($user['userInvoice']['city'] ?? ''),
+        '  NIP: ' . ($user['userInvoice']['nip'] ?? '—'),
         '',
         'Aktywuj w panelu administratora:',
         app_url('/admin/uzytkownicy'),

@@ -5,7 +5,7 @@ import {
   Competition, AthletesResponse, ResultFetchResponse,
   StartlistPreviewResponse, LiveConfig, LtContest, LtCacheStatus, AthleteProfile,
   Account, AccountSummary, AccountStatus, AuthToken, ClubMember, ClubMemberInput, MemberTime, MemberTimeInput,
-  RegisterRequest
+  RegisterRequest, UserInvoice
 } from '../models';
 
 @Injectable({ providedIn: 'root' })
@@ -127,8 +127,8 @@ export class ApiService {
     return this.http.get<Account>(`${this.base}/account/me`);
   }
 
-  updateAccount(userClub: string) {
-    return this.http.patch<Account>(`${this.base}/account/me`, { userClub });
+  updateAccount(data: { userClub?: string; userInvoice?: UserInvoice }) {
+    return this.http.patch<Account>(`${this.base}/account/me`, data);
   }
 
   deleteAccount(password: string) {
