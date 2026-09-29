@@ -252,6 +252,7 @@ function swim_time_format(int $ms): string {
  * Parses LENEX XML into meet info, individual events and athletes with their valid results.
  * Relays, unknown strokes, results with a status (DSQ/DNS/…) or without a time are left out.
  * Only the LENEX 3.0 layout (results under ATHLETE > RESULTS) that livetiming.pl publishes is read.
+ * Missing sections (e.g. an invitation file without CLUBS) are read as empty — xpath() instead of ->A->B.
  */
 function lenex_parse_full(string $xml): array {
     libxml_use_internal_errors(true);
@@ -265,10 +266,10 @@ function lenex_parse_full(string $xml): array {
     $events      = [];
     $eventidToNr = [];
     $firstDate   = '';
-    foreach ($meet->SESSIONS->SESSION as $session) {
+    foreach ($meet->xpath('SESSIONS/SESSION') ?: [] as $session) {
         $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$session['date']) ? (string)$session['date'] : '';
         if ($date !== '' && ($firstDate === '' || $date < $firstDate)) $firstDate = $date;
-        foreach ($session->EVENTS->EVENT as $event) {
+        foreach ($session->xpath('EVENTS/EVENT') ?: [] as $event) {
             $nr     = (int)$event['number'];
             $style  = $event->SWIMSTYLE;
             $stroke = LENEX_STROKES[strtoupper((string)$style['stroke'])] ?? null;
@@ -281,13 +282,13 @@ function lenex_parse_full(string $xml): array {
     ksort($events);
 
     $athletes = [];
-    foreach ($meet->CLUBS->CLUB as $club) {
-        foreach ($club->ATHLETES->ATHLETE as $ath) {
+    foreach ($meet->xpath('CLUBS/CLUB') ?: [] as $club) {
+        foreach ($club->xpath('ATHLETES/ATHLETE') ?: [] as $ath) {
             $birth = (string)($ath['birthdate'] ?? '');
             $year  = preg_match('/^(\d{4})-/', $birth, $bm) && (int)$bm[1] > 1900 ? (int)$bm[1] : null;
             $g     = strtoupper((string)($ath['gender'] ?? ''));
             $results = [];
-            foreach ($ath->RESULTS->RESULT as $res) {
+            foreach ($ath->xpath('RESULTS/RESULT') ?: [] as $res) {
                 $nr = $eventidToNr[(string)$res['eventid']] ?? null;
                 if ($nr === null || trim((string)($res['status'] ?? '')) !== '') continue;
                 $ms = lenex_time_ms((string)$res['swimtime']);

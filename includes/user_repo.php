@@ -373,13 +373,26 @@ function results_upsert_many(string $userId, array $rows): int {
     return count($rows);
 }
 
+/**
+ * Makes the account's results of one contest exactly $rows: upserts them tagged with a fresh fetchId, then removes
+ * the contest's rows of this account from earlier fetches (results withdrawn from LENEX, turned into DSQ/DNS, or of
+ * members that no longer match). Upsert first, so a failure in between leaves stale rows a retry removes — never
+ * a contest without its current results. Returns the number of current rows.
+ */
+function results_replace_contest(string $userId, string $contestUuid, array $rows): int {
+    $fetchId = bin2hex(random_bytes(8));
+    $saved   = results_upsert_many($userId, array_map(fn($r) => ['contestUuid' => $contestUuid, 'fetchId' => $fetchId] + $r, $rows));
+    mongo_results()->deleteMany(['userId' => $userId, 'contestUuid' => $contestUuid, 'fetchId' => ['$ne' => $fetchId]]);
+    return $saved;
+}
+
 /** Results of an account (optionally one member) from one calendar year, newest first. */
 function results_list(string $userId, int $year, ?string $memberId = null): array {
     $filter = ['userId' => $userId, 'date' => ['$gte' => sprintf('%04d-01-01', $year), '$lt' => sprintf('%04d-01-01', $year + 1)]];
     if ($memberId !== null) $filter['memberId'] = $memberId;
     $cursor = mongo_results()->find($filter, [
         'sort'       => ['date' => -1, 'eventNr' => 1],
-        'projection' => ['_id' => 0, 'userId' => 0],
+        'projection' => ['_id' => 0, 'userId' => 0, 'fetchId' => 0],
     ]);
     $out = [];
     foreach ($cursor as $r) {

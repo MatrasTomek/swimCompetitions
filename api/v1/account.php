@@ -11,7 +11,9 @@
  *   POST   /account/change-password                   → {currentPassword, newPassword} → new token
  *   POST   /account/members                           → add a club member
  *   PATCH  /account/members/{memberId}                → edit a club member
- *   DELETE /account/members/{memberId}                → remove a club member
+ *   DELETE /account/members/{memberId}                → remove a club member (and the member's results)
+ *   POST   /account/results/fetch                     → {contest_url} — LENEX results of the club's members
+ *   GET    /account/results?year=YYYY[&memberId=…]    → results of one season (optionally one member)
  *
  * Public responses never reveal whether an e-mail is registered.
  */
@@ -86,6 +88,11 @@ function handle_account(string $seg1, string $seg2, string $seg3, string $seg4, 
 
     if ($seg1 === 'members') {
         account_members($user, $seg2, $seg3, $method, $body);
+        return;
+    }
+
+    if ($seg1 === 'results') {
+        account_results($user, $seg2, $method, $body);
         return;
     }
 
@@ -246,6 +253,34 @@ function account_members(array $user, string $memberId, string $sub, string $met
     if ($sub === '' && $method === 'DELETE') {
         if (!member_delete($uid, $memberId)) { account_error(404, 'Nie znaleziono zawodnika.'); return; }
         echo json_encode(['ok' => true]);
+        return;
+    }
+
+    account_error(404, 'Not found');
+}
+
+// ── Results ──────────────────────────────────────────────────────────────────
+
+function account_results(array $user, string $sub, string $method, array $body): void {
+    if ($sub === 'fetch' && $method === 'POST') {
+        require_once __DIR__ . '/../../includes/results_import.php';
+        [$status, $out] = results_import_contest($user, trim((string)($body['contest_url'] ?? '')));
+        http_response_code($status);
+        echo json_encode($out, JSON_UNESCAPED_UNICODE);
+        return;
+    }
+
+    if ($sub === '' && $method === 'GET') {
+        $year = filter_var($_GET['year'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 2000, 'max_range' => (int)date('Y') + 1]]);
+        if ($year === false) { account_error(422, 'Podaj poprawny rok sezonu.'); return; }
+
+        $memberId = isset($_GET['memberId']) ? (string)$_GET['memberId'] : null;
+        if ($memberId !== null) {
+            $ids = array_column($user['clubItems']['clubMembers'] ?? [], 'memberId');
+            if (!is_uuid($memberId) || !in_array($memberId, $ids, true)) { account_error(404, 'Nie znaleziono zawodnika.'); return; }
+        }
+
+        echo json_encode(results_list($user['userId'], $year, $memberId), JSON_UNESCAPED_UNICODE);
         return;
     }
 

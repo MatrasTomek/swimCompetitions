@@ -118,3 +118,8 @@ define('ACCOUNT_RATE_FILE',          __DIR__ . '/../account_rate.json');
 define('ACCOUNT_MAX',                10);        // register / forgot-password requests per window
 define('ACCOUNT_WINDOW',             3600);      // 1 h
 define('ACCOUNT_MAX_MEMBERS',        300);       // club members per account
+if (!defined('ACCOUNT_RESULTS_RATE_FILE')) { // tests use their own file
+    define('ACCOUNT_RESULTS_RATE_FILE', __DIR__ . '/../account_results_rate.json');
+}
+define('ACCOUNT_RESULTS_FETCH_MAX',    10);        // LENEX result fetches per account…
+define('ACCOUNT_RESULTS_FETCH_WINDOW', 600);       // …per 10 min
