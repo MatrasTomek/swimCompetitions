@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LENEX version="3.0">
+  <MEETS>
+    <MEET name="Mityng Testowy 2026" city="Kraków" course="SCM">
+      <SESSIONS>
+        <SESSION number="1" date="2026-03-14">
+          <EVENTS>
+            <EVENT eventid="101" number="1"><SWIMSTYLE distance="100" relaycount="1" stroke="FREE"/></EVENT>
+            <EVENT eventid="102" number="2"><SWIMSTYLE distance="50" relaycount="1" stroke="BACK"/></EVENT>
+            <EVENT eventid="103" number="3"><SWIMSTYLE distance="50" relaycount="4" stroke="FREE"/></EVENT>
+            <EVENT eventid="105" number="5"><SWIMSTYLE distance="25" relaycount="1" stroke="UNKNOWN"/></EVENT>
+          </EVENTS>
+        </SESSION>
+        <SESSION number="2" date="2026-03-15">
+          <EVENTS>
+            <EVENT eventid="104" number="4"><SWIMSTYLE distance="200" relaycount="1" stroke="MEDLEY"/></EVENT>
+            <EVENT eventid="106" number="6"><SWIMSTYLE distance="1500" relaycount="1" stroke="FREE"/></EVENT>
+          </EVENTS>
+        </SESSION>
+      </SESSIONS>
+      <CLUBS>
+        <CLUB name="UKS Olimpijczyk">
+          <ATHLETES>
+            <ATHLETE athleteid="1" lastname="Wąs" firstname="Amelia" birthdate="2014-05-03" gender="F">
+              <RESULTS>
+                <RESULT eventid="101" swimtime="00:01:05.32" points="312"/>
+                <RESULT eventid="102" swimtime="0:34.10" points="0"/>
+                <RESULT eventid="103" swimtime="00:00:30.00" points="100"/>
+                <RESULT eventid="104" swimtime="00:03:01.00" points="250" status="DSQ"/>
+                <RESULT eventid="105" swimtime="00:00:20.00"/>
+              </RESULTS>
+            </ATHLETE>
+            <ATHLETE athleteid="2" lastname="Łukasik" firstname="Jan" birthdate="2013-01-10" gender="M">
+              <RESULTS>
+                <RESULT eventid="104" swimtime="00:02:45.99" points="280"/>
+                <RESULT eventid="106" swimtime="01:02:03.45" points="10"/>
+                <RESULT eventid="101" swimtime="NT"/>
+              </RESULTS>
+            </ATHLETE>
+            <ATHLETE athleteid="3" lastname="Nowak" firstname="Ola" gender="F">
+              <RESULTS><RESULT eventid="101" swimtime="00:01:10.00"/></RESULTS>
+            </ATHLETE>
+          </ATHLETES>
+        </CLUB>
+      </CLUBS>
+    </MEET>
+  </MEETS>
+</LENEX>

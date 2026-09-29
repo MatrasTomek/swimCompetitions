@@ -6,11 +6,10 @@
  */
 
 /**
- * Downloads results.lxf, unpacks the ZIP, parses the inner .lef XML.
- * Returns ['ok'=>true, 'athletes'=>[...], 'results'=>[...]]
- *      or ['ok'=>false, 'error'=>'...']
+ * Downloads results.lxf and unpacks the inner .lef XML.
+ * Returns ['ok'=>true, 'xml'=>'...'] or ['ok'=>false, 'error'=>'...']
  */
-function lenex_download(string $lxf_url): array {
+function lenex_download_xml(string $lxf_url): array {
     if (!is_allowed_contest_host($lxf_url)) {
         return ['ok' => false, 'error' => 'Niedozwolony host — dozwolone są tylko adresy livetiming.pl.'];
     }
@@ -62,7 +61,17 @@ function lenex_download(string $lxf_url): array {
     if ($xml === null || $xml === false) {
         return ['ok' => false, 'error' => 'Brak pliku .lef w archiwum ZIP'];
     }
-    return lenex_parse_xml($xml);
+    return ['ok' => true, 'xml' => $xml];
+}
+
+/**
+ * Downloads results.lxf and parses it for the admin's result fetching.
+ * Returns ['ok'=>true, 'athletes'=>[...], 'results'=>[...]]
+ *      or ['ok'=>false, 'error'=>'...']
+ */
+function lenex_download(string $lxf_url): array {
+    $dl = lenex_download_xml($lxf_url);
+    return $dl['ok'] ? lenex_parse_xml($dl['xml']) : $dl;
 }
 
 /**
@@ -204,4 +213,110 @@ function lenex_normalize_name(string $name): string {
         if ($t !== false) $s = $t;
     }
     return preg_replace('/[^a-z ]/', '', $s);
+}
+
+// ── Full parse for club accounts (meet, events, athletes with all results) ──
+
+const LENEX_STROKES = [
+    'FREE' => 'dowolny', 'BACK' => 'grzbietowy', 'BREAST' => 'klasyczny', 'FLY' => 'motylkowy', 'MEDLEY' => 'zmienny',
+];
+
+/**
+ * "00:01:05.32" / "1:05.32" / "27.34" → milliseconds; null when not a valid time (e.g. "NT", "1:99.00").
+ * Seconds must be 00–59 (two digits after minutes), minutes 00–59 when hours are given.
+ */
+function lenex_time_ms(string $t): ?int {
+    $t = trim($t);
+    if (preg_match('/^(\d{1,2}):([0-5]\d):([0-5]\d)\.(\d{2})$/', $t, $m)) {
+        [$h, $min, $sec, $hs] = [(int)$m[1], (int)$m[2], (int)$m[3], (int)$m[4]];
+    } elseif (preg_match('/^(\d{1,2}):([0-5]\d)\.(\d{2})$/', $t, $m)) {
+        [$h, $min, $sec, $hs] = [0, (int)$m[1], (int)$m[2], (int)$m[3]];
+    } elseif (preg_match('/^([0-5]?\d)\.(\d{2})$/', $t, $m)) {
+        [$h, $min, $sec, $hs] = [0, 0, (int)$m[1], (int)$m[2]];
+    } else {
+        return null;
+    }
+    return ((($h * 60 + $min) * 60 + $sec) * 100 + $hs) * 10;
+}
+
+/** 65320 → "1:05.32", 27340 → "27.34" (minutes are not wrapped into hours). */
+function swim_time_format(int $ms): string {
+    $cs  = intdiv($ms, 10);
+    $min = intdiv($cs, 6000);
+    $sec = intdiv($cs % 6000, 100);
+    $hs  = $cs % 100;
+    return $min > 0 ? sprintf('%d:%02d.%02d', $min, $sec, $hs) : sprintf('%d.%02d', $sec, $hs);
+}
+
+/**
+ * Parses LENEX XML into meet info, individual events and athletes with their valid results.
+ * Relays, unknown strokes, results with a status (DSQ/DNS/…) or without a time are left out.
+ * Only the LENEX 3.0 layout (results under ATHLETE > RESULTS) that livetiming.pl publishes is read.
+ */
+function lenex_parse_full(string $xml): array {
+    libxml_use_internal_errors(true);
+    $dom = simplexml_load_string($xml);
+    libxml_clear_errors();
+    if ($dom === false || !isset($dom->MEETS->MEET)) {
+        return ['ok' => false, 'error' => 'Błąd parsowania XML LENEX'];
+    }
+    $meet = $dom->MEETS->MEET[0];
+
+    $events      = [];
+    $eventidToNr = [];
+    $firstDate   = '';
+    foreach ($meet->SESSIONS->SESSION as $session) {
+        $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$session['date']) ? (string)$session['date'] : '';
+        if ($date !== '' && ($firstDate === '' || $date < $firstDate)) $firstDate = $date;
+        foreach ($session->EVENTS->EVENT as $event) {
+            $nr     = (int)$event['number'];
+            $style  = $event->SWIMSTYLE;
+            $stroke = LENEX_STROKES[strtoupper((string)$style['stroke'])] ?? null;
+            $relay  = (int)($style['relaycount'] ?? 1) > 1;
+            if ($nr <= 0 || $stroke === null || $relay) continue;
+            $events[$nr] = ['distance' => (int)$style['distance'], 'stroke' => $stroke, 'date' => $date];
+            $eventidToNr[(string)$event['eventid']] = $nr;
+        }
+    }
+    ksort($events);
+
+    $athletes = [];
+    foreach ($meet->CLUBS->CLUB as $club) {
+        foreach ($club->ATHLETES->ATHLETE as $ath) {
+            $birth = (string)($ath['birthdate'] ?? '');
+            $year  = preg_match('/^(\d{4})-/', $birth, $bm) && (int)$bm[1] > 1900 ? (int)$bm[1] : null;
+            $g     = strtoupper((string)($ath['gender'] ?? ''));
+            $results = [];
+            foreach ($ath->RESULTS->RESULT as $res) {
+                $nr = $eventidToNr[(string)$res['eventid']] ?? null;
+                if ($nr === null || trim((string)($res['status'] ?? '')) !== '') continue;
+                $ms = lenex_time_ms((string)$res['swimtime']);
+                if ($ms === null || $ms <= 0) continue;
+                $pts = (int)($res['points'] ?? 0);
+                $results[] = ['eventNr' => $nr, 'time' => swim_time_format($ms), 'timeMs' => $ms, 'points' => $pts > 0 ? $pts : null];
+            }
+            $athletes[] = [
+                'lastname'  => (string)$ath['lastname'],
+                'firstname' => (string)$ath['firstname'],
+                'birthYear' => $year,
+                'gender'    => $g === 'F' ? 'K' : ($g === 'M' ? 'M' : ''),
+                'results'   => $results,
+            ];
+        }
+    }
+    if (!$athletes) {
+        return ['ok' => false, 'error' => 'LENEX nie zawiera sekcji ATHLETES'];
+    }
+
+    return [
+        'ok'   => true,
+        'meet' => [
+            'name'       => (string)$meet['name'],
+            'city'       => (string)$meet['city'],
+            'poolLength' => strtoupper((string)$meet['course']) === 'LCM' ? 50 : 25,
+            'date'       => $firstDate,
+        ],
+        'events'   => $events,
+        'athletes' => $athletes,
+    ];
 }
