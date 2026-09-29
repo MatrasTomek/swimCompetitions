@@ -13,4 +13,6 @@
 /vendor/
 /account_rate.json
 /account_rate.json.lock
+/account_results_rate.json
+/account_results_rate.json.lock
 /login_attempts.json.lock

@@ -49,4 +49,17 @@ check('LCM → 50', $lcm['meet']['poolLength'], 50);
 
 check('bad xml', lenex_parse_full('<nope')['ok'], false);
 
+// Invitation files (zaproszenie.lxf) and sparse files have no CLUBS / EVENTS / RESULTS — no PHP warnings allowed
+set_error_handler(function (int $no, string $msg) { throw new ErrorException($msg, 0, $no); });
+$invitation = '<LENEX version="3.0"><MEETS><MEET name="Zaproszenie" city="Busko" course="SCM">'
+            . '<SESSIONS><SESSION number="1" date="2026-05-31"/></SESSIONS></MEET></MEETS></LENEX>';
+try { $r = lenex_parse_full($invitation); } catch (ErrorException $e) { $r = ['warning' => $e->getMessage()]; }
+check('invitation without CLUBS', $r, ['ok' => false, 'error' => 'LENEX nie zawiera sekcji ATHLETES']);
+$sparse = '<LENEX version="3.0"><MEETS><MEET name="X" city="Y" course="LCM"><SESSIONS><SESSION number="1" date="2026-05-31"/></SESSIONS>'
+        . '<CLUBS><CLUB name="K"/><CLUB name="L"><ATHLETES><ATHLETE athleteid="1" lastname="A" firstname="B" birthdate="2014-01-01"/></ATHLETES></CLUB></CLUBS>'
+        . '</MEET></MEETS></LENEX>';
+try { $r = lenex_parse_full($sparse); } catch (ErrorException $e) { $r = ['warning' => $e->getMessage()]; }
+check('club without ATHLETES, athlete without RESULTS', [$r['ok'] ?? null, $r['events'] ?? null, $r['athletes'][0]['results'] ?? null], [true, [], []]);
+restore_error_handler();
+
 finish();

@@ -11,7 +11,7 @@
  *   /api/v1/live
  *   /api/v1/announcements[/{id}]
  *   /api/v1/contact
- *   /api/v1/account/{register|verify-email|forgot-password|reset-password|me|change-password|members[/{id}]}
+ *   /api/v1/account/{register|verify-email|forgot-password|reset-password|me|change-password|members[/{id}]|results[/fetch]}
  *   /api/v1/users[/{userId}]
  */
 
