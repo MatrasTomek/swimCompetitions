@@ -35,6 +35,11 @@ function mongo_users(): MongoDB\Collection {
     return mongo_db()->selectCollection('users');
 }
 
+/** Club members' results fetched from LENEX (see results_* in user_repo.php). */
+function mongo_results(): MongoDB\Collection {
+    return mongo_db()->selectCollection('results');
+}
+
 /** Random RFC 4122 version 4 UUID — ids of users, club members and their times. */
 function uuid_v4(): string {
     $b = random_bytes(16);

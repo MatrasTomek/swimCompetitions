@@ -7,6 +7,7 @@
  * userInvoice (invoice details: companyName, street, postalCode, city, nip), status,
  * tokenVersion, e-mail/reset token hashes, timestamps and
  * clubItems.clubMembers[].memberTimes[] (see CLAUDE.md).
+ * Collection "results": one document per start of a club member, fetched from LENEX.
  */
 
 require_once __DIR__ . '/mongo.php';
@@ -82,6 +83,7 @@ function user_ensure_indexes(): void {
     mongo_users()->createIndex(['userEmail' => 1], ['unique' => true, 'name' => 'userEmail_unique']);
     mongo_users()->createIndex(['emailVerifyTokenHash' => 1], ['sparse' => true, 'name' => 'verify_token']);
     mongo_users()->createIndex(['resetTokenHash' => 1], ['sparse' => true, 'name' => 'reset_token']);
+    results_ensure_indexes();
 }
 
 // ── Accounts ─────────────────────────────────────────────────────────────────
@@ -244,7 +246,14 @@ function user_invoice_validate($in): array {
     return [['companyName' => $name, 'street' => $street, 'postalCode' => $postal, 'city' => $city, 'nip' => $nip], null];
 }
 
+/**
+ * Removes the account with all its members' results. The results go first, so a failed second write
+ * leaves the account in place and a retry finishes the job (no orphaned results; no transactions —
+ * they would need a replica set, which the local dev MongoDB is not).
+ */
 function user_delete(string $userId): bool {
+    if (mongo_users()->countDocuments(['userId' => $userId], ['limit' => 1]) === 0) return false;
+    results_delete_user($userId);
     return mongo_users()->deleteOne(['userId' => $userId])->getDeletedCount() === 1;
 }
 
@@ -345,9 +354,13 @@ function member_update(string $userId, string $memberId, array $fields): bool {
     return $r->getMatchedCount() === 1;
 }
 
+/** Removes a club member with the member's results — results first, for the same reason as user_delete(). */
 function member_delete(string $userId, string $memberId): bool {
+    $filter = ['userId' => $userId, 'clubItems.clubMembers.memberId' => $memberId];
+    if (mongo_users()->countDocuments($filter, ['limit' => 1]) === 0) return false;
+    results_delete_member($userId, $memberId);
     $r = mongo_users()->updateOne(
-        ['userId' => $userId, 'clubItems.clubMembers.memberId' => $memberId],
+        $filter,
         ['$pull' => ['clubItems.clubMembers' => ['memberId' => $memberId]], '$set' => ['updatedAt' => mongo_now()]]
     );
     return $r->getModifiedCount() === 1;
@@ -382,4 +395,50 @@ function member_time_delete(string $userId, string $memberId, string $competitio
         ['arrayFilters' => [['m.memberId' => $memberId]]]
     );
     return $r->getModifiedCount() === 1;
+}
+
+// ── Results (collection "results") ──────────────────────────────────────────
+
+function results_ensure_indexes(): void {
+    mongo_results()->createIndex(
+        ['userId' => 1, 'memberId' => 1, 'contestUuid' => 1, 'eventNr' => 1],
+        ['unique' => true, 'name' => 'result_unique']
+    );
+    mongo_results()->createIndex(['userId' => 1, 'date' => 1], ['name' => 'user_date']);
+}
+
+/** Inserts or overwrites (same member + contest + event) the given rows of one account. Returns the row count. */
+function results_upsert_many(string $userId, array $rows): int {
+    if (!$rows) return 0;
+    $ops = [];
+    foreach ($rows as $r) {
+        $key = ['userId' => $userId, 'memberId' => $r['memberId'], 'contestUuid' => $r['contestUuid'], 'eventNr' => $r['eventNr']];
+        $ops[] = ['updateOne' => [$key, ['$set' => $r + $key + ['fetchedAt' => mongo_now()]], ['upsert' => true]]];
+    }
+    mongo_results()->bulkWrite($ops, ['ordered' => false]);
+    return count($rows);
+}
+
+/** Results of an account (optionally one member) from one calendar year, newest first. */
+function results_list(string $userId, int $year, ?string $memberId = null): array {
+    $filter = ['userId' => $userId, 'date' => ['$gte' => sprintf('%04d-01-01', $year), '$lt' => sprintf('%04d-01-01', $year + 1)]];
+    if ($memberId !== null) $filter['memberId'] = $memberId;
+    $cursor = mongo_results()->find($filter, [
+        'sort'       => ['date' => -1, 'eventNr' => 1],
+        'projection' => ['_id' => 0, 'userId' => 0],
+    ]);
+    $out = [];
+    foreach ($cursor as $r) {
+        $r['fetchedAt'] = ($r['fetchedAt'] ?? null) instanceof UTCDateTime ? $r['fetchedAt']->toDateTime()->format('c') : null;
+        $out[] = $r;
+    }
+    return $out;
+}
+
+function results_delete_member(string $userId, string $memberId): int {
+    return mongo_results()->deleteMany(['userId' => $userId, 'memberId' => $memberId])->getDeletedCount();
+}
+
+function results_delete_user(string $userId): int {
+    return mongo_results()->deleteMany(['userId' => $userId])->getDeletedCount();
 }

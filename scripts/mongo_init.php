@@ -1,6 +1,6 @@
 <?php
 /**
- * Creates the MongoDB indexes for user accounts (idempotent — safe to re-run).
+ * Creates the MongoDB indexes for user accounts and their results (idempotent — safe to re-run).
  * CLI only:  php scripts/mongo_init.php
  */
 
@@ -19,7 +19,9 @@ if (!mongo_available()) {
 require_once __DIR__ . '/../includes/user_repo.php';
 
 user_ensure_indexes();
-foreach (mongo_users()->listIndexes() as $index) {
-    echo $index->getName(), "\n";
+foreach (['users' => mongo_users(), 'results' => mongo_results()] as $name => $collection) {
+    foreach ($collection->listIndexes() as $index) {
+        echo "$name: ", $index->getName(), "\n";
+    }
 }
-echo "OK — indeksy kolekcji users gotowe w bazie ", MONGO_DB, ".\n";
+echo "OK — indeksy kolekcji users i results gotowe w bazie ", MONGO_DB, ".\n";
