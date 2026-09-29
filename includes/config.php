@@ -118,4 +118,3 @@ define('ACCOUNT_RATE_FILE',          __DIR__ . '/../account_rate.json');
 define('ACCOUNT_MAX',                10);        // register / forgot-password requests per window
 define('ACCOUNT_WINDOW',             3600);      // 1 h
 define('ACCOUNT_MAX_MEMBERS',        300);       // club members per account
-define('ACCOUNT_MAX_TIMES',          1000);      // times per club member

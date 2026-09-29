@@ -12,8 +12,6 @@
  *   POST   /account/members                           → add a club member
  *   PATCH  /account/members/{memberId}                → edit a club member
  *   DELETE /account/members/{memberId}                → remove a club member
- *   POST   /account/members/{memberId}/times          → add a time
- *   DELETE /account/members/{memberId}/times/{id}     → remove a time
  *
  * Public responses never reveal whether an e-mail is registered.
  */
@@ -87,7 +85,7 @@ function handle_account(string $seg1, string $seg2, string $seg3, string $seg4, 
     }
 
     if ($seg1 === 'members') {
-        account_members($user, $seg2, $seg3, $seg4, $method, $body);
+        account_members($user, $seg2, $seg3, $method, $body);
         return;
     }
 
@@ -222,7 +220,7 @@ function account_reset_password(array $body): void {
 
 // ── Club members ─────────────────────────────────────────────────────────────
 
-function account_members(array $user, string $memberId, string $sub, string $timeId, string $method, array $body): void {
+function account_members(array $user, string $memberId, string $sub, string $method, array $body): void {
     $uid = $user['userId'];
 
     if ($memberId === '' && $method === 'POST') {
@@ -247,23 +245,6 @@ function account_members(array $user, string $memberId, string $sub, string $tim
 
     if ($sub === '' && $method === 'DELETE') {
         if (!member_delete($uid, $memberId)) { account_error(404, 'Nie znaleziono zawodnika.'); return; }
-        echo json_encode(['ok' => true]);
-        return;
-    }
-
-    if ($sub === 'times' && $timeId === '' && $method === 'POST') {
-        [$time, $err] = member_time_validate($body);
-        if ($err !== null) { account_error(422, $err); return; }
-        $res = member_time_add($uid, $memberId, $time);
-        if ($res === 'not_found') { account_error(404, 'Nie znaleziono zawodnika.'); return; }
-        if ($res === 'limit')     { account_error(422, 'Osiągnięto limit ' . ACCOUNT_MAX_TIMES . ' czasów zawodnika.'); return; }
-        http_response_code(201);
-        echo json_encode($time, JSON_UNESCAPED_UNICODE);
-        return;
-    }
-
-    if ($sub === 'times' && $timeId !== '' && $method === 'DELETE') {
-        if (!is_uuid($timeId) || !member_time_delete($uid, $memberId, $timeId)) { account_error(404, 'Nie znaleziono wyniku.'); return; }
         echo json_encode(['ok' => true]);
         return;
     }

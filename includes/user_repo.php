@@ -6,7 +6,7 @@
  * Document: userId, userEmail (login), userPassword (hash), userClub,
  * userInvoice (invoice details: companyName, street, postalCode, city, nip), status,
  * tokenVersion, e-mail/reset token hashes, timestamps and
- * clubItems.clubMembers[].memberTimes[] (see CLAUDE.md).
+ * clubItems.clubMembers[] (see CLAUDE.md).
  * Collection "results": one document per start of a club member, fetched from LENEX.
  */
 
@@ -16,9 +16,6 @@ use MongoDB\BSON\UTCDateTime;
 
 const USER_STATUSES = ['pending_email', 'pending_approval', 'active', 'disabled'];
 const MEMBER_SEXES  = ['M', 'K'];
-const SWIM_KINDS    = ['dowolny', 'grzbietowy', 'klasyczny', 'motylkowy', 'zmienny'];
-const SWIM_LENGTHS  = [25, 50, 100, 200, 400, 800, 1500];
-const POOL_LENGTHS  = [25, 50];
 const USER_INVOICE_FIELDS = ['companyName', 'street', 'postalCode', 'city', 'nip'];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -51,7 +48,17 @@ function user_public(array $u): array {
         'status'      => $u['status'],
         'createdAt'   => $iso($u['createdAt'] ?? null),
         'lastLoginAt' => $iso($u['lastLoginAt'] ?? null),
-        'clubItems'   => ['clubMembers' => array_values($u['clubItems']['clubMembers'] ?? [])],
+        'clubItems'   => ['clubMembers' => array_map('member_public', array_values($u['clubItems']['clubMembers'] ?? []))],
+    ];
+}
+
+/** Club member for the browser — old accounts may still carry the removed memberTimes. */
+function member_public(array $m): array {
+    return [
+        'memberId'        => $m['memberId'],
+        'memberName'      => $m['memberName'],
+        'memberSex'       => $m['memberSex'],
+        'memberBirthYear' => $m['memberBirthYear'],
     ];
 }
 
@@ -302,39 +309,9 @@ function member_validate(array $in, bool $partial = false): array {
     return [$out, null];
 }
 
-/** Validates one result (time) of a club member. Returns [fields, error]. */
-function member_time_validate(array $in): array {
-    $name = is_string($in['competitionName'] ?? null) ? trim(preg_replace('/\p{C}/u', '', $in['competitionName'])) : '';
-    if ($name === '' || mb_strlen($name, 'UTF-8') > 200) return [null, 'Podaj nazwę zawodów (do 200 znaków).'];
-
-    $date = (string)($in['competitionDate'] ?? '');
-    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m) || !checkdate((int)$m[2], (int)$m[3], (int)$m[1])) {
-        return [null, 'Podaj poprawną datę zawodów.'];
-    }
-    if (!in_array($in['poolLength'] ?? null, POOL_LENGTHS, true))        return [null, 'Wybierz długość basenu (25 lub 50 m).'];
-    if (!in_array($in['competitionKind'] ?? null, SWIM_KINDS, true))      return [null, 'Wybierz styl pływacki.'];
-    if (!in_array($in['competitionLength'] ?? null, SWIM_LENGTHS, true))  return [null, 'Wybierz dystans.'];
-
-    // 29.87 / 1:02.34 / 16:45.10 — comma accepted as the decimal separator
-    $time = str_replace(',', '.', trim((string)($in['competitionTime'] ?? '')));
-    if (!preg_match('/^(?:(\d{1,2}):)?([0-5]?\d)\.(\d{2})$/', $time, $t) || ($t[1] !== '' && strlen($t[2]) !== 2)) {
-        return [null, 'Podaj czas w formacie 1:02.34 lub 29.87.'];
-    }
-
-    return [[
-        'competitionId'     => uuid_v4(),
-        'competitionName'   => $name,
-        'competitionDate'   => $date,
-        'poolLength'        => $in['poolLength'],
-        'competitionKind'   => $in['competitionKind'],
-        'competitionLength' => $in['competitionLength'],
-        'competitionTime'   => $time,
-    ], null];
-}
-
 /** Adds a club member (atomically, up to ACCOUNT_MAX_MEMBERS). Returns the member or null when the limit is reached. */
 function member_add(string $userId, array $fields): ?array {
-    $member = ['memberId' => uuid_v4()] + $fields + ['memberTimes' => []];
+    $member = ['memberId' => uuid_v4()] + $fields;
     $r = mongo_users()->updateOne(
         ['userId' => $userId, 'clubItems.clubMembers.' . (ACCOUNT_MAX_MEMBERS - 1) => ['$exists' => false]],
         ['$push' => ['clubItems.clubMembers' => $member], '$set' => ['updatedAt' => mongo_now()]]
@@ -366,35 +343,12 @@ function member_delete(string $userId, string $memberId): bool {
     return $r->getModifiedCount() === 1;
 }
 
-/**
- * Adds a time to a club member (up to ACCOUNT_MAX_TIMES).
- * Returns 'ok', 'not_found' or 'limit'.
- */
-function member_time_add(string $userId, string $memberId, array $time): string {
-    $r = mongo_users()->updateOne(
-        ['userId' => $userId, 'clubItems.clubMembers.memberId' => $memberId],
-        ['$push' => ['clubItems.clubMembers.$[m].memberTimes' => $time], '$set' => ['updatedAt' => mongo_now()]],
-        ['arrayFilters' => [[
-            'm.memberId' => $memberId,
-            'm.memberTimes.' . (ACCOUNT_MAX_TIMES - 1) => ['$exists' => false],
-        ]]]
-    );
-    if ($r->getMatchedCount() === 0) return 'not_found';
-    return $r->getModifiedCount() === 1 ? 'ok' : 'limit';
-}
-
-function member_time_delete(string $userId, string $memberId, string $competitionId): bool {
-    $r = mongo_users()->updateOne(
-        ['userId' => $userId, 'clubItems.clubMembers' => ['$elemMatch' => [
-            'memberId' => $memberId, 'memberTimes.competitionId' => $competitionId,
-        ]]],
-        [
-            '$pull' => ['clubItems.clubMembers.$[m].memberTimes' => ['competitionId' => $competitionId]],
-            '$set'  => ['updatedAt' => mongo_now()],
-        ],
-        ['arrayFilters' => [['m.memberId' => $memberId]]]
-    );
-    return $r->getModifiedCount() === 1;
+/** One-off cleanup (scripts/drop_member_times.php): removes the old hand-entered memberTimes. Returns changed accounts. */
+function user_drop_member_times(): int {
+    return mongo_users()->updateMany(
+        ['clubItems.clubMembers.memberTimes' => ['$exists' => true]],
+        ['$unset' => ['clubItems.clubMembers.$[].memberTimes' => '']]
+    )->getModifiedCount();
 }
 
 // ── Results (collection "results") ──────────────────────────────────────────
