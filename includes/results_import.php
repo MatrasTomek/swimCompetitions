@@ -77,23 +77,33 @@ function results_import_contest(array $user, string $contestUrl, ?callable $fetc
         return [409, ['error' => 'Wyniki nie są jeszcze dostępne na livetiming.pl.']];
     }
 
-    $match = match_members($members, $parsed['athletes']);
-    $rows  = results_build_rows($parsed, $match['matched'], $uuid);
-    $saved = results_replace_contest($user['userId'], $uuid, $rows);
+    // The download may take a while: store results for the members the account has now, not when the request
+    // started — and under the account's lock, so a member / the account removed meanwhile leaves no orphans
+    return account_lock($user['userId'], function () use ($user, $parsed, $uuid) {
+        $account = user_find_by_id($user['userId']);
+        if ($account === null) {
+            return [404, ['error' => 'Konto nie istnieje.']];
+        }
+        $members = array_values($account['clubItems']['clubMembers'] ?? []);
 
-    // Members found in the file, but with nothing to store (only DNS/DSQ starts, relays or unknown events)
-    $withRows  = array_flip(array_column($rows, 'memberId'));
-    $noResults = [];
-    foreach ($members as $m) {
-        if (isset($match['matched'][$m['memberId']]) && !isset($withRows[$m['memberId']])) $noResults[] = $m['memberName'];
-    }
+        $match = match_members($members, $parsed['athletes']);
+        $rows  = results_build_rows($parsed, $match['matched'], $uuid);
+        $saved = results_replace_contest($user['userId'], $uuid, $rows);
 
-    return [200, [
-        'saved'           => $saved,
-        'members_matched' => count($match['matched']),
-        'not_found'       => $match['not_found'],
-        'ambiguous'       => $match['ambiguous'],
-        'no_results'      => $noResults,
-        'competition'     => ['name' => $parsed['meet']['name'], 'date' => $parsed['meet']['date']],
-    ]];
+        // Members found in the file, but with nothing to store (only DNS/DSQ starts, relays or unknown events)
+        $withRows  = array_flip(array_column($rows, 'memberId'));
+        $noResults = [];
+        foreach ($members as $m) {
+            if (isset($match['matched'][$m['memberId']]) && !isset($withRows[$m['memberId']])) $noResults[] = $m['memberName'];
+        }
+
+        return [200, [
+            'saved'           => $saved,
+            'members_matched' => count($match['matched']),
+            'not_found'       => $match['not_found'],
+            'ambiguous'       => $match['ambiguous'],
+            'no_results'      => $noResults,
+            'competition'     => ['name' => $parsed['meet']['name'], 'date' => $parsed['meet']['date']],
+        ]];
+    });
 }

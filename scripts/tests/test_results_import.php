@@ -41,6 +41,10 @@ $user = [
     ]],
 ];
 
+// The import stores results for the members the account has when the file arrives, so the accounts exist in the database
+mongo_users()->insertOne(['userEmail' => 'import@test.pl'] + $user);
+mongo_users()->insertOne(['userId' => 'u-other', 'userEmail' => 'other@test.pl', 'clubItems' => $user['clubItems']]);
+
 // Validation — nothing is downloaded
 foreach (['', 'https://evil.pl/contest/c0ffee00-0000-4000-8000-000000000001', 'https://livetiming.pl/contest/abc',
           'https://livetiming.pl/contest/c0ffee00-0000-4000-8000-000000000001/results.lxf'] as $bad) {
@@ -98,12 +102,13 @@ $dsq = str_replace('<RESULT eventid="102" swimtime="0:34.10" points="0"/>', '<RE
 [$status] = results_import_contest($user, CONTEST, $fetchXmlOf($dsq));
 check('result changed to DSQ disappears', [$status, $rowsOf('m-was')], [200, [9]]);
 
-$rebornUser = $user;
-$rebornUser['clubItems']['clubMembers'][1]['memberBirthYear'] = 2012; // Łukasik no longer matches
-[$status, $body] = results_import_contest($rebornUser, CONTEST, $fetchXmlOf($dsq));
+member_update('u-import', 'm-luk', ['memberBirthYear' => 2012]); // Łukasik no longer matches
+[$status, $body] = results_import_contest($user, CONTEST, $fetchXmlOf($dsq));
 check('member no longer matching: rows removed', [$status, $body['not_found'], $rowsOf('m-luk')], [200, ['Jan Łukasik', 'Piotr Zieliński'], []]);
 check('other contest of the account untouched', $rowsOf('m-was'), [9]);
 check('same contest of another account untouched', mongo_results()->countDocuments(['userId' => 'u-bystander']), 1);
+
+member_update('u-import', 'm-luk', ['memberBirthYear' => 2013]);
 
 // A file with athletes but no results at all (entry list) must not wipe the history
 [$status] = results_import_contest($user, CONTEST, $fetchOk);
@@ -121,6 +126,18 @@ for ($i = 0; $i < ACCOUNT_RESULTS_FETCH_MAX; $i++) results_import_contest($user,
 check('rate limited 429', [$status, $body['error']], [429, 'Zbyt wiele pobrań wyników. Spróbuj ponownie za kilka minut.']);
 [$status] = results_import_contest(['userId' => 'u-other'] + $user, CONTEST, $fetchOk);
 check('other account not limited', $status, 200);
+
+// ── A member or the account removed while the LENEX file is being downloaded leaves no orphaned results ──
+@unlink(ACCOUNT_RESULTS_RATE_FILE);
+$removeMemberMidDownload = function (string $uuid) use ($xml): array { member_delete('u-import', 'm-luk'); return ['ok' => true, 'xml' => $xml]; };
+[$status, $body] = results_import_contest($user, CONTEST, $removeMemberMidDownload); // $user still lists m-luk, as the request saw it
+check('member removed mid-download: not stored', [$status, $body['saved'], $body['members_matched'], mongo_results()->countDocuments(['userId' => 'u-import', 'memberId' => 'm-luk'])],
+      [200, 2, 1, 0]);
+
+$removeAccountMidDownload = function (string $uuid) use ($xml): array { user_delete('u-import'); return ['ok' => true, 'xml' => $xml]; };
+[$status, $body] = results_import_contest($user, CONTEST, $removeAccountMidDownload);
+check('account removed mid-download: 404', [$status, $body['error']], [404, 'Konto nie istnieje.']);
+check('account removed mid-download: nothing stored', mongo_results()->countDocuments(['userId' => 'u-import']), 0);
 
 mongo_db()->drop();
 @unlink(ACCOUNT_RESULTS_RATE_FILE);

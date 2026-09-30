@@ -52,6 +52,20 @@ check('delete member', results_delete_member('uA', 'm1'), 2);
 check('delete user', results_delete_user('uA'), 1);
 check('other account untouched', mongo_results()->countDocuments(['userId' => 'uB']), 1);
 
+// Two fetches of the same contest running at once: whatever the interleaving, the current results survive
+mongo_results()->drop(); results_ensure_indexes();
+$a = [$row('m1', 1, '2026-03-14', '1:05.32', 65320), $row('m1', 2, '2026-03-14', '40.00', 40000)];
+$b = $a; // the other request parsed the same file
+results_upsert_many('uA', $a); results_upsert_many('uA', $b);           // A writes, B writes…
+results_delete_stale('uA', 'c1', $a); results_delete_stale('uA', 'c1', $b); // …then A cleans up, then B
+check('interleaved fetches keep the results', mongo_results()->countDocuments(['userId' => 'uA', 'contestUuid' => 'c1']), 2);
+
+$newer = [$a[0]]; // B saw a newer file, where event 2 was withdrawn
+results_upsert_many('uA', $a); results_upsert_many('uA', $newer);
+results_delete_stale('uA', 'c1', $a); results_delete_stale('uA', 'c1', $newer);
+check('interleaved fetches: the last cleanup wins, nothing else is lost', array_map(fn($r) => $r['eventNr'], results_list('uA', 2026)), [1]);
+check('stale cleanup leaves other contests and accounts alone', results_delete_stale('uZ', 'c1', []) + results_delete_stale('uA', 'other', []), 0);
+
 // Deleting a club member or an account removes their results (no orphaned documents)
 mongo_users()->drop();
 mongo_results()->drop();

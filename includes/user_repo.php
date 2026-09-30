@@ -11,6 +11,7 @@
  */
 
 require_once __DIR__ . '/mongo.php';
+require_once __DIR__ . '/functions.php'; // with_file_lock()
 
 use MongoDB\BSON\UTCDateTime;
 
@@ -35,6 +36,15 @@ function user_token_hash(string $token): string {
 
 function mongo_now(int $offset = 0): UTCDateTime {
     return new UTCDateTime((time() + $offset) * 1000);
+}
+
+/**
+ * Runs $fn while holding the account's lock. Storing fetched results and removing a member / the account
+ * touch two collections without a transaction; the lock keeps them from interleaving (a result stored for
+ * a member that is being removed would be orphaned). The lock file lives in the system temp directory.
+ */
+function account_lock(string $userId, callable $fn) {
+    return with_file_lock(sys_get_temp_dir() . '/swim_account_' . preg_replace('/[^A-Za-z0-9-]/', '', $userId) . '.lock', $fn);
 }
 
 /** Account as sent to the browser — never the password hash, tokens or tokenVersion. */
@@ -259,9 +269,11 @@ function user_invoice_validate($in): array {
  * they would need a replica set, which the local dev MongoDB is not).
  */
 function user_delete(string $userId): bool {
-    if (mongo_users()->countDocuments(['userId' => $userId], ['limit' => 1]) === 0) return false;
-    results_delete_user($userId);
-    return mongo_users()->deleteOne(['userId' => $userId])->getDeletedCount() === 1;
+    return account_lock($userId, function () use ($userId) {
+        if (mongo_users()->countDocuments(['userId' => $userId], ['limit' => 1]) === 0) return false;
+        results_delete_user($userId);
+        return mongo_users()->deleteOne(['userId' => $userId])->getDeletedCount() === 1;
+    });
 }
 
 /** All accounts for the admin panel, newest first. */
@@ -333,14 +345,16 @@ function member_update(string $userId, string $memberId, array $fields): bool {
 
 /** Removes a club member with the member's results — results first, for the same reason as user_delete(). */
 function member_delete(string $userId, string $memberId): bool {
-    $filter = ['userId' => $userId, 'clubItems.clubMembers.memberId' => $memberId];
-    if (mongo_users()->countDocuments($filter, ['limit' => 1]) === 0) return false;
-    results_delete_member($userId, $memberId);
-    $r = mongo_users()->updateOne(
-        $filter,
-        ['$pull' => ['clubItems.clubMembers' => ['memberId' => $memberId]], '$set' => ['updatedAt' => mongo_now()]]
-    );
-    return $r->getModifiedCount() === 1;
+    return account_lock($userId, function () use ($userId, $memberId) {
+        $filter = ['userId' => $userId, 'clubItems.clubMembers.memberId' => $memberId];
+        if (mongo_users()->countDocuments($filter, ['limit' => 1]) === 0) return false;
+        results_delete_member($userId, $memberId);
+        $r = mongo_users()->updateOne(
+            $filter,
+            ['$pull' => ['clubItems.clubMembers' => ['memberId' => $memberId]], '$set' => ['updatedAt' => mongo_now()]]
+        );
+        return $r->getModifiedCount() === 1;
+    });
 }
 
 /** One-off cleanup (scripts/drop_member_times.php): removes the old hand-entered memberTimes. Returns changed accounts. */
@@ -374,15 +388,34 @@ function results_upsert_many(string $userId, array $rows): int {
 }
 
 /**
- * Makes the account's results of one contest exactly $rows: upserts them tagged with a fresh fetchId, then removes
- * the contest's rows of this account from earlier fetches (results withdrawn from LENEX, turned into DSQ/DNS, or of
- * members that no longer match). Upsert first, so a failure in between leaves stale rows a retry removes — never
- * a contest without its current results. Returns the number of current rows.
+ * Removes the account's rows of one contest that are not among $rows (same member + event): results withdrawn
+ * from LENEX, turned into DSQ/DNS, or of members that no longer match. Rows are chosen by their keys, not by
+ * which fetch wrote them, so two fetches of the same contest running at once can never delete the current results.
+ */
+function results_delete_stale(string $userId, string $contestUuid, array $rows): int {
+    $keep = [];
+    foreach ($rows as $r) $keep[$r['memberId'] . '|' . $r['eventNr']] = true;
+
+    $stale  = [];
+    $cursor = mongo_results()->find(
+        ['userId' => $userId, 'contestUuid' => $contestUuid],
+        ['projection' => ['memberId' => 1, 'eventNr' => 1]]
+    );
+    foreach ($cursor as $doc) {
+        if (!isset($keep[$doc['memberId'] . '|' . $doc['eventNr']])) $stale[] = $doc['_id'];
+    }
+    return $stale ? mongo_results()->deleteMany(['_id' => ['$in' => $stale]])->getDeletedCount() : 0;
+}
+
+/**
+ * Makes the account's results of one contest exactly $rows. Upsert first, stale rows second, so a failure in
+ * between leaves old rows a retry removes — never a contest without its current results.
+ * Returns the number of current rows.
  */
 function results_replace_contest(string $userId, string $contestUuid, array $rows): int {
-    $fetchId = bin2hex(random_bytes(8));
-    $saved   = results_upsert_many($userId, array_map(fn($r) => ['contestUuid' => $contestUuid, 'fetchId' => $fetchId] + $r, $rows));
-    mongo_results()->deleteMany(['userId' => $userId, 'contestUuid' => $contestUuid, 'fetchId' => ['$ne' => $fetchId]]);
+    $rows  = array_map(fn($r) => ['contestUuid' => $contestUuid] + $r, $rows);
+    $saved = results_upsert_many($userId, $rows);
+    results_delete_stale($userId, $contestUuid, $rows);
     return $saved;
 }
 
@@ -392,7 +425,7 @@ function results_list(string $userId, int $year, ?string $memberId = null): arra
     if ($memberId !== null) $filter['memberId'] = $memberId;
     $cursor = mongo_results()->find($filter, [
         'sort'       => ['date' => -1, 'eventNr' => 1],
-        'projection' => ['_id' => 0, 'userId' => 0, 'fetchId' => 0],
+        'projection' => ['_id' => 0, 'userId' => 0, 'fetchId' => 0], // fetchId: left on rows written before it was dropped
     ]);
     $out = [];
     foreach ($cursor as $r) {
