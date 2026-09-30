@@ -7,7 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
   selector: 'app-header',
   imports: [RouterLink, RouterLinkActive, Button],
   template: `
-    <header class="swim-header" [class.swim-header--admin]="isAdmin">
+    <header class="swim-header" [class.swim-header--admin]="isAdmin" [class.swim-header--user]="!isAdmin && auth.isUser()">
       <div class="swim-header__brand">
         <a routerLink="/" class="swim-header__logo">
           <img src="assets/logo.jpg" alt="Olimpijczyk Proszówki" title="Olimpijczyk Proszówki" height="40" />
@@ -27,6 +27,7 @@ import { AuthService } from '../../core/services/auth.service';
           <a routerLink="/import" routerLinkActive="active">Pobierz zawody</a>
           @if (auth.isUser()) {
             <a routerLink="/konto/zawodnicy" routerLinkActive="active">Moi zawodnicy</a>
+            <a routerLink="/konto/statystyki" routerLinkActive="active">Statystyki</a>
             <a routerLink="/konto" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Konto</a>
             <p-button label="Wyloguj" icon="pi pi-sign-out" ariaLabel="Wyloguj" severity="secondary" size="small" styleClass="logout-btn" (onClick)="auth.logout()" />
           } @else {
@@ -66,6 +67,10 @@ import { AuthService } from '../../core/services/auth.service';
       .swim-header__name--short { display: inline; }
       .swim-header__nav { gap: .75rem; }
       .swim-header__nav a { font-size: .85rem; }
+      /* The club user's five-item menu scrolls sideways inside the header instead of widening the page */
+      .swim-header--user .swim-header__brand { flex-shrink: 0; }
+      .swim-header--user .swim-header__nav { flex-shrink: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+      .swim-header--user .swim-header__nav::-webkit-scrollbar { display: none; }
       /* Wyloguj — sama ikona */
       :host ::ng-deep .logout-btn .p-button-label { display: none; }
       :host ::ng-deep .logout-btn .p-button-icon { margin: 0; }
@@ -86,6 +91,10 @@ import { AuthService } from '../../core/services/auth.service';
     /* Menu admina jest szersze — samo logo wcześniej */
     @media (max-width: 374px) {
       .swim-header--admin .swim-header__name--short { display: none; }
+    }
+    /* Menu zalogowanego klubu ma pięć pozycji — samo logo na telefonach */
+    @media (max-width: 640px) {
+      .swim-header--user .swim-header__name--short { display: none; }
     }
   `]
 })
