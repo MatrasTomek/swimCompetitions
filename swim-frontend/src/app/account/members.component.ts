@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule, NgForm } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { TableModule } from 'primeng/table';
 import { Button } from 'primeng/button';
 import { Dialog } from 'primeng/dialog';
@@ -10,20 +11,24 @@ import { Message } from 'primeng/message';
 import { Toast } from 'primeng/toast';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { MessageService } from 'primeng/api';
+import { catchError, forkJoin, of } from 'rxjs';
 import { HeaderComponent } from '../shared/header/header.component';
 import { SearchInputComponent } from '../shared/search-input/search-input.component';
 import { plural } from '../shared/plural';
 import { ApiService } from '../core/services/api.service';
 import { ConfirmDeleteService } from '../core/services/confirm-delete.service';
-import { ClubMember, ClubMemberInput } from '../core/models';
+import { ClubMember, ClubMemberInput, MemberResult } from '../core/models';
+import { bestTimes } from '../shared/swim-time';
+import { ResultsTableComponent } from './stats/results-table.component';
+import { parseSeason } from './stats/season';
 
 const SEX_OPTIONS = [{ label: 'M', value: 'M' }, { label: 'K', value: 'K' }];
 
-/** /konto/zawodnicy — club members of the logged-in user (their results are fetched from LENEX, not entered here). */
+/** /konto/zawodnicy — club members of the logged-in user and, read-only, their LENEX results of the current season. */
 @Component({
   selector: 'app-members',
   imports: [FormsModule, TableModule, Button, Dialog, InputText, InputNumber, SelectButton, Message, Toast,
-            ProgressSpinner, HeaderComponent, SearchInputComponent],
+            ProgressSpinner, HeaderComponent, SearchInputComponent, ResultsTableComponent, RouterLink],
   providers: [MessageService],
   template: `
     <app-header />
@@ -44,16 +49,28 @@ const SEX_OPTIONS = [{ label: 'M', value: 'M' }, { label: 'K', value: 'K' }];
             [badge]="membersLabel(filtered().length)" />
           @if (!query().trim()) { <span class="count">{{ membersLabel(members().length) }}</span> }
         </div>
+        <p class="hint">
+          Wyniki pobierzesz z livetiming.pl przyciskiem „Pobierz wyniki na konto” na stronie
+          <a routerLink="/">zaimportowanej listy startowej</a> — trafią do zawodników o tym samym imieniu, nazwisku i roku urodzenia.
+        </p>
+        @if (resultsError()) { <p-message severity="warn" [text]="resultsError()!" class="results-error" /> }
 
-        <p-table [value]="filtered()" dataKey="memberId" [tableStyle]="{'min-width':'420px'}" styleClass="swim-datatable" [paginator]="filtered().length > 50" [rows]="50">
+        <p-table [value]="filtered()" dataKey="memberId" [tableStyle]="{'min-width':'520px'}" styleClass="swim-datatable" [paginator]="filtered().length > 50" [rows]="50">
           <ng-template pTemplate="header">
-            <tr><th>Imię i nazwisko</th><th>Płeć</th><th>Rok ur.</th><th class="actions-col"></th></tr>
+            <tr><th>Imię i nazwisko</th><th>Płeć</th><th>Rok ur.</th><th>Wyniki {{ season }}</th><th class="actions-col"></th></tr>
           </ng-template>
           <ng-template pTemplate="body" let-m>
             <tr>
               <td>{{ m.memberName }}</td>
               <td>{{ m.memberSex }}</td>
               <td>{{ m.memberBirthYear }} <span class="muted">({{ age(m.memberBirthYear) }} l.)</span></td>
+              <td>
+                @if (resultsOf(m.memberId).length; as n) {
+                  <p-button [label]="n + ' ' + startsLabel(n)" icon="pi pi-stopwatch" [text]="true" size="small" (onClick)="openResults(m)" />
+                } @else {
+                  <span class="muted">brak</span>
+                }
+              </td>
               <td class="actions-col">
                 <p-button icon="pi pi-pencil" [rounded]="true" [text]="true" ariaLabel="Edytuj" (onClick)="openMember(m)" />
                 <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger" ariaLabel="Usuń" (onClick)="removeMember(m)" />
@@ -61,7 +78,7 @@ const SEX_OPTIONS = [{ label: 'M', value: 'M' }, { label: 'K', value: 'K' }];
             </tr>
           </ng-template>
           <ng-template pTemplate="emptymessage">
-            <tr><td colspan="4" class="empty">
+            <tr><td colspan="5" class="empty">
               {{ members().length ? 'Brak zawodników pasujących do wyszukiwania.' : 'Nie dodano jeszcze żadnego zawodnika.' }}
             </td></tr>
           </ng-template>
@@ -97,6 +114,14 @@ const SEX_OPTIONS = [{ label: 'M', value: 'M' }, { label: 'K', value: 'K' }];
         </div>
       </form>
     </p-dialog>
+
+    <!-- Results of one club member (read-only) -->
+    <p-dialog [header]="'Wyniki ' + season + ' — ' + (resultsMember()?.memberName ?? '')" [(visible)]="resultsVisible" [modal]="true"
+      [style]="{width:'860px'}" [breakpoints]="{'900px':'98vw'}">
+      @if (resultsMember(); as m) {
+        <app-results-table [rows]="resultsOf(m.memberId)" [best]="best()" />
+      }
+    </p-dialog>
   `,
   styles: [`
     .page-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
@@ -104,6 +129,9 @@ const SEX_OPTIONS = [{ label: 'M', value: 'M' }, { label: 'K', value: 'K' }];
     .search-row   { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
     .search-box   { flex: 1; min-width: 220px; max-width: 420px; }
     .count, .muted { color: var(--swim-muted); font-size: .85rem; }
+    .hint         { color: var(--swim-muted); font-size: .85rem; margin: 0 0 1rem; }
+    .hint a       { color: var(--swim-gold); }
+    .results-error { display: block; margin-bottom: 1rem; }
     .actions-col  { text-align: right; white-space: nowrap; width: 1%; }
     .empty        { text-align: center; color: var(--swim-muted); padding: 1.5rem; }
     .center-spin  { display: flex; justify-content: center; padding: 3rem; }
@@ -124,6 +152,7 @@ export class MembersComponent implements OnInit {
 
   readonly sexOptions    = SEX_OPTIONS;
   readonly currentYear   = new Date().getFullYear();
+  readonly season        = parseSeason(null);
 
   members   = signal<ClubMember[]>([]);
   loaded    = signal(false);
@@ -142,11 +171,46 @@ export class MembersComponent implements OnInit {
   member: ClubMemberInput = { memberName: '', memberSex: 'M', memberBirthYear: this.currentYear - 10 };
   formError = signal<string | null>(null);
 
+  results      = signal<MemberResult[]>([]);
+  resultsError = signal<string | null>(null);
+  best         = computed(() => bestTimes(this.results()));
+  private byMember = computed(() => {
+    const map = new Map<string, MemberResult[]>();
+    for (const r of this.results()) map.set(r.memberId, [...(map.get(r.memberId) ?? []), r]);
+    return map;
+  });
+  resultsVisible = false;
+  resultsMember  = signal<ClubMember | null>(null);
+
   ngOnInit() {
-    this.api.getAccount().subscribe({
-      next: a => { this.members.set(a.clubItems.clubMembers); this.loaded.set(true); },
+    forkJoin({
+      account: this.api.getAccount(),
+      // The member list stays usable when only the results fail to load
+      results: this.api.getAccountResults(this.season).pipe(catchError(err => {
+        this.resultsError.set(err.error?.error ?? 'Nie udało się wczytać wyników zawodników.');
+        return of<MemberResult[]>([]);
+      })),
+    }).subscribe({
+      next: ({ account, results }) => {
+        this.members.set(account.clubItems.clubMembers);
+        this.results.set(results);
+        this.loaded.set(true);
+      },
       error: err => this.loadError.set(err.error?.error ?? 'Nie udało się wczytać zawodników.'),
     });
+  }
+
+  resultsOf(memberId: string): MemberResult[] {
+    return this.byMember().get(memberId) ?? [];
+  }
+
+  startsLabel(n: number): string {
+    return plural(n, 'start', 'starty', 'startów');
+  }
+
+  openResults(m: ClubMember) {
+    this.resultsMember.set(m);
+    this.resultsVisible = true;
   }
 
   membersLabel(n: number): string {
@@ -198,7 +262,10 @@ export class MembersComponent implements OnInit {
     });
     if (!ok) return;
     this.api.deleteMember(m.memberId).subscribe({
-      next: () => this.members.update(list => list.filter(x => x.memberId !== m.memberId)),
+      next: () => {
+        this.members.update(list => list.filter(x => x.memberId !== m.memberId));
+        this.results.update(list => list.filter(r => r.memberId !== m.memberId));
+      },
       error: err => this.messages.add({ severity: 'error', summary: 'Błąd', detail: err.error?.error ?? 'Nie udało się usunąć.' }),
     });
   }

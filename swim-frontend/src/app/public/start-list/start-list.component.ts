@@ -1,12 +1,16 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ProgressSpinner } from 'primeng/progressspinner';
+import { Button } from 'primeng/button';
+import { Toast } from 'primeng/toast';
+import { MessageService } from 'primeng/api';
 import { HeaderComponent } from '../../shared/header/header.component';
 import { SearchInputComponent } from '../../shared/search-input/search-input.component';
 import { plural } from '../../shared/plural';
 import { ApiService } from '../../core/services/api.service';
-import { LocalCompetitionsService } from '../../core/services/local-competitions.service';
-import { Competition, Blok, Start } from '../../core/models';
+import { AuthService } from '../../core/services/auth.service';
+import { LocalCompetition, LocalCompetitionsService } from '../../core/services/local-competitions.service';
+import { Competition, Blok, Start, ResultsFetchResponse } from '../../core/models';
 
 /** Lowercases and strips diacritics (incl. "ł", which NFD doesn't decompose). */
 function normalize(s: string): string {
@@ -15,9 +19,11 @@ function normalize(s: string): string {
 
 @Component({
   selector: 'app-start-list',
-  imports: [RouterLink, ProgressSpinner, HeaderComponent, SearchInputComponent],
+  imports: [RouterLink, ProgressSpinner, Button, Toast, HeaderComponent, SearchInputComponent],
+  providers: [MessageService],
   template: `
     <app-header />
+    <p-toast />
     <div class="swim-page">
       @if (loading()) {
         <div class="center-spin"><p-progressSpinner /></div>
@@ -27,6 +33,9 @@ function normalize(s: string): string {
           <h1 class="swim-page-title">{{ competition()!.nazwa }}</h1>
           @if (isLocal) {
             <p class="local-note">Lista zaimportowana przez Ciebie — widoczna tylko w tej przeglądarce.</p>
+            @if (auth.isUser() && !contestUrl()) {
+              <p class="local-note">Ta lista została zaimportowana wcześniej — zaimportuj ją ponownie, aby pobrać wyniki na konto.</p>
+            }
           }
           <div class="sl-meta">
             @if (competition()!.data)    { <span>📅 {{ competition()!.data }}</span> }
@@ -38,6 +47,11 @@ function normalize(s: string): string {
               [badge]="filteredCount() + ' ' + startsLabel(filteredCount())" />
             @if (slug && !isLocal) {
               <a [href]="pdfUrl" target="_blank" rel="noopener" class="pdf-btn">⬇ PDF wyniki</a>
+            }
+            @if (isLocal && auth.isUser()) {
+              <p-button label="Pobierz wyniki na konto" icon="pi pi-download" size="small"
+                [loading]="fetching()" [disabled]="!contestUrl()" (onClick)="fetchResults()" />
+              @if (fetched()) { <a routerLink="/konto/zawodnicy" class="pdf-btn">Zobacz wyniki →</a> }
             }
           </div>
         </div>
@@ -98,6 +112,8 @@ export class StartListComponent implements OnInit {
   private api    = inject(ApiService);
   private route  = inject(ActivatedRoute);
   private local  = inject(LocalCompetitionsService);
+  private messages = inject(MessageService);
+  readonly auth  = inject(AuthService);
 
   loading = signal(true);
   competition = signal<Competition | null>(null);
@@ -105,6 +121,11 @@ export class StartListComponent implements OnInit {
   query = signal('');
   slug = '';
   isLocal = false;
+
+  /** Club users: results of their members are fetched from the contest this list was imported from. */
+  contestUrl = computed(() => (this.competition() as LocalCompetition | null)?.contest_url ?? '');
+  fetching = signal(false);
+  fetched  = signal(false);
 
   get pdfUrl(): string {
     return this.api.getCompetitionPdfUrl(this.slug);
@@ -145,5 +166,35 @@ export class StartListComponent implements OnInit {
         this.loadError.set(err.error?.error ?? 'Nie udało się wczytać zawodów.');
       },
     });
+  }
+
+  fetchResults() {
+    const url = this.contestUrl();
+    if (!url || this.fetching()) return;
+    this.fetching.set(true);
+    this.api.fetchAccountResults(url).subscribe({
+      next: res => {
+        this.fetching.set(false);
+        this.fetched.set(res.saved > 0);
+        this.showFetchResult(res);
+      },
+      error: err => {
+        this.fetching.set(false);
+        // 409 — results not published yet: a warning, not a failure
+        this.messages.add({
+          severity: err.status === 409 ? 'warn' : 'error', summary: 'Wyniki', life: 8000,
+          detail: err.error?.error ?? 'Nie udało się pobrać wyników.',
+        });
+      },
+    });
+  }
+
+  private showFetchResult(res: ResultsFetchResponse) {
+    const parts = [res.saved
+      ? `Zapisano ${res.saved} ${plural(res.saved, 'wynik', 'wyniki', 'wyników')} dla ${res.members_matched} ${plural(res.members_matched, 'zawodnika', 'zawodników', 'zawodników')}.`
+      : 'Nie znaleziono wyników Twoich zawodników w tych zawodach.'];
+    if (res.not_found.length) parts.push(`Bez wyników: ${res.not_found.join(', ')}.`);
+    if (res.ambiguous.length) parts.push(`Niejednoznaczni (pominięci): ${res.ambiguous.join(', ')}.`);
+    this.messages.add({ severity: res.saved ? 'success' : 'warn', summary: 'Wyniki', detail: parts.join(' '), life: 10000 });
   }
 }

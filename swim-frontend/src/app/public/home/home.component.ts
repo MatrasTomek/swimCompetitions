@@ -10,6 +10,7 @@ import { plural } from '../../shared/plural';
 import { ApiService } from '../../core/services/api.service';
 import { LocalCompetitionsService, LocalCompetition } from '../../core/services/local-competitions.service';
 import { ConfirmDeleteService } from '../../core/services/confirm-delete.service';
+import { AuthService } from '../../core/services/auth.service';
 import { Competition } from '../../core/models';
 
 @Component({
@@ -157,6 +158,7 @@ export class HomeComponent implements OnInit {
   private api = inject(ApiService);
   readonly local = inject(LocalCompetitionsService);
   private deletion = inject(ConfirmDeleteService);
+  private auth = inject(AuthService);
 
   loading   = signal(true);
   loadError = signal<string | null>(null);
@@ -202,7 +204,9 @@ export class HomeComponent implements OnInit {
   setView(value: 'grid' | 'list')   { this.view.set(value);  writePref('swim-view',  value); }
 
   async removeLocal(c: LocalCompetition) {
-    if (await this.deletion.confirm({ name: c.nazwa })) this.local.remove(c.id);
+    // Results fetched to the club account live on the server — removing the browser copy keeps them
+    const kept = this.auth.isUser() ? ' Wyniki pobrane na konto zostaną zachowane.' : '';
+    if (await this.deletion.confirm({ message: `Czy na pewno usunąć „${c.nazwa}”?${kept}` })) this.local.remove(c.id);
   }
 }
 

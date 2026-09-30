@@ -340,7 +340,7 @@ export class ImportComponent implements OnInit, OnDestroy {
     this.api.previewStartlist(url, klub).subscribe({
       next: res => {
         if (!res.ok) { this.fail(res.error ?? 'Błąd parsowania.'); return; }
-        const item = this.local.add(this.withContestFallbacks(res.zawody));
+        const item = this.local.add(this.withContestFallbacks(res.zawody), url);
         this.router.navigate(['/moje', item.id, 'lista']);
       },
       error: err => this.fail(err.error?.error ?? 'Błąd połączenia.'),

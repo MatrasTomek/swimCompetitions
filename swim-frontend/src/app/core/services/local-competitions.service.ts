@@ -7,6 +7,8 @@ const STORAGE_KEY = 'swim_local_competitions';
 export interface LocalCompetition extends Competition {
   id: string;
   imported_at: string;
+  /** livetiming.pl contest page the list was imported from — needed to fetch results; missing on older imports. */
+  contest_url?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -19,9 +21,10 @@ export class LocalCompetitionsService {
     return this._items().find(c => c.id === id) ?? null;
   }
 
-  add(zawody: Competition): LocalCompetition {
+  add(zawody: Competition, contestUrl?: string): LocalCompetition {
     const item: LocalCompetition = {
       ...zawody,
+      ...(contestUrl ? { contest_url: contestUrl } : {}),
       id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
       imported_at: new Date().toISOString(),
     };
