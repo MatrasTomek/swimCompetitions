@@ -253,6 +253,7 @@ function swim_time_format(int $ms): string {
  * Relays, unknown strokes, results with a status (DSQ/DNS/…) or without a time are left out.
  * Only the LENEX 3.0 layout (results under ATHLETE > RESULTS) that livetiming.pl publishes is read.
  * Missing sections (e.g. an invitation file without CLUBS) are read as empty — xpath() instead of ->A->B.
+ * Events are keyed by eventid, not by number: prelims and the final of one event share the number.
  */
 function lenex_parse_full(string $xml): array {
     libxml_use_internal_errors(true);
@@ -263,9 +264,8 @@ function lenex_parse_full(string $xml): array {
     }
     $meet = $dom->MEETS->MEET[0];
 
-    $events      = [];
-    $eventidToNr = [];
-    $firstDate   = '';
+    $events    = [];
+    $firstDate = '';
     foreach ($meet->xpath('SESSIONS/SESSION') ?: [] as $session) {
         $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$session['date']) ? (string)$session['date'] : '';
         if ($date !== '' && ($firstDate === '' || $date < $firstDate)) $firstDate = $date;
@@ -274,12 +274,11 @@ function lenex_parse_full(string $xml): array {
             $style  = $event->SWIMSTYLE;
             $stroke = LENEX_STROKES[strtoupper((string)$style['stroke'])] ?? null;
             $relay  = (int)($style['relaycount'] ?? 1) > 1;
-            if ($nr <= 0 || $stroke === null || $relay) continue;
-            $events[$nr] = ['distance' => (int)$style['distance'], 'stroke' => $stroke, 'date' => $date];
-            $eventidToNr[(string)$event['eventid']] = $nr;
+            $id     = (int)$event['eventid'];
+            if ($id <= 0 || $nr <= 0 || $stroke === null || $relay) continue;
+            $events[$id] = ['nr' => $nr, 'distance' => (int)$style['distance'], 'stroke' => $stroke, 'date' => $date];
         }
     }
-    ksort($events);
 
     $athletes = [];
     foreach ($meet->xpath('CLUBS/CLUB') ?: [] as $club) {
@@ -289,12 +288,12 @@ function lenex_parse_full(string $xml): array {
             $g     = strtoupper((string)($ath['gender'] ?? ''));
             $results = [];
             foreach ($ath->xpath('RESULTS/RESULT') ?: [] as $res) {
-                $nr = $eventidToNr[(string)$res['eventid']] ?? null;
-                if ($nr === null || trim((string)($res['status'] ?? '')) !== '') continue;
+                $id = (int)$res['eventid'];
+                if (!isset($events[$id]) || trim((string)($res['status'] ?? '')) !== '') continue;
                 $ms = lenex_time_ms((string)$res['swimtime']);
                 if ($ms === null || $ms <= 0) continue;
                 $pts = (int)($res['points'] ?? 0);
-                $results[] = ['eventNr' => $nr, 'time' => swim_time_format($ms), 'timeMs' => $ms, 'points' => $pts > 0 ? $pts : null];
+                $results[] = ['eventId' => $id, 'eventNr' => $events[$id]['nr'], 'time' => swim_time_format($ms), 'timeMs' => $ms, 'points' => $pts > 0 ? $pts : null];
             }
             $athletes[] = [
                 'lastname'  => (string)$ath['lastname'],

@@ -26,21 +26,21 @@ $p = lenex_parse_full(file_get_contents(__DIR__ . '/fixtures/sample.lef'));
 check('ok', $p['ok'], true);
 check('meet', $p['meet'], ['name' => 'Mityng Testowy 2026', 'city' => 'Kraków', 'poolLength' => 25, 'date' => '2026-03-14']);
 check('events (no relay, no unknown stroke)', $p['events'], [
-    1 => ['distance' => 100,  'stroke' => 'dowolny',    'date' => '2026-03-14'],
-    2 => ['distance' => 50,   'stroke' => 'grzbietowy', 'date' => '2026-03-14'],
-    4 => ['distance' => 200,  'stroke' => 'zmienny',    'date' => '2026-03-15'],
-    6 => ['distance' => 1500, 'stroke' => 'dowolny',    'date' => '2026-03-15'],
+    101 => ['nr' => 1, 'distance' => 100,  'stroke' => 'dowolny',    'date' => '2026-03-14'],
+    102 => ['nr' => 2, 'distance' => 50,   'stroke' => 'grzbietowy', 'date' => '2026-03-14'],
+    104 => ['nr' => 4, 'distance' => 200,  'stroke' => 'zmienny',    'date' => '2026-03-15'],
+    106 => ['nr' => 6, 'distance' => 1500, 'stroke' => 'dowolny',    'date' => '2026-03-15'],
 ]);
 check('athlete count', count($p['athletes']), 3);
 $was = $p['athletes'][0];
 check('was identity', [$was['lastname'], $was['firstname'], $was['birthYear'], $was['gender']], ['Wąs', 'Amelia', 2014, 'K']);
 check('was results (relay, DSQ, unknown stroke skipped; 0 points → null)', $was['results'], [
-    ['eventNr' => 1, 'time' => '1:05.32', 'timeMs' => 65320, 'points' => 312],
-    ['eventNr' => 2, 'time' => '34.10',   'timeMs' => 34100, 'points' => null],
+    ['eventId' => 101, 'eventNr' => 1, 'time' => '1:05.32', 'timeMs' => 65320, 'points' => 312],
+    ['eventId' => 102, 'eventNr' => 2, 'time' => '34.10',   'timeMs' => 34100, 'points' => null],
 ]);
 check('lukasik results (NT skipped)', $p['athletes'][1]['results'], [
-    ['eventNr' => 4, 'time' => '2:45.99',  'timeMs' => 165990,  'points' => 280],
-    ['eventNr' => 6, 'time' => '62:03.45', 'timeMs' => 3723450, 'points' => 10],
+    ['eventId' => 104, 'eventNr' => 4, 'time' => '2:45.99',  'timeMs' => 165990,  'points' => 280],
+    ['eventId' => 106, 'eventNr' => 6, 'time' => '62:03.45', 'timeMs' => 3723450, 'points' => 10],
 ]);
 check('nowak without birthdate', $p['athletes'][2]['birthYear'], null);
 
@@ -61,5 +61,23 @@ $sparse = '<LENEX version="3.0"><MEETS><MEET name="X" city="Y" course="LCM"><SES
 try { $r = lenex_parse_full($sparse); } catch (ErrorException $e) { $r = ['warning' => $e->getMessage()]; }
 check('club without ATHLETES, athlete without RESULTS', [$r['ok'] ?? null, $r['events'] ?? null, $r['athletes'][0]['results'] ?? null], [true, [], []]);
 restore_error_handler();
+
+// Prelims and the final share the event number (real livetiming.pl files) — they differ only by eventid
+$rounds = '<LENEX version="3.0"><MEETS><MEET name="X" city="Y" course="SCM"><SESSIONS>'
+        . '<SESSION number="1" date="2026-09-26"><EVENTS><EVENT eventid="1059" number="1" round="PRE"><SWIMSTYLE distance="25" relaycount="1" stroke="FREE"/></EVENT></EVENTS></SESSION>'
+        . '<SESSION number="2" date="2026-09-27"><EVENTS><EVENT eventid="4822" number="1" round="FIN" preveventid="1059"><SWIMSTYLE distance="25" relaycount="1" stroke="FREE"/></EVENT>'
+        . '<EVENT number="7"><SWIMSTYLE distance="50" relaycount="1" stroke="FREE"/></EVENT></EVENTS></SESSION></SESSIONS>'
+        . '<CLUBS><CLUB name="K"><ATHLETES><ATHLETE athleteid="1" lastname="A" firstname="B" birthdate="2014-01-01"><RESULTS>'
+        . '<RESULT eventid="1059" swimtime="00:00:15.10"/><RESULT eventid="4822" swimtime="00:00:14.90"/></RESULTS></ATHLETE></ATHLETES></CLUB></CLUBS>'
+        . '</MEET></MEETS></LENEX>';
+$r = lenex_parse_full($rounds);
+check('same number, two rounds: both events kept (event without eventid skipped)', $r['events'], [
+    1059 => ['nr' => 1, 'distance' => 25, 'stroke' => 'dowolny', 'date' => '2026-09-26'],
+    4822 => ['nr' => 1, 'distance' => 25, 'stroke' => 'dowolny', 'date' => '2026-09-27'],
+]);
+check('same number, two rounds: both results kept', $r['athletes'][0]['results'], [
+    ['eventId' => 1059, 'eventNr' => 1, 'time' => '15.10', 'timeMs' => 15100, 'points' => null],
+    ['eventId' => 4822, 'eventNr' => 1, 'time' => '14.90', 'timeMs' => 14900, 'points' => null],
+]);
 
 finish();

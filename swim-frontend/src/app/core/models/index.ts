@@ -124,6 +124,7 @@ export interface MemberResult {
   contestUuid: string;
   contestName: string;
   contestCity: string;
+  eventId?: number;     // LENEX eventid — prelims and the final share eventNr; missing on rows fetched before it was stored
   eventNr: number;
   date: string;         // YYYY-MM-DD
   poolLength: 25 | 50;

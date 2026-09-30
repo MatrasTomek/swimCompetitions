@@ -17,7 +17,7 @@ function results_build_rows(array $parsed, array $matched, string $contestUuid):
     $rows = [];
     foreach ($matched as $memberId => $athlete) {
         foreach ($athlete['results'] as $res) {
-            $event = $parsed['events'][$res['eventNr']] ?? null;
+            $event = $parsed['events'][$res['eventId']] ?? null;
             if ($event === null) continue;
             $date = $event['date'] !== '' ? $event['date'] : $parsed['meet']['date'];
             if ($date === '') continue;
@@ -26,6 +26,7 @@ function results_build_rows(array $parsed, array $matched, string $contestUuid):
                 'contestUuid' => $contestUuid,
                 'contestName' => $parsed['meet']['name'],
                 'contestCity' => $parsed['meet']['city'],
+                'eventId'     => $res['eventId'],
                 'eventNr'     => $res['eventNr'],
                 'date'        => $date,
                 'poolLength'  => $parsed['meet']['poolLength'],

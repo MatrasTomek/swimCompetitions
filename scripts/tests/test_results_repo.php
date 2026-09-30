@@ -24,9 +24,9 @@ require __DIR__ . '/../../includes/user_repo.php';
 mongo_results()->drop();
 results_ensure_indexes();
 
-$row = fn(string $member, int $nr, string $date, string $time, int $ms) => [
+$row = fn(string $member, int $nr, string $date, string $time, int $ms, ?int $eventId = null) => [
     'memberId' => $member, 'contestUuid' => 'c1', 'contestName' => 'Mityng', 'contestCity' => 'Kraków',
-    'eventNr' => $nr, 'date' => $date, 'poolLength' => 25, 'distance' => 100, 'stroke' => 'dowolny',
+    'eventId' => $eventId ?? 100 + $nr, 'eventNr' => $nr, 'date' => $date, 'poolLength' => 25, 'distance' => 100, 'stroke' => 'dowolny',
     'time' => $time, 'timeMs' => $ms, 'points' => null,
 ];
 
@@ -65,6 +65,29 @@ results_upsert_many('uA', $a); results_upsert_many('uA', $newer);
 results_delete_stale('uA', 'c1', $a); results_delete_stale('uA', 'c1', $newer);
 check('interleaved fetches: the last cleanup wins, nothing else is lost', array_map(fn($r) => $r['eventNr'], results_list('uA', 2026)), [1]);
 check('stale cleanup leaves other contests and accounts alone', results_delete_stale('uZ', 'c1', []) + results_delete_stale('uA', 'other', []), 0);
+
+// Prelims and the final share the event number (eventNr) — both starts are stored, and both survive a re-fetch
+mongo_results()->drop(); results_ensure_indexes();
+$rounds = [$row('m1', 1, '2026-09-26', '15.10', 15100, 1059), $row('m1', 1, '2026-09-27', '14.90', 14900, 4822)];
+check('two rounds saved', results_replace_contest('uA', 'c1', $rounds), 2);
+results_replace_contest('uA', 'c1', $rounds);
+check('two rounds stored', array_map(fn($r) => [$r['eventId'], $r['time']], results_list('uA', 2026)), [[4822, '14.90'], [1059, '15.10']]);
+check('withdrawn final removed, prelim kept', [results_replace_contest('uA', 'c1', [$rounds[0]]), array_map(fn($r) => $r['eventId'], results_list('uA', 2026))], [1, [1059]]);
+
+// Rows stored before eventId existed are replaced by the next fetch of the contest, not doubled
+mongo_results()->drop(); results_ensure_indexes();
+$old = $row('m1', 1, '2026-09-26', '14.90', 14900); unset($old['eventId']);
+mongo_results()->insertOne($old + ['userId' => 'uA']);
+results_replace_contest('uA', 'c1', $rounds);
+check('row without eventId replaced', array_map(fn($r) => $r['eventId'] ?? null, results_list('uA', 2026)), [4822, 1059]);
+
+// The index of the previous layout (one row per event number) is replaced
+mongo_results()->drop();
+mongo_results()->createIndex(['userId' => 1, 'memberId' => 1, 'contestUuid' => 1, 'eventNr' => 1], ['unique' => true, 'name' => 'result_unique']);
+results_ensure_indexes();
+$names = []; foreach (mongo_results()->listIndexes() as $ix) $names[] = $ix->getName();
+sort($names);
+check('old unique index dropped', $names, ['_id_', 'result_unique_event', 'user_date']);
 
 // Deleting a club member or an account removes their results (no orphaned documents)
 mongo_users()->drop();
