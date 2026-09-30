@@ -32,6 +32,10 @@ export const routes: Routes = [
     loadComponent: () => import('./public/rodo/rodo.component').then(m => m.RodoComponent),
   },
   {
+    path: 'wsparcie',
+    loadComponent: () => import('./public/support/support.component').then(m => m.SupportComponent),
+  },
+  {
     path: 'logowanie',
     loadComponent: () => import('./public/login/login.component').then(m => m.LoginComponent),
   },

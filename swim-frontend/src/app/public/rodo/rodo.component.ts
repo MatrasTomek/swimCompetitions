@@ -3,14 +3,14 @@ import { RouterLink } from '@angular/router';
 import { Card } from 'primeng/card';
 import { HeaderComponent } from '../../shared/header/header.component';
 
-/** GDPR (RODO) information clause for the registration form (art. 13 RODO). */
+/** GDPR (RODO) information clause (art. 13 RODO) — linked from the registration form and the footer. */
 @Component({
   selector: 'app-rodo',
   imports: [RouterLink, Card, HeaderComponent],
   template: `
     <app-header />
     <div class="swim-page">
-      <a routerLink="/rejestracja" class="back">← Rejestracja</a>
+      <a routerLink="/" class="back">← Strona główna</a>
       <h1 class="swim-page-title">Informacja o przetwarzaniu danych osobowych</h1>
 
       <p-card styleClass="rodo-card">
