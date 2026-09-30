@@ -141,6 +141,8 @@ export interface ResultsFetchResponse {
   members_matched: number;
   not_found: string[];
   ambiguous: string[];
+  /** Members found in the LENEX file, but without a valid result to store (only DNS/DSQ starts). */
+  no_results: string[];
   competition: { name: string; date: string };
 }
 

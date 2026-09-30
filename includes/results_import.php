@@ -81,11 +81,19 @@ function results_import_contest(array $user, string $contestUrl, ?callable $fetc
     $rows  = results_build_rows($parsed, $match['matched'], $uuid);
     $saved = results_replace_contest($user['userId'], $uuid, $rows);
 
+    // Members found in the file, but with nothing to store (only DNS/DSQ starts, relays or unknown events)
+    $withRows  = array_flip(array_column($rows, 'memberId'));
+    $noResults = [];
+    foreach ($members as $m) {
+        if (isset($match['matched'][$m['memberId']]) && !isset($withRows[$m['memberId']])) $noResults[] = $m['memberName'];
+    }
+
     return [200, [
         'saved'           => $saved,
         'members_matched' => count($match['matched']),
         'not_found'       => $match['not_found'],
         'ambiguous'       => $match['ambiguous'],
+        'no_results'      => $noResults,
         'competition'     => ['name' => $parsed['meet']['name'], 'date' => $parsed['meet']['date']],
     ]];
 }

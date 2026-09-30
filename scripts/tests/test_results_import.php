@@ -60,7 +60,7 @@ check('nothing stored after 409', mongo_results()->countDocuments(), 0);
 check('success 200', $status, 200);
 check('downloaded by contest uuid', $askedUuid, 'c0ffee00-0000-4000-8000-000000000001');
 check('response', $body, [
-    'saved' => 4, 'members_matched' => 2, 'not_found' => ['Piotr Zieliński'], 'ambiguous' => [],
+    'saved' => 4, 'members_matched' => 2, 'not_found' => ['Piotr Zieliński'], 'ambiguous' => [], 'no_results' => [],
     'competition' => ['name' => 'Mityng Testowy 2026', 'date' => '2026-03-14'],
 ]);
 check('stored rows', mongo_results()->countDocuments(['userId' => 'u-import']), 4);
@@ -71,6 +71,15 @@ check('stored for members', count(results_list('u-import', 2026, 'm-was')) . '/'
 check('re-fetch 200 same count', [$status, $body['saved']], [200, 4]);
 check('no duplicates', mongo_results()->countDocuments(['userId' => 'u-import']), 4);
 
+// A member found in the file whose starts are all DNS/DSQ is reported separately — not counted as "saved for"
+$allDns = str_replace(['<RESULT eventid="104" swimtime="00:02:45.99" points="280"/>', '<RESULT eventid="106" swimtime="01:02:03.45" points="10"/>'],
+                      ['<RESULT eventid="104" swimtime="00:00:00.00" status="DNS"/>', '<RESULT eventid="106" swimtime="00:00:00.00" status="DNS"/>'], $xml);
+[$status, $body] = results_import_contest($user, CONTEST, fn(string $uuid): array => ['ok' => true, 'xml' => $allDns]);
+check('matched without valid results', [$status, $body['saved'], $body['members_matched'], $body['no_results'], $body['not_found']],
+      [200, 2, 2, ['Jan Łukasik'], ['Piotr Zieliński']]);
+[$status] = results_import_contest($user, CONTEST, $fetchOk); // back to the full file for the sections below
+
+@unlink(ACCOUNT_RESULTS_RATE_FILE); // fresh rate-limit window for this section
 // ── Re-fetch reconciles the contest: results that left the LENEX file disappear ──
 $fetchXmlOf = fn(string $x) => fn(string $uuid): array => ['ok' => true, 'xml' => $x];
 $rowsOf     = fn(string $member) => array_map(fn($r) => $r['eventNr'], results_list('u-import', 2026, $member));

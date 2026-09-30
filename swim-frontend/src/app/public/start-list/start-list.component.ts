@@ -7,10 +7,11 @@ import { MessageService } from 'primeng/api';
 import { HeaderComponent } from '../../shared/header/header.component';
 import { SearchInputComponent } from '../../shared/search-input/search-input.component';
 import { plural } from '../../shared/plural';
+import { resultsFetchMessage } from '../../shared/results-fetch-message';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LocalCompetition, LocalCompetitionsService } from '../../core/services/local-competitions.service';
-import { Competition, Blok, Start, ResultsFetchResponse } from '../../core/models';
+import { Competition, Blok, Start } from '../../core/models';
 
 /** Lowercases and strips diacritics (incl. "ł", which NFD doesn't decompose). */
 function normalize(s: string): string {
@@ -176,7 +177,7 @@ export class StartListComponent implements OnInit {
       next: res => {
         this.fetching.set(false);
         this.fetched.set(res.saved > 0);
-        this.showFetchResult(res);
+        this.messages.add({ ...resultsFetchMessage(res, plural), summary: 'Wyniki', life: 10000 });
       },
       error: err => {
         this.fetching.set(false);
@@ -187,14 +188,5 @@ export class StartListComponent implements OnInit {
         });
       },
     });
-  }
-
-  private showFetchResult(res: ResultsFetchResponse) {
-    const parts = [res.saved
-      ? `Zapisano ${res.saved} ${plural(res.saved, 'wynik', 'wyniki', 'wyników')} dla ${res.members_matched} ${plural(res.members_matched, 'zawodnika', 'zawodników', 'zawodników')}.`
-      : 'Nie znaleziono wyników Twoich zawodników w tych zawodach.'];
-    if (res.not_found.length) parts.push(`Bez wyników: ${res.not_found.join(', ')}.`);
-    if (res.ambiguous.length) parts.push(`Niejednoznaczni (pominięci): ${res.ambiguous.join(', ')}.`);
-    this.messages.add({ severity: res.saved ? 'success' : 'warn', summary: 'Wyniki', detail: parts.join(' '), life: 10000 });
   }
 }
