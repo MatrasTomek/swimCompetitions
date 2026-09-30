@@ -1,13 +1,14 @@
 import { Component, input } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { TableModule } from 'primeng/table';
 import { MemberResult } from '../../core/models';
 import { eventLabel, pbKey } from '../../shared/swim-time';
 
-/** Read-only table of club members' results; `names` (memberId → name) adds the "Zawodnik" column. */
+/** Read-only table of club members' results; `names` (memberId → name) adds the "Zawodnik" column linking to the member's page. */
 @Component({
   selector: 'app-results-table',
-  imports: [DatePipe, TableModule],
+  imports: [DatePipe, RouterLink, TableModule],
   template: `
     <p-table [value]="rows()" [tableStyle]="{'min-width':'640px'}" styleClass="swim-datatable"
       [paginator]="rows().length > 50" [rows]="50" sortField="date" [sortOrder]="-1">
@@ -24,7 +25,9 @@ import { eventLabel, pbKey } from '../../shared/swim-time';
       </ng-template>
       <ng-template pTemplate="body" let-r>
         <tr>
-          @if (names(); as n) { <td>{{ n.get(r.memberId) ?? '—' }}</td> }
+          @if (names(); as n) {
+            <td><a [routerLink]="['/konto/statystyki', r.memberId]" [queryParams]="{ rok: season() }" class="member-link">{{ n.get(r.memberId) ?? '—' }}</a></td>
+          }
           <td class="nowrap">{{ r.date | date:'dd.MM.yyyy' }}</td>
           <td>{{ r.contestName }} <span class="muted">{{ r.contestCity }}</span></td>
           <td class="nowrap">{{ r.poolLength }} m</td>
@@ -44,6 +47,8 @@ import { eventLabel, pbKey } from '../../shared/swim-time';
     .time   { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
     .pb     { background: var(--swim-gold); color: #111; border-radius: 3px; padding: 0 .3rem; font-size: .7rem; margin-left: .3rem; }
     .empty  { text-align: center; color: var(--swim-muted); padding: 1.5rem; }
+    .member-link { color: inherit; text-decoration: underline; text-decoration-color: var(--swim-muted); text-underline-offset: 3px; }
+    .member-link:hover { text-decoration-color: currentColor; }
   `],
 })
 export class ResultsTableComponent {
@@ -51,6 +56,8 @@ export class ResultsTableComponent {
   /** Best row per member + event + pool (`bestTimes()`), to mark personal bests. */
   readonly best      = input.required<Map<string, MemberResult>>();
   readonly names     = input<Map<string, string> | null>(null);
+  /** Season the member links open (the one the table shows). */
+  readonly season    = input<number | null>(null);
   readonly emptyText = input('Brak wyników.');
 
   label(r: MemberResult): string { return eventLabel(r.distance, r.stroke); }

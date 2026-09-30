@@ -12,6 +12,7 @@ import { SearchInputComponent } from '../../shared/search-input/search-input.com
 import { ChartComponent, chartTheme } from '../../shared/chart/chart.component';
 import { plural } from '../../shared/plural';
 import { bestTimes } from '../../shared/swim-time';
+import { rankingTooltip } from '../../shared/chart-tooltip';
 import { latestRequest } from '../../shared/latest-request';
 import { ApiService } from '../../core/services/api.service';
 import { ClubMember, MemberResult, SwimKind } from '../../core/models';
@@ -82,7 +83,7 @@ const CHART_MEMBERS = 15;
             optionLabel="label" optionValue="value" />
         </div>
 
-        <app-results-table [rows]="filtered()" [names]="names()" [best]="best()" emptyText="Brak wyników pasujących do filtrów." />
+        <app-results-table [rows]="filtered()" [names]="names()" [season]="season()" [best]="best()" emptyText="Brak wyników pasujących do filtrów." />
       }
     </div>
   `,
@@ -188,7 +189,7 @@ export class StatsComponent implements OnInit {
       ...theme.base,
       tooltip: {
         ...theme.base.tooltip, trigger: 'axis', axisPointer: { type: 'shadow' },
-        formatter: (p: { name: string; value: number }[]) => `${p[0].name}<br/><b>${format(p[0].value)}</b>`,
+        formatter: (p: { name: string; value: number }[]) => rankingTooltip(p[0].name, format(p[0].value)),
       },
       xAxis: { type: 'value', ...theme.valueAxis, ...(integers ? { minInterval: 1 } : {}) },
       yAxis: { type: 'category', inverse: true, data: list.map(t => t.name), ...theme.labelAxis },
