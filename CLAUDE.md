@@ -41,6 +41,8 @@ php scripts/tests/test_member_match.php && php scripts/tests/test_lenex_parse_fu
 docker compose -f dev/docker-compose.yml exec -e TEST_MONGO_URI=mongodb://mongo:27017 api php scripts/tests/test_results_repo.php
 docker compose -f dev/docker-compose.yml exec -e TEST_MONGO_URI=mongodb://mongo:27017 api php scripts/tests/test_members.php
 docker compose -f dev/docker-compose.yml exec -e TEST_MONGO_URI=mongodb://mongo:27017 api php scripts/tests/test_results_import.php
+# MongoDB outage → 503: starts the API on a second built-in server with an unreachable MongoDB (no TEST_MONGO_URI needed)
+docker compose -f dev/docker-compose.yml exec api php scripts/tests/test_mongo_outage.php
 # test_results_cascade_failures.php needs a throwaway MongoDB with test commands — see the header of that file
 
 # Frontend (from swim-frontend/) — Node's built-in runner over src/**/*.spec.ts (pure TypeScript helpers only, Node >= 22.6)
@@ -60,7 +62,7 @@ npm test
 
 ### Backend — REST API (`api/v1/`)
 
-Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO, no mod_rewrite needed). Auth: JWT (`includes/jwt.php`), issued by `POST /api/v1/auth/login`, enforced by `api/v1/require_auth.php`.
+Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO, no mod_rewrite needed). The dispatch is output-buffered inside a global try/catch: an uncaught exception is logged (`error_log`) and answered with JSON — 503 when `mongo_is_outage()` (MongoDB went away mid-request), 500 otherwise; details never reach the client. Auth: JWT (`includes/jwt.php`), issued by `POST /api/v1/auth/login`, enforced by `api/v1/require_auth.php`.
 
 | Route | File | Role |
 |-------|------|------|
@@ -84,7 +86,7 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 | `includes/secrets.php` | `ADMIN_PASSWORD_HASH` and `JWT_SECRET` — gitignored, never committed; copy from `includes/secrets.example.php` |
 | `includes/functions.php` | Competition/announcement CRUD, `h()` (HTML escape), `slugify()`, `format_konkurencja()`, `write_json_atomic()`/`with_file_lock()` (safe concurrent writes), `is_allowed_contest_host()` (SSRF guard), login rate-limit helpers |
 | `includes/jwt.php` | JWT encode/verify for API auth (HS256, mandatory `exp`) |
-| `includes/mongo.php` | `mongo_available()` (MONGO_URI + ext-mongodb + vendor/), `mongo_db()`/`mongo_users()`/`mongo_results()`, `uuid_v4()` |
+| `includes/mongo.php` | `mongo_available()` (MONGO_URI + ext-mongodb + vendor/), `mongo_db()`/`mongo_users()`/`mongo_results()`, `uuid_v4()`; `mongo_is_outage()` — tells an unreachable MongoDB (connection/timeout/failed client construction → `MongoUnavailableException`) from a bug |
 | `includes/user_repo.php` | All MongoDB access for accounts (the only file to change if storage moves): account lifecycle, tokens, admin list/status, validated atomic club member updates (`$push`/`$pull`, limit `ACCOUNT_MAX_MEMBERS`), and the `results` collection: `results_replace_contest()` (upsert, then `results_delete_stale()` removes the contest's rows that are not in the fetched set — chosen by member + event, so concurrent fetches cannot delete current results), `results_list()` (one year), `results_delete_member()`/`results_delete_user()` — called by `member_delete()`/`user_delete()` before the entity itself is removed, so a failed second write can be retried (no transactions: the dev MongoDB is not a replica set); storing fetched results and removing a member / the account run under `account_lock()` (per-account file lock in the system temp dir), and the import re-reads the account after the download, so nothing is stored for a member or account removed meanwhile |
 | `includes/mailer.php` | `send_mail_utf8()` (PHP `mail()`, From = `CONTACT_FROM_EMAIL`), `app_url()` — e-mail links to SPA routes (`APP_PUBLIC_URL` + `/#` hash routing) |
 | `includes/athlete.php` | Athlete profile load/save/dedup — `save_athlete_result()` deduplicates by competition+date+event_nr |

@@ -43,64 +43,82 @@ $seg4     = $segs[4] ?? '';
 
 
 // ── Dispatch ─────────────────────────────────────────────────────────────────
-switch ($resource) {
-    case 'auth':
-        require_once __DIR__ . '/auth.php';
-        handle_auth($seg1, $method);
-        break;
+// Handlers echo their answer; it is buffered so that a failure half-way (e.g. MongoDB going
+// away in the middle of a request) can still be answered with a clean JSON error.
+ob_start();
+try {
+    switch ($resource) {
+        case 'auth':
+            require_once __DIR__ . '/auth.php';
+            handle_auth($seg1, $method);
+            break;
 
-    case 'competitions':
-        require_once __DIR__ . '/competitions.php';
-        handle_competitions($seg1, $seg2, $method);
-        break;
+        case 'competitions':
+            require_once __DIR__ . '/competitions.php';
+            handle_competitions($seg1, $seg2, $method);
+            break;
 
-    case 'athletes':
-        require_once __DIR__ . '/athletes.php';
-        handle_athletes($seg1, $method);
-        break;
+        case 'athletes':
+            require_once __DIR__ . '/athletes.php';
+            handle_athletes($seg1, $method);
+            break;
 
-    case 'startlist':
-        require_once __DIR__ . '/startlist.php';
-        handle_startlist($seg1, $method);
-        break;
+        case 'startlist':
+            require_once __DIR__ . '/startlist.php';
+            handle_startlist($seg1, $method);
+            break;
 
-    case 'results':
-        require_once __DIR__ . '/results.php';
-        handle_results($seg1, $method);
-        break;
+        case 'results':
+            require_once __DIR__ . '/results.php';
+            handle_results($seg1, $method);
+            break;
 
-    case 'live':
-        require_once __DIR__ . '/live.php';
-        handle_live($method);
-        break;
+        case 'live':
+            require_once __DIR__ . '/live.php';
+            handle_live($method);
+            break;
 
-    case 'announcements':
-        require_once __DIR__ . '/announcements.php';
-        handle_announcements($seg1, $method);
-        break;
+        case 'announcements':
+            require_once __DIR__ . '/announcements.php';
+            handle_announcements($seg1, $method);
+            break;
 
-    case 'contests':
-        require_once __DIR__ . '/contests.php';
-        handle_contests($seg1, $method);
-        break;
+        case 'contests':
+            require_once __DIR__ . '/contests.php';
+            handle_contests($seg1, $method);
+            break;
 
-    case 'contact':
-        require_once __DIR__ . '/contact.php';
-        handle_contact($seg1, $method);
-        break;
+        case 'contact':
+            require_once __DIR__ . '/contact.php';
+            handle_contact($seg1, $method);
+            break;
 
-    case 'account':
-        require_once __DIR__ . '/account.php';
-        handle_account($seg1, $seg2, $seg3, $seg4, $method);
-        break;
+        case 'account':
+            require_once __DIR__ . '/account.php';
+            handle_account($seg1, $seg2, $seg3, $seg4, $method);
+            break;
 
-    case 'users':
-        require_once __DIR__ . '/users.php';
-        handle_users($seg1, $method);
-        break;
+        case 'users':
+            require_once __DIR__ . '/users.php';
+            handle_users($seg1, $method);
+            break;
 
-    default:
-        http_response_code(404);
-        echo json_encode(['error' => 'Unknown resource: ' . $resource]);
-        break;
+        default:
+            http_response_code(404);
+            echo json_encode(['error' => 'Unknown resource: ' . $resource]);
+            break;
+    }
+} catch (Throwable $e) {
+    ob_end_clean();
+    error_log('API ' . $method . ' ' . $path . ': ' . get_class($e) . ': ' . $e->getMessage()
+        . ' in ' . $e->getFile() . ':' . $e->getLine());
+    $outage = function_exists('mongo_is_outage') && mongo_is_outage($e);
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code($outage ? 503 : 500);
+    }
+    echo json_encode(
+        ['error' => $outage ? 'Konta użytkowników są chwilowo niedostępne.' : 'Wewnętrzny błąd serwera.'],
+        JSON_UNESCAPED_UNICODE
+    );
 }

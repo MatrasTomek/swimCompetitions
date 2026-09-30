@@ -13,19 +13,37 @@ function mongo_available(): bool {
         && file_exists(__DIR__ . '/../vendor/autoload.php');
 }
 
+/** The client could not be built — e.g. the SRV lookup of the Atlas host failed. */
+class MongoUnavailableException extends RuntimeException {}
+
+/**
+ * True when $e means MongoDB cannot be reached right now (server down, network, timeout, DNS) —
+ * the API answers 503 then. Anything else (a bad query, a write error) is a bug and stays a 500.
+ */
+function mongo_is_outage(Throwable $e): bool {
+    return $e instanceof MongoUnavailableException
+        || $e instanceof MongoDB\Driver\Exception\ConnectionException      // incl. server selection timeout
+        || $e instanceof MongoDB\Driver\Exception\ExecutionTimeoutException;
+}
+
 /** Lazily connected database handle (one client per request). */
 function mongo_db(): MongoDB\Database {
     static $db = null;
     if ($db === null) {
         require_once __DIR__ . '/../vendor/autoload.php';
-        $client = new MongoDB\Client(MONGO_URI, [
-            'serverSelectionTimeoutMS' => 5000,
-            'connectTimeoutMS'         => 5000,
-            'socketTimeoutMS'          => 15000,
-        ], [
-            // Plain PHP arrays instead of BSONDocument objects
-            'typeMap' => ['root' => 'array', 'document' => 'array', 'array' => 'array'],
-        ]);
+        try {
+            $client = new MongoDB\Client(MONGO_URI, [
+                'serverSelectionTimeoutMS' => 5000,
+                'connectTimeoutMS'         => 5000,
+                'socketTimeoutMS'          => 15000,
+            ], [
+                // Plain PHP arrays instead of BSONDocument objects
+                'typeMap' => ['root' => 'array', 'document' => 'array', 'array' => 'array'],
+            ]);
+        } catch (MongoDB\Driver\Exception\Exception $e) {
+            // The message may quote the connection string — it goes to the log only, never to the client
+            throw new MongoUnavailableException('MongoDB client: ' . $e->getMessage(), 0, $e);
+        }
         $db = $client->selectDatabase(MONGO_DB);
     }
     return $db;
