@@ -51,7 +51,7 @@ function normalize(s: string): string {
             @if (isLocal && auth.isUser()) {
               <p-button label="Pobierz wyniki na konto" icon="pi pi-download" size="small"
                 [loading]="fetching()" [disabled]="!contestUrl()" (onClick)="fetchResults()" />
-              @if (fetched()) { <a routerLink="/konto/zawodnicy" class="pdf-btn">Zobacz wyniki →</a> }
+              @if (fetched()) { <a routerLink="/konto/statystyki" class="pdf-btn">Zobacz statystyki →</a> }
             }
           </div>
         </div>
