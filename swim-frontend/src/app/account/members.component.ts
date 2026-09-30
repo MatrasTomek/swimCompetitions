@@ -18,17 +18,15 @@ import { plural } from '../shared/plural';
 import { ApiService } from '../core/services/api.service';
 import { ConfirmDeleteService } from '../core/services/confirm-delete.service';
 import { ClubMember, ClubMemberInput, MemberResult } from '../core/models';
-import { bestTimes } from '../shared/swim-time';
-import { ResultsTableComponent } from './stats/results-table.component';
 import { parseSeason } from './stats/season';
 
 const SEX_OPTIONS = [{ label: 'M', value: 'M' }, { label: 'K', value: 'K' }];
 
-/** /konto/zawodnicy — club members of the logged-in user and, read-only, their LENEX results of the current season. */
+/** /konto/zawodnicy — club members of the logged-in user; the current season's start count links to the member's statistics. */
 @Component({
   selector: 'app-members',
   imports: [FormsModule, TableModule, Button, Dialog, InputText, InputNumber, SelectButton, Message, Toast,
-            ProgressSpinner, HeaderComponent, SearchInputComponent, ResultsTableComponent, RouterLink],
+            ProgressSpinner, HeaderComponent, SearchInputComponent, RouterLink],
   providers: [MessageService],
   template: `
     <app-header />
@@ -66,9 +64,9 @@ const SEX_OPTIONS = [{ label: 'M', value: 'M' }, { label: 'K', value: 'K' }];
               <td>{{ m.memberBirthYear }} <span class="muted">({{ age(m.memberBirthYear) }} l.)</span></td>
               <td>
                 @if (resultsOf(m.memberId).length; as n) {
-                  <p-button [label]="n + ' ' + startsLabel(n)" icon="pi pi-stopwatch" [text]="true" size="small" (onClick)="openResults(m)" />
+                  <a [routerLink]="['/konto/statystyki', m.memberId]" class="stats-link"><i class="pi pi-chart-line"></i> {{ n }} {{ startsLabel(n) }}</a>
                 } @else {
-                  <span class="muted">brak</span>
+                  <a [routerLink]="['/konto/statystyki', m.memberId]" class="stats-link stats-link--none">brak</a>
                 }
               </td>
               <td class="actions-col">
@@ -115,13 +113,6 @@ const SEX_OPTIONS = [{ label: 'M', value: 'M' }, { label: 'K', value: 'K' }];
       </form>
     </p-dialog>
 
-    <!-- Results of one club member (read-only) -->
-    <p-dialog [header]="'Wyniki ' + season + ' — ' + (resultsMember()?.memberName ?? '')" [(visible)]="resultsVisible" [modal]="true"
-      [style]="{width:'860px'}" [breakpoints]="{'900px':'98vw'}">
-      @if (resultsMember(); as m) {
-        <app-results-table [rows]="resultsOf(m.memberId)" [best]="best()" />
-      }
-    </p-dialog>
   `,
   styles: [`
     .page-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
@@ -131,6 +122,9 @@ const SEX_OPTIONS = [{ label: 'M', value: 'M' }, { label: 'K', value: 'K' }];
     .count, .muted { color: var(--swim-muted); font-size: .85rem; }
     .hint         { color: var(--swim-muted); font-size: .85rem; margin: 0 0 1rem; }
     .hint a       { color: var(--swim-gold); }
+    .stats-link   { color: inherit; white-space: nowrap; text-decoration: underline; text-decoration-color: var(--swim-muted); text-underline-offset: 3px; }
+    .stats-link:hover { text-decoration-color: currentColor; }
+    .stats-link--none { color: var(--swim-muted); }
     .results-error { display: block; margin-bottom: 1rem; }
     .actions-col  { text-align: right; white-space: nowrap; width: 1%; }
     .empty        { text-align: center; color: var(--swim-muted); padding: 1.5rem; }
@@ -173,14 +167,11 @@ export class MembersComponent implements OnInit {
 
   results      = signal<MemberResult[]>([]);
   resultsError = signal<string | null>(null);
-  best         = computed(() => bestTimes(this.results()));
   private byMember = computed(() => {
     const map = new Map<string, MemberResult[]>();
     for (const r of this.results()) map.set(r.memberId, [...(map.get(r.memberId) ?? []), r]);
     return map;
   });
-  resultsVisible = false;
-  resultsMember  = signal<ClubMember | null>(null);
 
   ngOnInit() {
     forkJoin({
@@ -206,11 +197,6 @@ export class MembersComponent implements OnInit {
 
   startsLabel(n: number): string {
     return plural(n, 'start', 'starty', 'startów');
-  }
-
-  openResults(m: ClubMember) {
-    this.resultsMember.set(m);
-    this.resultsVisible = true;
   }
 
   membersLabel(n: number): string {

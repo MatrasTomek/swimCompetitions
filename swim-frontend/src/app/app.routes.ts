@@ -64,6 +64,10 @@ export const routes: Routes = [
         path: 'statystyki',
         loadComponent: () => import('./account/stats/stats.component').then(m => m.StatsComponent),
       },
+      {
+        path: 'statystyki/:memberId',
+        loadComponent: () => import('./account/stats/member-stats.component').then(m => m.MemberStatsComponent),
+      },
     ],
   },
   {
