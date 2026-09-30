@@ -4,7 +4,7 @@ import { environment } from '../../../environments/environment';
 import {
   Competition, AthletesResponse, ResultFetchResponse,
   StartlistPreviewResponse, LiveConfig, LtContest, LtCacheStatus, AthleteProfile,
-  Account, AccountSummary, AccountStatus, AuthToken, ClubMember, ClubMemberInput, MemberTime, MemberTimeInput,
+  Account, AccountSummary, AccountStatus, AuthToken, ClubMember, ClubMemberInput, MemberResult, ResultsFetchResponse,
   RegisterRequest, UserInvoice
 } from '../models';
 
@@ -152,12 +152,16 @@ export class ApiService {
     return this.http.delete<{ ok: boolean }>(`${this.base}/account/members/${memberId}`);
   }
 
-  addMemberTime(memberId: string, data: MemberTimeInput) {
-    return this.http.post<MemberTime>(`${this.base}/account/members/${memberId}/times`, data);
+  /** Downloads the contest's LENEX and stores the results of the account's club members. */
+  fetchAccountResults(contestUrl: string) {
+    return this.http.post<ResultsFetchResponse>(`${this.base}/account/results/fetch`, { contest_url: contestUrl });
   }
 
-  deleteMemberTime(memberId: string, competitionId: string) {
-    return this.http.delete<{ ok: boolean }>(`${this.base}/account/members/${memberId}/times/${competitionId}`);
+  /** Results of one season (calendar year), optionally of one club member. */
+  getAccountResults(year: number, memberId?: string) {
+    let params = new HttpParams().set('year', year);
+    if (memberId) params = params.set('memberId', memberId);
+    return this.http.get<MemberResult[]>(`${this.base}/account/results`, { params });
   }
 
   // ── Club user accounts — admin ──────────────────────────────────────

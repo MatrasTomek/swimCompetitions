@@ -1,12 +1,10 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule, NgForm } from '@angular/forms';
-import { DatePipe } from '@angular/common';
 import { TableModule } from 'primeng/table';
 import { Button } from 'primeng/button';
 import { Dialog } from 'primeng/dialog';
 import { InputText } from 'primeng/inputtext';
 import { InputNumber } from 'primeng/inputnumber';
-import { Select } from 'primeng/select';
 import { SelectButton } from 'primeng/selectbutton';
 import { Message } from 'primeng/message';
 import { Toast } from 'primeng/toast';
@@ -17,29 +15,14 @@ import { SearchInputComponent } from '../shared/search-input/search-input.compon
 import { plural } from '../shared/plural';
 import { ApiService } from '../core/services/api.service';
 import { ConfirmDeleteService } from '../core/services/confirm-delete.service';
-import { ClubMember, ClubMemberInput, MemberTimeInput, SwimKind } from '../core/models';
+import { ClubMember, ClubMemberInput } from '../core/models';
 
 const SEX_OPTIONS = [{ label: 'M', value: 'M' }, { label: 'K', value: 'K' }];
-const KIND_OPTIONS: { label: string; value: SwimKind }[] = [
-  { label: 'Dowolny', value: 'dowolny' },
-  { label: 'Grzbietowy', value: 'grzbietowy' },
-  { label: 'Klasyczny', value: 'klasyczny' },
-  { label: 'Motylkowy', value: 'motylkowy' },
-  { label: 'Zmienny', value: 'zmienny' },
-];
-// Same lists as SWIM_LENGTHS / POOL_LENGTHS in includes/user_repo.php
-const LENGTH_OPTIONS = [25, 50, 100, 200, 400, 800, 1500].map(m => ({ label: `${m} m`, value: m }));
-const POOL_OPTIONS = [{ label: '25 m', value: 25 }, { label: '50 m', value: 50 }];
 
-const emptyTime = (): MemberTimeInput => ({
-  competitionName: '', competitionDate: new Date().toISOString().slice(0, 10), poolLength: 25,
-  competitionKind: 'dowolny', competitionLength: 50, competitionTime: '',
-});
-
-/** /konto/zawodnicy — club members of the logged-in user and their times. */
+/** /konto/zawodnicy — club members of the logged-in user (their results are fetched from LENEX, not entered here). */
 @Component({
   selector: 'app-members',
-  imports: [FormsModule, DatePipe, TableModule, Button, Dialog, InputText, InputNumber, Select, SelectButton, Message, Toast,
+  imports: [FormsModule, TableModule, Button, Dialog, InputText, InputNumber, SelectButton, Message, Toast,
             ProgressSpinner, HeaderComponent, SearchInputComponent],
   providers: [MessageService],
   template: `
@@ -62,25 +45,23 @@ const emptyTime = (): MemberTimeInput => ({
           @if (!query().trim()) { <span class="count">{{ membersLabel(members().length) }}</span> }
         </div>
 
-        <p-table [value]="filtered()" dataKey="memberId" [tableStyle]="{'min-width':'520px'}" styleClass="swim-datatable" [paginator]="filtered().length > 50" [rows]="50">
+        <p-table [value]="filtered()" dataKey="memberId" [tableStyle]="{'min-width':'420px'}" styleClass="swim-datatable" [paginator]="filtered().length > 50" [rows]="50">
           <ng-template pTemplate="header">
-            <tr><th>Imię i nazwisko</th><th>Płeć</th><th>Rok ur.</th><th>Wyniki</th><th class="actions-col"></th></tr>
+            <tr><th>Imię i nazwisko</th><th>Płeć</th><th>Rok ur.</th><th class="actions-col"></th></tr>
           </ng-template>
           <ng-template pTemplate="body" let-m>
             <tr>
               <td>{{ m.memberName }}</td>
               <td>{{ m.memberSex }}</td>
               <td>{{ m.memberBirthYear }} <span class="muted">({{ age(m.memberBirthYear) }} l.)</span></td>
-              <td>{{ m.memberTimes.length }}</td>
               <td class="actions-col">
-                <p-button icon="pi pi-stopwatch" [rounded]="true" [text]="true" ariaLabel="Wyniki" (onClick)="openTimes(m)" />
                 <p-button icon="pi pi-pencil" [rounded]="true" [text]="true" ariaLabel="Edytuj" (onClick)="openMember(m)" />
                 <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger" ariaLabel="Usuń" (onClick)="removeMember(m)" />
               </td>
             </tr>
           </ng-template>
           <ng-template pTemplate="emptymessage">
-            <tr><td colspan="5" class="empty">
+            <tr><td colspan="4" class="empty">
               {{ members().length ? 'Brak zawodników pasujących do wyszukiwania.' : 'Nie dodano jeszcze żadnego zawodnika.' }}
             </td></tr>
           </ng-template>
@@ -116,66 +97,6 @@ const emptyTime = (): MemberTimeInput => ({
         </div>
       </form>
     </p-dialog>
-
-    <!-- Times of one club member -->
-    <p-dialog [header]="'Wyniki — ' + (timesOf()?.memberName ?? '')" [(visible)]="timesVisible" [modal]="true"
-      [style]="{width:'760px'}" [breakpoints]="{'800px':'98vw'}">
-      @if (timesOf(); as m) {
-        <p-table [value]="sortedTimes()" [tableStyle]="{'min-width':'640px'}" styleClass="swim-datatable" [scrollable]="true" scrollHeight="300px">
-          <ng-template pTemplate="header">
-            <tr><th>Data</th><th>Zawody</th><th>Basen</th><th>Konkurencja</th><th>Czas</th><th></th></tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-t>
-            <tr>
-              <td class="nowrap">{{ t.competitionDate | date:'dd.MM.yyyy' }}</td>
-              <td>{{ t.competitionName }}</td>
-              <td>{{ t.poolLength }} m</td>
-              <td class="nowrap">{{ t.competitionLength }} m {{ t.competitionKind }}</td>
-              <td class="time">{{ t.competitionTime }}</td>
-              <td><p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger" ariaLabel="Usuń wynik" (onClick)="removeTime(m, t.competitionId)" /></td>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="emptymessage">
-            <tr><td colspan="6" class="empty">Brak wyników — dodaj pierwszy poniżej.</td></tr>
-          </ng-template>
-        </p-table>
-
-        <form #tf="ngForm" (ngSubmit)="saveTime(tf, m)" class="form time-form" novalidate>
-          <h3>Dodaj wynik</h3>
-          <div class="row">
-            <div class="field grow">
-              <label for="tName">Zawody</label>
-              <input pInputText id="tName" name="tName" [(ngModel)]="time.competitionName" required maxlength="200" />
-            </div>
-            <div class="field">
-              <label for="tDate">Data</label>
-              <input pInputText id="tDate" name="tDate" type="date" [(ngModel)]="time.competitionDate" required />
-            </div>
-          </div>
-          <div class="row row-4">
-            <div class="field">
-              <label>Basen</label>
-              <p-select name="tPool" [options]="poolOptions" [(ngModel)]="time.poolLength" optionLabel="label" optionValue="value" />
-            </div>
-            <div class="field">
-              <label>Dystans</label>
-              <p-select name="tLen" [options]="lengthOptions" [(ngModel)]="time.competitionLength" optionLabel="label" optionValue="value" />
-            </div>
-            <div class="field">
-              <label>Styl</label>
-              <p-select name="tKind" [options]="kindOptions" [(ngModel)]="time.competitionKind" optionLabel="label" optionValue="value" />
-            </div>
-            <div class="field">
-              <label for="tTime">Czas</label>
-              <input pInputText id="tTime" name="tTime" [(ngModel)]="time.competitionTime" required placeholder="1:02.34"
-                pattern="^(\\d{1,2}:)?\\d{1,2}[.,]\\d{2}$" />
-            </div>
-          </div>
-          @if (timeError()) { <p-message severity="error" [text]="timeError()!" /> }
-          <p-button type="submit" label="Dodaj wynik" icon="pi pi-plus" [loading]="saving()" [disabled]="tf.invalid ?? true" />
-        </form>
-      }
-    </p-dialog>
   `,
   styles: [`
     .page-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem; }
@@ -185,22 +106,15 @@ const emptyTime = (): MemberTimeInput => ({
     .count, .muted { color: var(--swim-muted); font-size: .85rem; }
     .actions-col  { text-align: right; white-space: nowrap; width: 1%; }
     .empty        { text-align: center; color: var(--swim-muted); padding: 1.5rem; }
-    .nowrap       { white-space: nowrap; }
-    .time         { font-variant-numeric: tabular-nums; font-weight: 700; }
     .center-spin  { display: flex; justify-content: center; padding: 3rem; }
     .form         { display: flex; flex-direction: column; gap: 1rem; }
     .row          { display: flex; gap: 1rem; flex-wrap: wrap; }
     .row > .field { flex: 1; min-width: 140px; }
-    .row > .grow  { flex: 3; min-width: 220px; }
-    .row-4 > .field { min-width: 120px; }
     .field        { display: flex; flex-direction: column; gap: .4rem; }
     .field label  { font-size: .85rem; color: var(--swim-muted); }
-    .field input, .field ::ng-deep .p-inputnumber, .field ::ng-deep .p-inputnumber input, .field ::ng-deep .p-select { width: 100%; }
+    .field input, .field ::ng-deep .p-inputnumber, .field ::ng-deep .p-inputnumber input { width: 100%; }
     .err          { color: #f44336; font-size: .78rem; }
     .dialog-actions { display: flex; justify-content: flex-end; gap: .5rem; }
-    .time-form    { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--swim-border); align-items: flex-start; }
-    .time-form .row { width: 100%; }
-    .time-form h3 { margin: 0; font-size: .95rem; color: var(--swim-gold); }
   `]
 })
 export class MembersComponent implements OnInit {
@@ -209,9 +123,6 @@ export class MembersComponent implements OnInit {
   private messages = inject(MessageService);
 
   readonly sexOptions    = SEX_OPTIONS;
-  readonly kindOptions   = KIND_OPTIONS;
-  readonly lengthOptions = LENGTH_OPTIONS;
-  readonly poolOptions   = POOL_OPTIONS;
   readonly currentYear   = new Date().getFullYear();
 
   members   = signal<ClubMember[]>([]);
@@ -230,13 +141,6 @@ export class MembersComponent implements OnInit {
   editing   = signal<ClubMember | null>(null);
   member: ClubMemberInput = { memberName: '', memberSex: 'M', memberBirthYear: this.currentYear - 10 };
   formError = signal<string | null>(null);
-
-  timesVisible = false;
-  timesOf   = signal<ClubMember | null>(null);
-  sortedTimes = computed(() =>
-    [...(this.timesOf()?.memberTimes ?? [])].sort((a, b) => b.competitionDate.localeCompare(a.competitionDate)));
-  time: MemberTimeInput = emptyTime();
-  timeError = signal<string | null>(null);
 
   ngOnInit() {
     this.api.getAccount().subscribe({
@@ -289,55 +193,13 @@ export class MembersComponent implements OnInit {
   }
 
   async removeMember(m: ClubMember) {
-    const count = m.memberTimes.length;
     const ok = await this.confirm.confirm({
-      message: `Czy na pewno usunąć zawodnika „${m.memberName}”` +
-        (count ? ` wraz z ${count} ${plural(count, 'wynikiem', 'wynikami', 'wynikami')}?` : '?'),
+      message: `Czy na pewno usunąć zawodnika „${m.memberName}” wraz z jego pobranymi wynikami?`,
     });
     if (!ok) return;
     this.api.deleteMember(m.memberId).subscribe({
       next: () => this.members.update(list => list.filter(x => x.memberId !== m.memberId)),
       error: err => this.messages.add({ severity: 'error', summary: 'Błąd', detail: err.error?.error ?? 'Nie udało się usunąć.' }),
     });
-  }
-
-  openTimes(m: ClubMember) {
-    this.timesOf.set(m);
-    this.time = emptyTime();
-    this.timeError.set(null);
-    this.timesVisible = true;
-  }
-
-  saveTime(f: NgForm, m: ClubMember) {
-    if (f.invalid) return;
-    this.saving.set(true);
-    this.timeError.set(null);
-    this.api.addMemberTime(m.memberId, { ...this.time, competitionName: this.time.competitionName.trim() }).subscribe({
-      next: t => {
-        this.saving.set(false);
-        this.patchTimes(m.memberId, times => [...times, t]);
-        // Keep competition/date/pool for entering the next event of the same meet
-        this.time = { ...this.time, competitionTime: '' };
-        f.controls['tTime']?.markAsPristine();
-        f.controls['tTime']?.markAsUntouched();
-      },
-      error: err => {
-        this.saving.set(false);
-        this.timeError.set(err.error?.error ?? 'Nie udało się dodać wyniku.');
-      },
-    });
-  }
-
-  async removeTime(m: ClubMember, competitionId: string) {
-    if (!(await this.confirm.confirm({ message: 'Czy na pewno usunąć ten wynik?' }))) return;
-    this.api.deleteMemberTime(m.memberId, competitionId).subscribe({
-      next: () => this.patchTimes(m.memberId, times => times.filter(t => t.competitionId !== competitionId)),
-      error: err => this.messages.add({ severity: 'error', summary: 'Błąd', detail: err.error?.error ?? 'Nie udało się usunąć.' }),
-    });
-  }
-
-  private patchTimes(memberId: string, fn: (t: ClubMember['memberTimes']) => ClubMember['memberTimes']) {
-    this.members.update(list => list.map(x => x.memberId === memberId ? { ...x, memberTimes: fn(x.memberTimes) } : x));
-    this.timesOf.set(this.members().find(x => x.memberId === memberId) ?? null);
   }
 }

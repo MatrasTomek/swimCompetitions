@@ -111,22 +111,37 @@ export type AccountStatus = 'pending_email' | 'pending_approval' | 'active' | 'd
 export type MemberSex = 'M' | 'K';
 export type SwimKind = 'dowolny' | 'grzbietowy' | 'klasyczny' | 'motylkowy' | 'zmienny';
 
-export interface MemberTime {
-  competitionId: string;
-  competitionName: string;
-  competitionDate: string;   // YYYY-MM-DD
-  poolLength: 25 | 50;
-  competitionKind: SwimKind;
-  competitionLength: number; // m
-  competitionTime: string;   // 1:02.34 / 29.87
-}
-
 export interface ClubMember {
   memberId: string;
   memberName: string;
   memberSex: MemberSex;
   memberBirthYear: number;
-  memberTimes: MemberTime[];
+}
+
+/** One start of a club member, fetched from LENEX (`GET /account/results`). */
+export interface MemberResult {
+  memberId: string;
+  contestUuid: string;
+  contestName: string;
+  contestCity: string;
+  eventNr: number;
+  date: string;         // YYYY-MM-DD
+  poolLength: 25 | 50;
+  distance: number;     // m
+  stroke: SwimKind;
+  time: string;         // 1:05.32 / 27.34
+  timeMs: number;
+  points: number | null;
+  fetchedAt: string | null;
+}
+
+/** `POST /account/results/fetch` — what was stored for the account's members. */
+export interface ResultsFetchResponse {
+  saved: number;
+  members_matched: number;
+  not_found: string[];
+  ambiguous: string[];
+  competition: { name: string; date: string };
 }
 
 /** Invoice details — required at registration; null for accounts created before that. */
@@ -163,8 +178,7 @@ export interface RegisterRequest {
   website: string;
 }
 
-export type ClubMemberInput = Omit<ClubMember, 'memberId' | 'memberTimes'>;
-export type MemberTimeInput = Omit<MemberTime, 'competitionId'>;
+export type ClubMemberInput = Omit<ClubMember, 'memberId'>;
 
 export interface LtContest {
   uuid: string;
