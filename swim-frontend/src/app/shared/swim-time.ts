@@ -34,6 +34,21 @@ export function bestTimes<T extends PbRow>(rows: T[]): Map<string, T> {
   return best;
 }
 
+/**
+ * Season-best badges: the best row of every member + event + pool swum at least twice in the rows,
+ * with the number of starts — a single start is not a season best of anything.
+ */
+export function seasonBests<T extends PbRow>(rows: T[]): Map<string, { row: T; starts: number }> {
+  const starts = new Map<string, number>();
+  for (const r of rows) starts.set(pbKey(r), (starts.get(pbKey(r)) ?? 0) + 1);
+  const badges = new Map<string, { row: T; starts: number }>();
+  for (const [k, row] of bestTimes(rows)) {
+    const n = starts.get(k)!;
+    if (n >= 2) badges.set(k, { row, starts: n });
+  }
+  return badges;
+}
+
 // ── One member's season (the member statistics page) ──
 
 /** Order of strokes wherever events are listed. */

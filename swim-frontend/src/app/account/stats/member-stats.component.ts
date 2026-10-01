@@ -13,7 +13,7 @@ import { ChartComponent, chartTheme } from '../../shared/chart/chart.component';
 import { resultTooltip } from '../../shared/chart-tooltip';
 import { latestRequest } from '../../shared/latest-request';
 import { plural } from '../../shared/plural';
-import { bestTimes, eventLabel, eventOptions, formatSwimTime, progression, sortedBests } from '../../shared/swim-time';
+import { eventLabel, eventOptions, formatSwimTime, progression, seasonBests, sortedBests } from '../../shared/swim-time';
 import { ApiService } from '../../core/services/api.service';
 import { ClubMember, MemberResult } from '../../core/models';
 import { ResultsTableComponent } from './results-table.component';
@@ -136,7 +136,7 @@ export class MemberStatsComponent implements OnInit {
   notFound  = signal(false);
   loadError = signal<string | null>(null);
 
-  best     = computed(() => bestTimes(this.results()));
+  best     = computed(() => seasonBests(this.results()));
   bests    = computed(() => sortedBests(this.results()));
   contests = computed(() => new Set(this.results().map(r => r.contestUuid)).size);
   events   = computed(() => eventOptions(this.results()));

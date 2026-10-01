@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatSwimTime, eventLabel, eventKey, pbKey, bestTimes, eventOptions, progression, sortedBests } from './swim-time.ts';
+import { formatSwimTime, eventLabel, eventKey, pbKey, bestTimes, seasonBests, eventOptions, progression, sortedBests } from './swim-time.ts';
 
 test('formatSwimTime', () => {
   assert.equal(formatSwimTime(65320), '1:05.32');
@@ -32,6 +32,22 @@ test('bestTimes per member, event and pool; tie → earlier date', () => {
 
 test('bestTimes of nothing is empty', () => {
   assert.equal(bestTimes([]).size, 0);
+});
+
+test('seasonBests: only events swum at least twice, with the number of starts', () => {
+  const rows = [
+    { memberId: 'm1', distance: 100, stroke: 'dowolny', poolLength: 25, timeMs: 66000, date: '2026-03-01' },
+    { memberId: 'm1', distance: 100, stroke: 'dowolny', poolLength: 25, timeMs: 65000, date: '2026-05-01' },
+    { memberId: 'm1', distance: 100, stroke: 'dowolny', poolLength: 25, timeMs: 65500, date: '2026-06-01' },
+    { memberId: 'm1', distance: 100, stroke: 'dowolny', poolLength: 50, timeMs: 67000, date: '2026-06-01' },  // single start
+    { memberId: 'm2', distance: 100, stroke: 'dowolny', poolLength: 25, timeMs: 70000, date: '2026-06-01' },
+    { memberId: 'm2', distance: 100, stroke: 'dowolny', poolLength: 25, timeMs: 70000, date: '2026-04-01' },
+  ];
+  const sb = seasonBests(rows);
+  assert.deepEqual([...sb.keys()].sort(), ['m1|100|dowolny|25', 'm2|100|dowolny|25']);
+  assert.deepEqual(sb.get('m1|100|dowolny|25'), { row: rows[1], starts: 3 });
+  assert.deepEqual(sb.get('m2|100|dowolny|25'), { row: rows[5], starts: 2 });
+  assert.equal(seasonBests([]).size, 0);
 });
 
 // ── One member's season (the member statistics page) ──

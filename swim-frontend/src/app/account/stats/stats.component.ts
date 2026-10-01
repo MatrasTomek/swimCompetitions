@@ -11,7 +11,7 @@ import { HeaderComponent } from '../../shared/header/header.component';
 import { SearchInputComponent } from '../../shared/search-input/search-input.component';
 import { ChartComponent, chartTheme } from '../../shared/chart/chart.component';
 import { plural } from '../../shared/plural';
-import { bestTimes } from '../../shared/swim-time';
+import { seasonBests } from '../../shared/swim-time';
 import { rankingTooltip } from '../../shared/chart-tooltip';
 import { latestRequest } from '../../shared/latest-request';
 import { ApiService } from '../../core/services/api.service';
@@ -55,7 +55,7 @@ const CHART_MEMBERS = 15;
           <div class="tile"><b>{{ summary().members }}</b><span>{{ plural(summary().members, 'zawodnik z wynikami', 'zawodników z wynikami', 'zawodników z wynikami') }}</span></div>
           <div class="tile"><b>{{ summary().starts }}</b><span>{{ plural(summary().starts, 'start', 'starty', 'startów') }}</span></div>
           <div class="tile"><b>{{ summary().contests }}</b><span>{{ plural(summary().contests, 'zawody', 'zawody', 'zawodów') }}</span></div>
-          <div class="tile"><b>{{ summary().personalBests }}</b><span>{{ plural(summary().personalBests, 'rekord sezonu', 'rekordy sezonu', 'rekordów sezonu') }}</span></div>
+          <div class="tile" title="Starty, w których zawodnik pobił swój wcześniejszy najlepszy czas sezonu w tej samej konkurencji i na tym samym basenie"><b>{{ summary().improvements }}</b><span>{{ plural(summary().improvements, 'poprawa czasu', 'poprawy czasu', 'popraw czasu') }}</span></div>
         </div>
 
         <div class="charts">
@@ -129,7 +129,7 @@ export class StatsComponent implements OnInit {
 
   names   = computed(() => new Map(this.members().map(m => [m.memberId, m.memberName])));
   rows    = computed<Row[]>(() => this.results().map(r => ({ ...r, memberName: this.names().get(r.memberId) ?? '—' })));
-  best    = computed(() => bestTimes(this.rows()));
+  best    = computed(() => seasonBests(this.rows()));
   summary = computed(() => seasonSummary(this.rows()));
 
   distanceOptions = computed(() =>
