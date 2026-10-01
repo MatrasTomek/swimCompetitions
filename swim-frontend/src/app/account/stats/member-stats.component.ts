@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Select } from 'primeng/select';
+import { Button } from 'primeng/button';
 import { Message } from 'primeng/message';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { combineLatest, distinctUntilChanged, forkJoin, map } from 'rxjs';
@@ -22,7 +23,7 @@ import { parseSeason, seasonYears } from './season';
 /** /konto/statystyki/:memberId — one club member's season: progression in an event, season bests and every start. */
 @Component({
   selector: 'app-member-stats',
-  imports: [FormsModule, DatePipe, RouterLink, Select, Message, ProgressSpinner, HeaderComponent, ChartComponent, ResultsTableComponent],
+  imports: [FormsModule, DatePipe, RouterLink, Select, Button, Message, ProgressSpinner, HeaderComponent, ChartComponent, ResultsTableComponent],
   template: `
     <app-header />
     <div class="swim-page">
@@ -30,22 +31,28 @@ import { parseSeason, seasonYears } from './season';
 
       @if (notFound()) {
         <p class="empty">Nie znaleziono zawodnika. <a routerLink="/konto/zawodnicy">Wróć do listy zawodników</a>.</p>
-      } @else if (loadError()) {
-        <p-message severity="error" [text]="loadError()!" />
-      } @else if (!loaded()) {
-        <div class="center-spin"><p-progressSpinner /></div>
-      } @else if (member(); as m) {
+      } @else {
+        <!-- Outside the loading/error states: after a failed load the season can still be changed -->
         <div class="page-toolbar">
           <div>
-            <h1 class="swim-page-title">{{ m.memberName }}</h1>
-            <p class="sub">rocznik {{ m.memberBirthYear }} · {{ m.memberSex === 'K' ? 'kobieta' : 'mężczyzna' }}</p>
+            @if (member(); as m) {
+              <h1 class="swim-page-title">{{ m.memberName }}</h1>
+              <p class="sub">rocznik {{ m.memberBirthYear }} · {{ m.memberSex === 'K' ? 'kobieta' : 'mężczyzna' }}</p>
+            }
           </div>
           <label class="season">Sezon
             <p-select [options]="years" [ngModel]="season()" (ngModelChange)="changeSeason($event)" ariaLabel="Sezon" />
           </label>
         </div>
 
-        @if (!results().length) {
+        @if (loadError()) {
+          <div class="load-error">
+            <p-message severity="error" [text]="loadError()!" />
+            <p-button label="Spróbuj ponownie" icon="pi pi-refresh" severity="secondary" (onClick)="retry()" />
+          </div>
+        } @else if (!loaded()) {
+          <div class="center-spin"><p-progressSpinner /></div>
+        } @else if (!results().length) {
           <p class="empty">
             Brak wyników w sezonie {{ season() }}. Pobierz je przyciskiem „Pobierz wyniki na konto” na stronie
             <a routerLink="/">zaimportowanej listy startowej</a>.
@@ -100,6 +107,7 @@ import { parseSeason, seasonYears } from './season';
     .page-toolbar .swim-page-title { margin: 0; }
     .sub    { color: var(--swim-muted); margin: .2rem 0 0; font-size: .9rem; }
     .season { display: flex; align-items: center; gap: .5rem; color: var(--swim-muted); font-size: .85rem; }
+    .load-error { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
     .empty  { color: var(--swim-muted); text-align: center; padding: 2rem; }
     .empty a { color: var(--swim-gold); }
     .center-spin { display: flex; justify-content: center; padding: 3rem; }
@@ -221,6 +229,9 @@ export class MemberStatsComponent {
     // The query param subscription loads the season
     this.router.navigate([], { relativeTo: this.route, queryParams: { rok: year }, replaceUrl: true });
   }
+
+  /** The route does not emit again for the same member and season, so a retry loads directly. */
+  retry() { this.load(); }
 
   private load() {
     this.loaded.set(false);
