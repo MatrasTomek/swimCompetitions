@@ -367,10 +367,18 @@ function user_drop_member_times(): int {
 
 // ── Results (collection "results") ──────────────────────────────────────────
 
+/**
+ * A start is identified by the LENEX eventid, not the event number — one file may repeat a number.
+ * The former index (unique on eventNr) is dropped; rows stored before eventId existed are outside the partial
+ * index and are replaced by the next fetch of their contest (results_delete_stale()).
+ */
 function results_ensure_indexes(): void {
+    foreach (mongo_results()->listIndexes() as $index) {
+        if ($index->getName() === 'result_unique') mongo_results()->dropIndex('result_unique');
+    }
     mongo_results()->createIndex(
-        ['userId' => 1, 'memberId' => 1, 'contestUuid' => 1, 'eventNr' => 1],
-        ['unique' => true, 'name' => 'result_unique']
+        ['userId' => 1, 'memberId' => 1, 'contestUuid' => 1, 'eventId' => 1],
+        ['unique' => true, 'name' => 'result_event_unique', 'partialFilterExpression' => ['eventId' => ['$exists' => true]]]
     );
     mongo_results()->createIndex(['userId' => 1, 'date' => 1], ['name' => 'user_date']);
 }
@@ -380,7 +388,7 @@ function results_upsert_many(string $userId, array $rows): int {
     if (!$rows) return 0;
     $ops = [];
     foreach ($rows as $r) {
-        $key = ['userId' => $userId, 'memberId' => $r['memberId'], 'contestUuid' => $r['contestUuid'], 'eventNr' => $r['eventNr']];
+        $key = ['userId' => $userId, 'memberId' => $r['memberId'], 'contestUuid' => $r['contestUuid'], 'eventId' => $r['eventId']];
         $ops[] = ['updateOne' => [$key, ['$set' => $r + $key + ['fetchedAt' => mongo_now()]], ['upsert' => true]]];
     }
     mongo_results()->bulkWrite($ops, ['ordered' => false]);
@@ -388,21 +396,21 @@ function results_upsert_many(string $userId, array $rows): int {
 }
 
 /**
- * Removes the account's rows of one contest that are not among $rows (same member + event): results withdrawn
+ * Removes the account's rows of one contest that are not among $rows (same member + LENEX event): results withdrawn
  * from LENEX, turned into DSQ/DNS, or of members that no longer match. Rows are chosen by their keys, not by
  * which fetch wrote them, so two fetches of the same contest running at once can never delete the current results.
  */
 function results_delete_stale(string $userId, string $contestUuid, array $rows): int {
     $keep = [];
-    foreach ($rows as $r) $keep[$r['memberId'] . '|' . $r['eventNr']] = true;
+    foreach ($rows as $r) $keep[$r['memberId'] . '|' . $r['eventId']] = true;
 
     $stale  = [];
     $cursor = mongo_results()->find(
         ['userId' => $userId, 'contestUuid' => $contestUuid],
-        ['projection' => ['memberId' => 1, 'eventNr' => 1]]
+        ['projection' => ['memberId' => 1, 'eventId' => 1]]
     );
     foreach ($cursor as $doc) {
-        if (!isset($keep[$doc['memberId'] . '|' . $doc['eventNr']])) $stale[] = $doc['_id'];
+        if (!isset($keep[$doc['memberId'] . '|' . ($doc['eventId'] ?? '')])) $stale[] = $doc['_id']; // no eventId: stored by an older version
     }
     return $stale ? mongo_results()->deleteMany(['_id' => ['$in' => $stale]])->getDeletedCount() : 0;
 }

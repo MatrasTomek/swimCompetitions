@@ -73,7 +73,7 @@ import { parseSeason, seasonYears } from './season';
               <table class="pb-table">
                 <thead><tr><th>Konkurencja</th><th>Basen</th><th>Czas</th><th>Data</th><th>Zawody</th></tr></thead>
                 <tbody>
-                  @for (b of bests(); track b.contestUuid + '|' + b.eventNr) {
+                  @for (b of bests(); track b.distance + '|' + b.stroke + '|' + b.poolLength) {
                     <tr>
                       <td class="nowrap">{{ label(b) }}</td>
                       <td class="nowrap">{{ b.poolLength }} m</td>

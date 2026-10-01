@@ -88,7 +88,7 @@ check('matched without valid results', [$status, $body['saved'], $body['members_
 $fetchXmlOf = fn(string $x) => fn(string $uuid): array => ['ok' => true, 'xml' => $x];
 $rowsOf     = fn(string $member) => array_map(fn($r) => $r['eventNr'], results_list('u-import', 2026, $member));
 $otherContest = ['memberId' => 'm-was', 'contestUuid' => 'other-contest', 'contestName' => 'Inne', 'contestCity' => 'X',
-                 'eventNr' => 9, 'date' => '2026-04-01', 'poolLength' => 25, 'distance' => 50, 'stroke' => 'dowolny',
+                 'eventId' => '909', 'eventNr' => 9, 'date' => '2026-04-01', 'poolLength' => 25, 'distance' => 50, 'stroke' => 'dowolny',
                  'time' => '40.00', 'timeMs' => 40000, 'points' => null];
 results_upsert_many('u-import', [$otherContest]);
 results_upsert_many('u-bystander', [$otherContest + ['contestUuid' => 'c0ffee00-0000-4000-8000-000000000001']]);
