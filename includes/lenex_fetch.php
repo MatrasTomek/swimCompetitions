@@ -263,23 +263,23 @@ function lenex_parse_full(string $xml): array {
     }
     $meet = $dom->MEETS->MEET[0];
 
-    $events      = [];
-    $eventidToNr = [];
-    $firstDate   = '';
+    // Keyed by eventid, not by number: a file may repeat a number (e.g. numbering restarted in a later session)
+    $events    = [];
+    $firstDate = '';
     foreach ($meet->xpath('SESSIONS/SESSION') ?: [] as $session) {
         $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$session['date']) ? (string)$session['date'] : '';
         if ($date !== '' && ($firstDate === '' || $date < $firstDate)) $firstDate = $date;
         foreach ($session->xpath('EVENTS/EVENT') ?: [] as $event) {
+            $id     = (string)$event['eventid'];
             $nr     = (int)$event['number'];
             $style  = $event->SWIMSTYLE;
             $stroke = LENEX_STROKES[strtoupper((string)$style['stroke'])] ?? null;
             $relay  = (int)($style['relaycount'] ?? 1) > 1;
-            if ($nr <= 0 || $stroke === null || $relay) continue;
-            $events[$nr] = ['distance' => (int)$style['distance'], 'stroke' => $stroke, 'date' => $date];
-            $eventidToNr[(string)$event['eventid']] = $nr;
+            if ($id === '' || $nr <= 0 || $stroke === null || $relay) continue;
+            $events[$id] = ['eventNr' => $nr, 'distance' => (int)$style['distance'], 'stroke' => $stroke, 'date' => $date];
         }
     }
-    ksort($events);
+    uasort($events, fn($a, $b) => $a['eventNr'] <=> $b['eventNr']);
 
     $athletes = [];
     foreach ($meet->xpath('CLUBS/CLUB') ?: [] as $club) {
@@ -289,12 +289,12 @@ function lenex_parse_full(string $xml): array {
             $g     = strtoupper((string)($ath['gender'] ?? ''));
             $results = [];
             foreach ($ath->xpath('RESULTS/RESULT') ?: [] as $res) {
-                $nr = $eventidToNr[(string)$res['eventid']] ?? null;
-                if ($nr === null || trim((string)($res['status'] ?? '')) !== '') continue;
+                $id = (string)$res['eventid'];
+                if (!isset($events[$id]) || trim((string)($res['status'] ?? '')) !== '') continue;
                 $ms = lenex_time_ms((string)$res['swimtime']);
                 if ($ms === null || $ms <= 0) continue;
                 $pts = (int)($res['points'] ?? 0);
-                $results[] = ['eventNr' => $nr, 'time' => swim_time_format($ms), 'timeMs' => $ms, 'points' => $pts > 0 ? $pts : null];
+                $results[] = ['eventId' => $id, 'eventNr' => $events[$id]['eventNr'], 'time' => swim_time_format($ms), 'timeMs' => $ms, 'points' => $pts > 0 ? $pts : null];
             }
             $athletes[] = [
                 'lastname'  => (string)$ath['lastname'],

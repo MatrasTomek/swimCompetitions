@@ -124,7 +124,8 @@ export interface MemberResult {
   contestUuid: string;
   contestName: string;
   contestCity: string;
-  eventNr: number;
+  eventId?: string;    // LENEX eventid; missing on rows fetched before it was stored
+  eventNr: number;     // may repeat within one contest
   date: string;         // YYYY-MM-DD
   poolLength: 25 | 50;
   distance: number;     // m

@@ -43,7 +43,7 @@ function throws(callable $fn): bool {
 
 $row = fn(string $member) => [
     'memberId' => $member, 'contestUuid' => 'c1', 'contestName' => 'Mityng', 'contestCity' => 'Kraków',
-    'eventNr' => 1, 'date' => '2026-03-14', 'poolLength' => 25, 'distance' => 100, 'stroke' => 'dowolny',
+    'eventId' => '101', 'eventNr' => 1, 'date' => '2026-03-14', 'poolLength' => 25, 'distance' => 100, 'stroke' => 'dowolny',
     'time' => '1:05.32', 'timeMs' => 65320, 'points' => null,
 ];
 $memberExists = fn(string $uid, string $mid) => mongo_users()->countDocuments(['userId' => $uid, 'clubItems.clubMembers.memberId' => $mid]) === 1;

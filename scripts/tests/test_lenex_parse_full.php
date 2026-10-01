@@ -25,27 +25,42 @@ check('fmt long',       swim_time_format(3723450), '62:03.45');
 $p = lenex_parse_full(file_get_contents(__DIR__ . '/fixtures/sample.lef'));
 check('ok', $p['ok'], true);
 check('meet', $p['meet'], ['name' => 'Mityng Testowy 2026', 'city' => 'Kraków', 'poolLength' => 25, 'date' => '2026-03-14']);
-check('events (no relay, no unknown stroke)', $p['events'], [
-    1 => ['distance' => 100,  'stroke' => 'dowolny',    'date' => '2026-03-14'],
-    2 => ['distance' => 50,   'stroke' => 'grzbietowy', 'date' => '2026-03-14'],
-    4 => ['distance' => 200,  'stroke' => 'zmienny',    'date' => '2026-03-15'],
-    6 => ['distance' => 1500, 'stroke' => 'dowolny',    'date' => '2026-03-15'],
+check('events by eventid (no relay, no unknown stroke)', $p['events'], [
+    '101' => ['eventNr' => 1, 'distance' => 100,  'stroke' => 'dowolny',    'date' => '2026-03-14'],
+    '102' => ['eventNr' => 2, 'distance' => 50,   'stroke' => 'grzbietowy', 'date' => '2026-03-14'],
+    '104' => ['eventNr' => 4, 'distance' => 200,  'stroke' => 'zmienny',    'date' => '2026-03-15'],
+    '106' => ['eventNr' => 6, 'distance' => 1500, 'stroke' => 'dowolny',    'date' => '2026-03-15'],
 ]);
 check('athlete count', count($p['athletes']), 3);
 $was = $p['athletes'][0];
 check('was identity', [$was['lastname'], $was['firstname'], $was['birthYear'], $was['gender']], ['Wąs', 'Amelia', 2014, 'K']);
 check('was results (relay, DSQ, unknown stroke skipped; 0 points → null)', $was['results'], [
-    ['eventNr' => 1, 'time' => '1:05.32', 'timeMs' => 65320, 'points' => 312],
-    ['eventNr' => 2, 'time' => '34.10',   'timeMs' => 34100, 'points' => null],
+    ['eventId' => '101', 'eventNr' => 1, 'time' => '1:05.32', 'timeMs' => 65320, 'points' => 312],
+    ['eventId' => '102', 'eventNr' => 2, 'time' => '34.10',   'timeMs' => 34100, 'points' => null],
 ]);
 check('lukasik results (NT skipped)', $p['athletes'][1]['results'], [
-    ['eventNr' => 4, 'time' => '2:45.99',  'timeMs' => 165990,  'points' => 280],
-    ['eventNr' => 6, 'time' => '62:03.45', 'timeMs' => 3723450, 'points' => 10],
+    ['eventId' => '104', 'eventNr' => 4, 'time' => '2:45.99',  'timeMs' => 165990,  'points' => 280],
+    ['eventId' => '106', 'eventNr' => 6, 'time' => '62:03.45', 'timeMs' => 3723450, 'points' => 10],
 ]);
 check('nowak without birthdate', $p['athletes'][2]['birthYear'], null);
 
 $lcm = lenex_parse_full(str_replace('course="SCM"', 'course="LCM"', file_get_contents(__DIR__ . '/fixtures/sample.lef')));
 check('LCM → 50', $lcm['meet']['poolLength'], 50);
+
+// Two events with the same number (e.g. numbering restarted in session 2) stay separate — eventid identifies them
+$dupNr = '<LENEX version="3.0"><MEETS><MEET name="M" city="C" course="SCM"><SESSIONS>'
+       . '<SESSION number="1" date="2026-03-14"><EVENTS><EVENT eventid="10" number="1"><SWIMSTYLE distance="100" stroke="FREE" relaycount="1"/></EVENT></EVENTS></SESSION>'
+       . '<SESSION number="2" date="2026-03-15"><EVENTS><EVENT eventid="20" number="1"><SWIMSTYLE distance="50" stroke="FLY" relaycount="1"/></EVENT></EVENTS></SESSION>'
+       . '</SESSIONS><CLUBS><CLUB><ATHLETES><ATHLETE athleteid="1" lastname="A" firstname="B" birthdate="2014-01-01" gender="F"><RESULTS>'
+       . '<RESULT eventid="10" swimtime="00:01:05.32"/><RESULT eventid="20" swimtime="00:00:31.00"/>'
+       . '</RESULTS></ATHLETE></ATHLETES></CLUB></CLUBS></MEET></MEETS></LENEX>';
+$dup = lenex_parse_full($dupNr);
+check('same number: both events kept', $dup['events'], [
+    '10' => ['eventNr' => 1, 'distance' => 100, 'stroke' => 'dowolny',   'date' => '2026-03-14'],
+    '20' => ['eventNr' => 1, 'distance' => 50,  'stroke' => 'motylkowy', 'date' => '2026-03-15'],
+]);
+check('same number: results point at their own event', array_map(fn($r) => [$r['eventId'], $r['time']], $dup['athletes'][0]['results']),
+    [['10', '1:05.32'], ['20', '31.00']]);
 
 check('bad xml', lenex_parse_full('<nope')['ok'], false);
 

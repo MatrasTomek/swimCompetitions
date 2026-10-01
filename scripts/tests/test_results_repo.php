@@ -22,11 +22,17 @@ if (!mongo_available()) { fwrite(STDERR, "Brak rozszerzenia mongodb albo vendor/
 require __DIR__ . '/../../includes/user_repo.php';
 
 mongo_results()->drop();
+// An index left by an older version (unique on eventNr) is replaced
+mongo_results()->createIndex(['userId' => 1, 'memberId' => 1, 'contestUuid' => 1, 'eventNr' => 1], ['unique' => true, 'name' => 'result_unique']);
 results_ensure_indexes();
+results_ensure_indexes(); // idempotent
+$indexNames = array_map(fn($i) => $i->getName(), iterator_to_array(mongo_results()->listIndexes()));
+check('old eventNr index dropped', in_array('result_unique', $indexNames, true), false);
+check('eventId index present', in_array('result_event_unique', $indexNames, true), true);
 
 $row = fn(string $member, int $nr, string $date, string $time, int $ms) => [
     'memberId' => $member, 'contestUuid' => 'c1', 'contestName' => 'Mityng', 'contestCity' => 'Kraków',
-    'eventNr' => $nr, 'date' => $date, 'poolLength' => 25, 'distance' => 100, 'stroke' => 'dowolny',
+    'eventId' => "e$nr", 'eventNr' => $nr, 'date' => $date, 'poolLength' => 25, 'distance' => 100, 'stroke' => 'dowolny',
     'time' => $time, 'timeMs' => $ms, 'points' => null,
 ];
 
@@ -64,6 +70,21 @@ $newer = [$a[0]]; // B saw a newer file, where event 2 was withdrawn
 results_upsert_many('uA', $a); results_upsert_many('uA', $newer);
 results_delete_stale('uA', 'c1', $a); results_delete_stale('uA', 'c1', $newer);
 check('interleaved fetches: the last cleanup wins, nothing else is lost', array_map(fn($r) => $r['eventNr'], results_list('uA', 2026)), [1]);
+// Two events with the same number in one LENEX file (different eventid) are two results, not one
+mongo_results()->drop(); results_ensure_indexes();
+$heat  = $row('m1', 1, '2026-03-14', '1:05.32', 65320);
+$other = ['eventId' => 'e1b', 'distance' => 50, 'stroke' => 'motylkowy', 'time' => '31.00', 'timeMs' => 31000] + $row('m1', 1, '2026-03-15', '', 0);
+check('same number: both stored', results_replace_contest('uA', 'c1', [$heat, $other]), 2);
+check('same number: both listed', array_map(fn($r) => [$r['eventNr'], $r['stroke'], $r['time']], results_list('uA', 2026)),
+    [[1, 'motylkowy', '31.00'], [1, 'dowolny', '1:05.32']]);
+
+// Rows stored before eventId existed are replaced by the next fetch of their contest
+mongo_results()->drop(); results_ensure_indexes();
+$legacy = $row('m1', 1, '2026-03-14', '1:06.00', 66000); unset($legacy['eventId']);
+mongo_results()->insertOne(['userId' => 'uA'] + $legacy);
+results_replace_contest('uA', 'c1', [$row('m1', 1, '2026-03-14', '1:05.32', 65320)]);
+check('legacy row replaced', array_map(fn($r) => [$r['eventId'] ?? null, $r['time']], results_list('uA', 2026)), [['e1', '1:05.32']]);
+
 check('stale cleanup leaves other contests and accounts alone', results_delete_stale('uZ', 'c1', []) + results_delete_stale('uA', 'other', []), 0);
 
 // Deleting a club member or an account removes their results (no orphaned documents)
