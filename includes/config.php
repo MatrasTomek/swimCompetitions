@@ -91,8 +91,14 @@ define('CONTACT_RATE_FILE', __DIR__ . '/../contact_rate.json');
 define('CONTACT_MAX',       5);    // messages per window
 define('CONTACT_WINDOW',    3600); // 1 h
 
-// Only livetiming.pl contest URLs may be fetched server-side (SSRF guard)
-define('ALLOWED_CONTEST_HOST_SUFFIX', 'livetiming.pl');
+// Only livetiming.pl contest URLs may be fetched server-side (SSRF guard) — checked again on every redirect
+if (!defined('ALLOWED_CONTEST_HOST_SUFFIX')) { // tests point it at a local server
+    define('ALLOWED_CONTEST_HOST_SUFFIX', 'livetiming.pl');
+}
+// Size limits of server-side downloads (contest_http_get()); a larger response is rejected, not truncated
+define('CONTEST_PAGE_MAX_BYTES', 3 * 1024 * 1024);   // livetiming.pl contest page (HTML)
+define('LENEX_MAX_BYTES',        5 * 1024 * 1024);   // results.lxf (ZIP)
+define('LENEX_XML_MAX_BYTES',    20 * 1024 * 1024);  // .lef unpacked from the ZIP (ZIP bomb guard; parsing needs a multiple of it in RAM)
 
 // ============================================================
 // User accounts (MongoDB) — api/v1/account.php, api/v1/users.php

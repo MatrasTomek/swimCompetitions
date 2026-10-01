@@ -10,38 +10,22 @@
  * Returns ['ok'=>true, 'xml'=>'...'] or ['ok'=>false, 'error'=>'...']
  */
 function lenex_download_xml(string $lxf_url): array {
-    if (!is_allowed_contest_host($lxf_url)) {
-        return ['ok' => false, 'error' => 'Niedozwolony host — dozwolone są tylko adresy livetiming.pl.'];
+    // Host checked on every redirect hop, size capped (contest_http_get())
+    $res = contest_http_get($lxf_url, LENEX_MAX_BYTES, 20);
+    if (!$res['ok']) {
+        return ['ok' => false, 'error' => $res['error']];
     }
-    $ctx = stream_context_create([
-        'http' => [
-            'header'  => "User-Agent: Mozilla/5.0 SwimResults/1.0\r\n",
-            'timeout' => 20,
-        ],
-    ]);
-    $data = @file_get_contents($lxf_url, false, $ctx);
-    $http_code    = '';
-    $content_type = '';
-    if (isset($http_response_header)) {
-        foreach ($http_response_header as $h) {
-            if (preg_match('#HTTP/\S+ (\d+)#', $h, $m)) {
-                $http_code = ' (HTTP ' . $m[1] . ')';
-            }
-            if (stripos($h, 'Content-Type:') === 0) {
-                $content_type = strtolower($h);
-            }
-        }
+    $data = $res['body'];
+    if ($data === '') {
+        return ['ok' => false, 'error' => 'Nie można pobrać: ' . $lxf_url . ' (pusta odpowiedź)'];
     }
-    if ($data === false || $data === '') {
-        return ['ok' => false, 'error' => 'Nie można pobrać: ' . $lxf_url . $http_code];
-    }
-    if (str_contains($content_type, 'text/html')) {
+    if (str_contains($res['content_type'], 'text/html')) {
         return ['ok' => false, 'error' => 'Wyniki LENEX jeszcze niedostępne na livetiming.pl (strona zwróciła HTML zamiast pliku .lxf)'];
     }
     if (!class_exists('ZipArchive')) {
         return ['ok' => false, 'error' => 'Rozszerzenie ZipArchive niedostępne na tym serwerze'];
     }
-    $tmp = tempnam(sys_get_temp_dir(), 'swim_lxf_') . '.zip';
+    $tmp = tempnam(sys_get_temp_dir(), 'swim_lxf_');
     file_put_contents($tmp, $data);
     $zip = new ZipArchive();
     if ($zip->open($tmp) !== true) {
@@ -49,16 +33,32 @@ function lenex_download_xml(string $lxf_url): array {
         return ['ok' => false, 'error' => 'Nie można otworzyć archiwum ZIP'];
     }
     $xml = null;
+    $tooBig = false;
     for ($i = 0; $i < $zip->numFiles; $i++) {
-        $name = strtolower($zip->getNameIndex($i));
-        if (str_ends_with($name, '.lef') || str_ends_with($name, '.xml')) {
-            $xml = $zip->getFromIndex($i);
+        $name = $zip->getNameIndex($i);
+        $lower = strtolower((string)$name);
+        if (str_ends_with($lower, '.lef') || str_ends_with($lower, '.xml')) {
+            // Read through a stream with a cap — the size declared in the ZIP header can lie
+            $stream = $zip->getStream($name);
+            if ($stream !== false) {
+                $xml = stream_get_contents($stream, LENEX_XML_MAX_BYTES + 1);
+                fclose($stream);
+                if ($xml === false) {
+                    $xml = null;
+                } elseif (strlen($xml) > LENEX_XML_MAX_BYTES) {
+                    $xml = null;
+                    $tooBig = true;
+                }
+            }
             break;
         }
     }
     $zip->close();
     @unlink($tmp);
-    if ($xml === null || $xml === false) {
+    if ($tooBig) {
+        return ['ok' => false, 'error' => 'Plik LENEX po rozpakowaniu jest za duży'];
+    }
+    if ($xml === null || $xml === '') {
         return ['ok' => false, 'error' => 'Brak pliku .lef w archiwum ZIP'];
     }
     return ['ok' => true, 'xml' => $xml];

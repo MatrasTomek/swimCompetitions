@@ -20,14 +20,10 @@ function resolve_lenex_url(string $contest_url): array {
     if (!is_allowed_contest_host($contest_url)) {
         return ['url' => '', 'source' => 'blocked', 'error' => 'Niedozwolony host — dozwolone są tylko adresy livetiming.pl.'];
     }
-    $ctx = stream_context_create([
-        'http' => [
-            'header'  => "User-Agent: Mozilla/5.0 SwimResults/1.0\r\n",
-            'timeout' => 10,
-        ],
-    ]);
-    $html = @file_get_contents(rtrim($contest_url, '/'), false, $ctx);
-    if ($html !== false && $html !== '') {
+    // Host checked on every redirect hop, size capped (contest_http_get())
+    $page = contest_http_get(rtrim($contest_url, '/'), CONTEST_PAGE_MAX_BYTES, 10);
+    $html = $page['ok'] ? $page['body'] : '';
+    if ($html !== '') {
         if (preg_match_all('/href=["\']([^"\']*\.lxf)["\']/', $html, $matches)) {
             foreach ($matches[1] as $href) {
                 if (stripos($href, 'result') !== false) {
