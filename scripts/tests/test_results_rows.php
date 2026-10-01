@@ -13,6 +13,11 @@ check('first row', $rows[0], [
     'contestName' => 'Mityng Testowy 2026', 'contestCity' => 'Kraków', 'eventId' => '101', 'eventNr' => 1, 'date' => '2026-03-14',
     'poolLength' => 25, 'distance' => 100, 'stroke' => 'dowolny', 'time' => '1:05.32', 'timeMs' => 65320, 'points' => 312,
 ]);
+// Pool length comes from the event (its session's course), not from the meet
+$mixed = $parsed;
+$mixed['events']['104']['poolLength'] = 50;
+check('pool length per event', array_map(fn($r) => [$r['eventId'], $r['poolLength']], results_build_rows($mixed, $matched, 'u')),
+    [['101', 25], ['102', 25], ['104', 50], ['106', 25]]);
 check('medley row date from session 2', [$rows[2]['memberId'], $rows[2]['eventNr'], $rows[2]['date']], ['m2', 4, '2026-03-15']);
 
 // Session without a date falls back to the meet date; no date at all → row skipped

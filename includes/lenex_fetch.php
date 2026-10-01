@@ -249,8 +249,17 @@ function swim_time_format(int $ms): string {
 }
 
 /**
+ * LENEX course → pool length in metres: LCM → 50, SCM → 25; anything else (yards, SCM16/20/33, OPEN, missing) → null,
+ * since such times are not comparable with 25/50 m results.
+ */
+function lenex_pool_length(string $course): ?int {
+    return ['LCM' => 50, 'SCM' => 25][strtoupper(trim($course))] ?? null;
+}
+
+/**
  * Parses LENEX XML into meet info, individual events and athletes with their valid results.
  * Relays, unknown strokes, results with a status (DSQ/DNS/…) or without a time are left out.
+ * Pool length is per event: a SESSION's course overrides the MEET's; sessions not swum on a 25/50 m pool are left out.
  * Only the LENEX 3.0 layout (results under ATHLETE > RESULTS) that livetiming.pl publishes is read.
  * Missing sections (e.g. an invitation file without CLUBS) are read as empty — xpath() instead of ->A->B.
  */
@@ -269,6 +278,9 @@ function lenex_parse_full(string $xml): array {
     foreach ($meet->xpath('SESSIONS/SESSION') ?: [] as $session) {
         $date = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$session['date']) ? (string)$session['date'] : '';
         if ($date !== '' && ($firstDate === '' || $date < $firstDate)) $firstDate = $date;
+        $course = trim((string)($session['course'] ?? ''));
+        $pool   = lenex_pool_length($course !== '' ? $course : (string)($meet['course'] ?? ''));
+        if ($pool === null) continue;
         foreach ($session->xpath('EVENTS/EVENT') ?: [] as $event) {
             $id     = (string)$event['eventid'];
             $nr     = (int)$event['number'];
@@ -276,7 +288,7 @@ function lenex_parse_full(string $xml): array {
             $stroke = LENEX_STROKES[strtoupper((string)$style['stroke'])] ?? null;
             $relay  = (int)($style['relaycount'] ?? 1) > 1;
             if ($id === '' || $nr <= 0 || $stroke === null || $relay) continue;
-            $events[$id] = ['eventNr' => $nr, 'distance' => (int)$style['distance'], 'stroke' => $stroke, 'date' => $date];
+            $events[$id] = ['eventNr' => $nr, 'distance' => (int)$style['distance'], 'stroke' => $stroke, 'date' => $date, 'poolLength' => $pool];
         }
     }
     uasort($events, fn($a, $b) => $a['eventNr'] <=> $b['eventNr']);
@@ -314,7 +326,6 @@ function lenex_parse_full(string $xml): array {
         'meet' => [
             'name'       => (string)$meet['name'],
             'city'       => (string)$meet['city'],
-            'poolLength' => strtoupper((string)$meet['course']) === 'LCM' ? 50 : 25,
             'date'       => $firstDate,
         ],
         'events'   => $events,

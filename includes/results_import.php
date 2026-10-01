@@ -29,7 +29,7 @@ function results_build_rows(array $parsed, array $matched, string $contestUuid):
                 'eventId'     => $res['eventId'],
                 'eventNr'     => $res['eventNr'],
                 'date'      => $date,
-                'poolLength'  => $parsed['meet']['poolLength'],
+                'poolLength'  => $event['poolLength'],
                 'distance'    => $event['distance'],
                 'stroke'      => $event['stroke'],
                 'time'        => $res['time'],
