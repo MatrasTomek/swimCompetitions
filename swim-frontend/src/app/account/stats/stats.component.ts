@@ -13,7 +13,7 @@ import { SearchInputComponent } from '../../shared/search-input/search-input.com
 import { ChartComponent, chartTheme } from '../../shared/chart/chart.component';
 import { plural } from '../../shared/plural';
 import { seasonBests } from '../../shared/swim-time';
-import { rankingTooltip } from '../../shared/chart-tooltip';
+import { rankingTooltip, truncateLabel } from '../../shared/chart-tooltip';
 import { latestRequest } from '../../shared/latest-request';
 import { ApiService } from '../../core/services/api.service';
 import { ClubMember, MemberResult, SwimKind } from '../../core/models';
@@ -200,7 +200,11 @@ export class StatsComponent implements OnInit {
         formatter: (p: { name: string; value: number }[]) => rankingTooltip(p[0].name, format(p[0].value)),
       },
       xAxis: { type: 'value', ...theme.valueAxis, ...(integers ? { minInterval: 1 } : {}) },
-      yAxis: { type: 'category', inverse: true, data: list.map(t => t.name), ...theme.labelAxis },
+      // Long names are cut on the axis; hovering the label shows the bar's tooltip with the whole name
+      yAxis: {
+        type: 'category', inverse: true, data: list.map(t => t.name), ...theme.labelAxis, triggerEvent: true,
+        axisLabel: { ...theme.labelAxis.axisLabel, formatter: (name: string) => truncateLabel(name) },
+      },
       series: [{ type: 'bar', data: list.map(value), barMaxWidth: 14, itemStyle: { borderRadius: [0, 4, 4, 0] } }],
     };
   }

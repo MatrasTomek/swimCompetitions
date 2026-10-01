@@ -24,3 +24,12 @@ export function resultTooltip(r: TooltipResult): string {
 export function rankingTooltip(name: string, value: string): string {
   return `${escapeHtml(name)}<br/><b>${escapeHtml(value)}</b>`;
 }
+
+/** Longest axis label of a ranking; a longer name is cut and shown whole in the tooltip of its label. */
+export const LABEL_MAX_LENGTH = 50;
+
+/** Text cut to `max` characters (code points), ending with "…" when shortened. */
+export function truncateLabel(text: string, max = LABEL_MAX_LENGTH): string {
+  const chars = [...text];
+  return chars.length <= max ? text : chars.slice(0, max - 1).join('').trimEnd() + '…';
+}
