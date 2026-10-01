@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Select } from 'primeng/select';
+import { Button } from 'primeng/button';
 import { Message } from 'primeng/message';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { forkJoin } from 'rxjs';
@@ -29,7 +30,7 @@ const CHART_MEMBERS = 15;
 /** /konto/statystyki — one season's results of all the club's members: tiles, two rankings and the full table. */
 @Component({
   selector: 'app-stats',
-  imports: [FormsModule, RouterLink, Select, Message, ProgressSpinner, HeaderComponent, SearchInputComponent,
+  imports: [FormsModule, RouterLink, Select, Button, Message, ProgressSpinner, HeaderComponent, SearchInputComponent,
             ChartComponent, ResultsTableComponent],
   template: `
     <app-header />
@@ -42,7 +43,10 @@ const CHART_MEMBERS = 15;
       </div>
 
       @if (loadError()) {
-        <p-message severity="error" [text]="loadError()!" />
+        <div class="load-error">
+          <p-message severity="error" [text]="loadError()!" />
+          <p-button label="Spróbuj ponownie" icon="pi pi-refresh" severity="secondary" (onClick)="retry()" />
+        </div>
       } @else if (!loaded()) {
         <div class="center-spin"><p-progressSpinner /></div>
       } @else if (!rows().length) {
@@ -92,6 +96,7 @@ const CHART_MEMBERS = 15;
     .page-toolbar .swim-page-title { margin: 0; }
     .season { display: flex; align-items: center; gap: .5rem; color: var(--swim-muted); font-size: .85rem; }
     .center-spin { display: flex; justify-content: center; padding: 3rem; }
+    .load-error { display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
     .empty  { color: var(--swim-muted); text-align: center; padding: 2rem; }
     .empty a { color: var(--swim-gold); }
     .tiles  { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .75rem; margin-bottom: 1.25rem; }
@@ -181,6 +186,9 @@ export class StatsComponent implements OnInit {
     this.router.navigate([], { relativeTo: this.route, queryParams: { rok: year }, replaceUrl: true });
     this.load();
   }
+
+  /** Choosing the same season again loads nothing, so a retry loads directly. */
+  retry() { this.load(); }
 
   /** Horizontal bars, highest on top; one series — the card heading names it, so no legend. */
   private ranking(list: MemberTotal[], value: (t: MemberTotal) => number, format: (n: number) => string, integers: boolean): EChartsCoreOption {
