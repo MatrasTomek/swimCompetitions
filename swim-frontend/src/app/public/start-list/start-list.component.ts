@@ -55,6 +55,9 @@ function normalize(s: string): string {
               @if (fetched()) { <a routerLink="/konto/statystyki" class="pdf-btn">Zobacz statystyki →</a> }
             }
           </div>
+          @if (noMembers()) {
+            <p class="local-note">Najpierw dodaj zawodników w <a routerLink="/konto/zawodnicy">„Moi zawodnicy”</a>, a potem pobierz wyniki.</p>
+          }
         </div>
 
         @for (blok of filteredBloki(); track blok.blok) {
@@ -127,6 +130,8 @@ export class StartListComponent implements OnInit {
   contestUrl = computed(() => (this.competition() as LocalCompetition | null)?.contest_url ?? '');
   fetching = signal(false);
   fetched  = signal(false);
+  /** The account has no club members yet — shown inline, since a toast cannot carry a router link. */
+  noMembers = signal(false);
 
   get pdfUrl(): string {
     return this.api.getCompetitionPdfUrl(this.slug);
@@ -173,6 +178,7 @@ export class StartListComponent implements OnInit {
     const url = this.contestUrl();
     if (!url || this.fetching()) return;
     this.fetching.set(true);
+    this.noMembers.set(false);
     this.api.fetchAccountResults(url).subscribe({
       next: res => {
         this.fetching.set(false);
@@ -181,6 +187,7 @@ export class StartListComponent implements OnInit {
       },
       error: err => {
         this.fetching.set(false);
+        if (err.error?.code === 'no_members') { this.noMembers.set(true); return; }
         // 409 — results not published yet: a warning, not a failure
         this.messages.add({
           severity: err.status === 409 ? 'warn' : 'error', summary: 'Wyniki', life: 8000,

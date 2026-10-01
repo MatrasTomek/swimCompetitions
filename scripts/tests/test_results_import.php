@@ -52,7 +52,7 @@ foreach (['', 'https://evil.pl/contest/c0ffee00-0000-4000-8000-000000000001', 'h
     check("bad url 400: '$bad'", $status, 400);
 }
 [$status, $body] = results_import_contest(['userId' => 'u-empty', 'clubItems' => ['clubMembers' => []]], CONTEST, $fetchOk);
-check('no members 400', [$status, $body['error']], [400, 'Najpierw dodaj zawodników w „Moi zawodnicy”.']);
+check('no members 400', [$status, $body['error'], $body['code']], [400, 'Najpierw dodaj zawodników w „Moi zawodnicy”.', 'no_members']);
 
 // LENEX not available yet → 409, nothing stored
 [$status, $body] = results_import_contest($user, CONTEST, $fetchNo);

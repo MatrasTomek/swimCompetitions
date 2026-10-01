@@ -59,7 +59,8 @@ function results_import_contest(array $user, string $contestUrl, ?callable $fetc
     }
     $members = array_values($user['clubItems']['clubMembers'] ?? []);
     if (!$members) {
-        return [400, ['error' => 'Najpierw dodaj zawodników w „Moi zawodnicy”.']];
+        // `code` lets the SPA link to „Moi zawodnicy” without matching the message text
+        return [400, ['error' => 'Najpierw dodaj zawodników w „Moi zawodnicy”.', 'code' => 'no_members']];
     }
     if (ip_rate_limited(ACCOUNT_RESULTS_RATE_FILE, ACCOUNT_RESULTS_FETCH_MAX, ACCOUNT_RESULTS_FETCH_WINDOW, 'u:' . $user['userId'])) {
         return [429, ['error' => 'Zbyt wiele pobrań wyników. Spróbuj ponownie za kilka minut.']];
