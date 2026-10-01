@@ -35,6 +35,8 @@ There is no test framework. Pure logic is covered by small test scripts; the res
 ```bash
 # PHP — CLI assertion scripts (scripts/tests/, helper _assert.php, LENEX fixture in fixtures/)
 php scripts/tests/test_member_match.php && php scripts/tests/test_lenex_parse_full.php && php scripts/tests/test_results_rows.php
+# PHP — server-side downloads (starts a local `php -S`, needs ext-zip — run in the dev api container)
+docker compose -f dev/docker-compose.yml exec api php scripts/tests/test_contest_http_get.php
 
 # PHP + MongoDB — run in the dev api container; each test pins its own database (swim_test) and refuses to run
 # without TEST_MONGO_URI, because includes/secrets.php may point MONGO_URI at the production cluster
@@ -82,7 +84,7 @@ Router: `api/v1/index.php` dispatches `/api/v1/{resource}` (works via PATH_INFO,
 |------|------|
 | `includes/config.php` | Non-secret constants: `BASE_URL`, `ZAWODY_DIR`, `ZAWODNICY_DIR`, `CORS_ALLOWED_ORIGIN`, `JWT_TTL`, login rate-limit settings, `ALLOWED_CONTEST_HOST_SUFFIX` (SSRF allowlist). Requires `includes/secrets.php` to exist (refuses to boot otherwise) |
 | `includes/secrets.php` | `ADMIN_PASSWORD_HASH` and `JWT_SECRET` — gitignored, never committed; copy from `includes/secrets.example.php` |
-| `includes/functions.php` | Competition/announcement CRUD, `h()` (HTML escape), `slugify()`, `format_konkurencja()`, `write_json_atomic()`/`with_file_lock()` (safe concurrent writes), `is_allowed_contest_host()` (SSRF guard), login rate-limit helpers |
+| `includes/functions.php` | Competition/announcement CRUD, `h()` (HTML escape), `slugify()`, `format_konkurencja()`, `write_json_atomic()`/`with_file_lock()` (safe concurrent writes), `is_allowed_contest_host()` (SSRF guard), `contest_http_get()` (server-side GET: redirects followed by hand with the host re-checked on every hop, body capped at a size limit), login rate-limit helpers |
 | `includes/jwt.php` | JWT encode/verify for API auth (HS256, mandatory `exp`) |
 | `includes/mongo.php` | `mongo_available()` (MONGO_URI + ext-mongodb + vendor/), `mongo_db()`/`mongo_users()`/`mongo_results()`, `uuid_v4()` |
 | `includes/user_repo.php` | All MongoDB access for accounts (the only file to change if storage moves): account lifecycle, tokens, admin list/status, validated atomic club member updates (`$push`/`$pull`, limit `ACCOUNT_MAX_MEMBERS`), and the `results` collection: `results_replace_contest()` (upsert, then `results_delete_stale()` removes the contest's rows that are not in the fetched set — chosen by member + event, so concurrent fetches cannot delete current results), `results_list()` (one year), `results_delete_member()`/`results_delete_user()` — called by `member_delete()`/`user_delete()` before the entity itself is removed, so a failed second write can be retried (no transactions: the dev MongoDB is not a replica set); storing fetched results and removing a member / the account run under `account_lock()` (per-account file lock in the system temp dir), and the import re-reads the account after the download, so nothing is stored for a member or account removed meanwhile |
@@ -140,6 +142,7 @@ Only `http(s)://livetiming.pl` (or a subdomain) URLs are fetched server-side —
 - Login endpoint is rate-limited per IP (`login_rate_limit_*()` in `includes/functions.php`) — 5 failed attempts locks out for 5 minutes
 - Secrets (`ADMIN_PASSWORD_HASH`, `JWT_SECRET`) live in gitignored `includes/secrets.php`, never committed; `config.php` refuses to boot with a missing/placeholder secret
 - Admin-supplied `contest_url` (results fetch, live config, start-list import) is restricted to the `livetiming.pl` host via `is_allowed_contest_host()` — an SSRF guard, since these trigger server-side HTTP requests
+- The LENEX path (contest page → `.lxf`, used by admins and every active club account) downloads only through `contest_http_get()`: no automatic redirects (each `Location` must pass `is_allowed_contest_host()`, max 3 hops), size limits `CONTEST_PAGE_MAX_BYTES` / `LENEX_MAX_BYTES`, and the `.lef` is unpacked with the `LENEX_XML_MAX_BYTES` cap (ZIP bomb). The start list (`resolve_contest_page()`, `pdf_download()`) and the livetiming cache still use plain `file_get_contents()`
 - Club results: every `results` query is filtered by the token's `userId`, and a `memberId` from the URL must belong to the account (404 otherwise); `POST /account/results/fetch` accepts only a `livetiming.pl/contest/{uuid}` page (`sl_contest_uuid()` + `is_allowed_contest_host()`) and is rate-limited per account (`ACCOUNT_RESULTS_FETCH_MAX` per `ACCOUNT_RESULTS_FETCH_WINDOW`, file `account_results_rate.json`, blocked by `.htaccess`); only results of members the club entered are stored
 - LENEX text (contest names, cities) and member names are untrusted in the SPA: Angular bindings escape them, and chart tooltips — the one place HTML is built by hand — go through `escapeHtml()` in `shared/chart-tooltip.ts`
 - CORS locked to `CORS_ALLOWED_ORIGIN` (`api/v1/cors.php`)

@@ -72,6 +72,96 @@ function is_allowed_contest_host(string $url): bool {
     return $host === $suffix || str_ends_with($host, '.' . $suffix);
 }
 
+/**
+ * Server-side GET of a contest URL with the SSRF guard applied to every hop:
+ * redirects are followed by hand (at most $maxRedirects) and each Location must
+ * pass is_allowed_contest_host() again. The body is read up to $maxBytes —
+ * a larger response is an error, never a truncated body.
+ *
+ * Returns ['ok'=>true, 'status'=>int, 'content_type'=>string, 'body'=>string]
+ *      or ['ok'=>false, 'status'=>int (0 = no response), 'error'=>string].
+ */
+function contest_http_get(string $url, int $maxBytes, int $timeout = 20, int $maxRedirects = 3): array {
+    for ($hop = 0; ; $hop++) {
+        if (!is_allowed_contest_host($url)) {
+            return ['ok' => false, 'status' => 0, 'error' => 'Niedozwolony host — dozwolone są tylko adresy livetiming.pl.'];
+        }
+        $ctx = stream_context_create([
+            'http' => [
+                'header'          => "User-Agent: Mozilla/5.0 SwimResults/1.0\r\n",
+                'timeout'         => $timeout,
+                'follow_location' => 0,
+                'ignore_errors'   => true, // 4xx/5xx: read the status instead of failing blindly
+            ],
+        ]);
+        $fp = @fopen($url, 'rb', false, $ctx);
+        if ($fp === false) {
+            return ['ok' => false, 'status' => 0, 'error' => 'Nie można pobrać: ' . $url];
+        }
+        $headers = stream_get_meta_data($fp)['wrapper_data'] ?? [];
+        $status = 0;
+        $location = '';
+        $contentType = '';
+        $length = null;
+        foreach ($headers as $h) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $h, $m)) {
+                // A new status line starts a new header block (e.g. after "100 Continue")
+                $status = (int)$m[1];
+                $location = '';
+                $contentType = '';
+                $length = null;
+            } elseif (stripos($h, 'Location:') === 0) {
+                $location = trim(substr($h, 9));
+            } elseif (stripos($h, 'Content-Type:') === 0) {
+                $contentType = strtolower(trim(substr($h, 13)));
+            } elseif (stripos($h, 'Content-Length:') === 0) {
+                $length = (int)trim(substr($h, 15));
+            }
+        }
+
+        if ($status >= 300 && $status < 400 && $location !== '') {
+            fclose($fp);
+            if ($hop >= $maxRedirects) {
+                return ['ok' => false, 'status' => $status, 'error' => 'Zbyt wiele przekierowań: ' . $url];
+            }
+            $url = contest_resolve_location($url, $location);
+            continue;
+        }
+        if ($status < 200 || $status >= 300) {
+            fclose($fp);
+            return ['ok' => false, 'status' => $status, 'error' => 'Nie można pobrać: ' . $url . ' (HTTP ' . $status . ')'];
+        }
+        if ($length !== null && $length > $maxBytes) {
+            fclose($fp);
+            return ['ok' => false, 'status' => $status, 'error' => 'Plik jest za duży: ' . $url];
+        }
+
+        // Content-Length may be missing or wrong — count what is actually read
+        $body = (string)stream_get_contents($fp, $maxBytes + 1);
+        $timedOut = stream_get_meta_data($fp)['timed_out'] ?? false;
+        fclose($fp);
+        if (strlen($body) > $maxBytes) {
+            return ['ok' => false, 'status' => $status, 'error' => 'Plik jest za duży: ' . $url];
+        }
+        if ($timedOut) {
+            return ['ok' => false, 'status' => $status, 'error' => 'Przekroczono czas pobierania: ' . $url];
+        }
+        return ['ok' => true, 'status' => $status, 'content_type' => $contentType, 'body' => $body];
+    }
+}
+
+/** Resolves a redirect's Location (absolute, scheme-relative or path) against the URL that returned it. */
+function contest_resolve_location(string $base, string $location): string {
+    if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $location)) return $location;
+    $p = parse_url($base);
+    $scheme = $p['scheme'] ?? 'https';
+    if (str_starts_with($location, '//')) return $scheme . ':' . $location;
+    $origin = $scheme . '://' . ($p['host'] ?? '') . (isset($p['port']) ? ':' . $p['port'] : '');
+    if (str_starts_with($location, '/')) return $origin . $location;
+    $dir = preg_replace('#/[^/]*$#', '/', $p['path'] ?? '/');
+    return $origin . ($dir === '' ? '/' : $dir) . $location;
+}
+
 function login_attempts_load(): array {
     if (!file_exists(LOGIN_ATTEMPTS_FILE)) return [];
     $data = json_decode(file_get_contents(LOGIN_ATTEMPTS_FILE), true);
