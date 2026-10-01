@@ -129,3 +129,5 @@ if (!defined('ACCOUNT_RESULTS_RATE_FILE')) { // tests use their own file
 }
 define('ACCOUNT_RESULTS_FETCH_MAX',    10);        // LENEX result fetches per account…
 define('ACCOUNT_RESULTS_FETCH_WINDOW', 600);       // …per 10 min
+define('ACCOUNT_RESULTS_PENDING_MAX',  30);        // fetches answered 409 (results not published yet) per window — they
+                                                   // don't use up ACCOUNT_RESULTS_FETCH_MAX, but still download a file
