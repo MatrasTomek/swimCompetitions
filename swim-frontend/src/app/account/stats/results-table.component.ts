@@ -32,7 +32,7 @@ import { eventLabel, pbKey } from '../../shared/swim-time';
           <td>{{ r.contestName }} <span class="muted">{{ r.contestCity }}</span></td>
           <td class="nowrap">{{ r.poolLength }} m</td>
           <td class="nowrap">{{ label(r) }}</td>
-          <td class="time">{{ r.time }} @if (isPb(r)) { <span class="pb" title="Najlepszy czas w sezonie w tej konkurencji">PB</span> }</td>
+          <td class="time">{{ r.time }} @if (sbStarts(r); as n) { <span class="sb" [title]="'Najlepszy czas sezonu (z ' + n + ' startów w tej konkurencji i na tym basenie)'">SB</span> }</td>
           <td>{{ r.points ?? '—' }}</td>
         </tr>
       </ng-template>
@@ -45,7 +45,7 @@ import { eventLabel, pbKey } from '../../shared/swim-time';
     .nowrap { white-space: nowrap; }
     .muted  { color: var(--swim-muted); font-size: .8rem; }
     .time   { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
-    .pb     { background: var(--swim-gold); color: #111; border-radius: 3px; padding: 0 .3rem; font-size: .7rem; margin-left: .3rem; }
+    .sb     { background: var(--swim-gold); color: #111; border-radius: 3px; padding: 0 .3rem; font-size: .7rem; margin-left: .3rem; }
     .empty  { text-align: center; color: var(--swim-muted); padding: 1.5rem; }
     .member-link { color: inherit; text-decoration: underline; text-decoration-color: var(--swim-muted); text-underline-offset: 3px; }
     .member-link:hover { text-decoration-color: currentColor; }
@@ -53,13 +53,17 @@ import { eventLabel, pbKey } from '../../shared/swim-time';
 })
 export class ResultsTableComponent {
   readonly rows      = input.required<MemberResult[]>();
-  /** Best row per member + event + pool (`bestTimes()`), to mark personal bests. */
-  readonly best      = input.required<Map<string, MemberResult>>();
+  /** Season-best badges (`seasonBests()`): only events swum at least twice get one. */
+  readonly best      = input.required<Map<string, { row: MemberResult; starts: number }>>();
   readonly names     = input<Map<string, string> | null>(null);
   /** Season the member links open (the one the table shows). */
   readonly season    = input<number | null>(null);
   readonly emptyText = input('Brak wyników.');
 
   label(r: MemberResult): string { return eventLabel(r.distance, r.stroke); }
-  isPb(r: MemberResult): boolean { return this.best().get(pbKey(r)) === r; }
+  /** Number of starts behind the season best when `r` is one, else 0 (no badge). */
+  sbStarts(r: MemberResult): number {
+    const b = this.best().get(pbKey(r));
+    return b?.row === r ? b.starts : 0;
+  }
 }
