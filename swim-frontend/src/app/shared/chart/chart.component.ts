@@ -69,6 +69,17 @@ export class ChartComponent {
       const el = this.host().nativeElement;
       this.chart = echarts.init(el, null, { renderer: 'canvas' });
       this.chart.setOption(this.options(), { notMerge: true });
+      // A category axis with `triggerEvent: true`: hovering a label shows the tooltip of its data point
+      // (checked in the handler — a { targetType } query is not applied to axis events)
+      type AxisLabelEvent = { targetType?: string; dataIndex?: number };
+      this.chart.on('mouseover', (e: AxisLabelEvent) => {
+        if (e.targetType === 'axisLabel' && e.dataIndex !== undefined) {
+          this.chart?.dispatchAction({ type: 'showTip', seriesIndex: 0, dataIndex: e.dataIndex });
+        }
+      });
+      this.chart.on('mouseout', (e: AxisLabelEvent) => {
+        if (e.targetType === 'axisLabel') this.chart?.dispatchAction({ type: 'hideTip' });
+      });
       // Also covers height changes driven by the [height] input
       const ro = new ResizeObserver(() => this.chart?.resize());
       ro.observe(el);

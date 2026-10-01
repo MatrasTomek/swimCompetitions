@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { escapeHtml, rankingTooltip, resultTooltip } from './chart-tooltip.ts';
+import { escapeHtml, rankingTooltip, resultTooltip, truncateLabel } from './chart-tooltip.ts';
 
 test('escapeHtml neutralises markup in text taken from LENEX or typed by users', () => {
   assert.equal(escapeHtml('<img src=x onerror=alert(1)>'), '&lt;img src=x onerror=alert(1)&gt;');
@@ -42,4 +42,22 @@ test('resultTooltip: zero points are shown — only a missing value (null) hides
 test('rankingTooltip: a member name typed by the user never becomes markup', () => {
   assert.equal(rankingTooltip(hostile, '9 startów'), '&lt;img src=x onerror=alert(1)&gt;<br/><b>9 startów</b>');
   assert.equal(rankingTooltip('Amelia Wąs', '<i>9</i>'), 'Amelia Wąs<br/><b>&lt;i&gt;9&lt;/i&gt;</b>');
+});
+
+test('truncateLabel: names up to the limit stay whole', () => {
+  assert.equal(truncateLabel('Jan Kowalski'), 'Jan Kowalski');
+  assert.equal(truncateLabel('x'.repeat(50)), 'x'.repeat(50));
+});
+
+test('truncateLabel: longer names are cut to 50 characters including the ellipsis', () => {
+  const long = 'Aleksandra Konstantynopolitańczykiewiczówna-Brzęczyszczykiewicz';
+  const cut = truncateLabel(long);
+  assert.equal([...cut].length, 50);
+  assert.equal(cut, long.slice(0, 49) + '…');
+  assert.equal(truncateLabel('abcdef', 4), 'abc…');
+});
+
+test('truncateLabel: no trailing space before the ellipsis, surrogate pairs are not split', () => {
+  assert.equal(truncateLabel('abc defgh', 5), 'abc…');
+  assert.equal(truncateLabel('😀😀😀😀😀😀', 4), '😀😀😀…');
 });
