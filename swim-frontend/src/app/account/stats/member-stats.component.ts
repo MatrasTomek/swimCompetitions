@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
@@ -6,7 +6,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Select } from 'primeng/select';
 import { Message } from 'primeng/message';
 import { ProgressSpinner } from 'primeng/progressspinner';
-import { forkJoin } from 'rxjs';
+import { combineLatest, distinctUntilChanged, forkJoin, map } from 'rxjs';
 import type { EChartsCoreOption } from 'echarts/core';
 import { HeaderComponent } from '../../shared/header/header.component';
 import { ChartComponent, chartTheme } from '../../shared/chart/chart.component';
@@ -120,16 +120,17 @@ import { parseSeason, seasonYears } from './season';
     .nowrap { white-space: nowrap; }
   `],
 })
-export class MemberStatsComponent implements OnInit {
+export class MemberStatsComponent {
   private api    = inject(ApiService);
   private route  = inject(ActivatedRoute);
   private router = inject(Router);
 
   readonly plural   = plural;
   readonly years    = seasonYears();
-  readonly memberId = this.route.snapshot.paramMap.get('memberId') ?? '';
 
-  season    = signal(parseSeason(this.route.snapshot.queryParamMap.get('rok')));
+  /** Both come from the URL: the component is reused when only :memberId or ?rok= changes, so both are followed, not read once. */
+  memberId  = signal('');
+  season    = signal(parseSeason(null));
   member    = signal<ClubMember | null>(null);
   results   = signal<MemberResult[]>([]);
   loaded    = signal(false);
@@ -176,9 +177,9 @@ export class MemberStatsComponent implements OnInit {
     };
   });
 
-  /** Only the answer for the season chosen last is applied — switching seasons cancels the request in flight. */
-  private request = latestRequest((season: number) =>
-    forkJoin({ account: this.api.getAccount(), results: this.api.getAccountResults(season, this.memberId) }));
+  /** Only the answer for the member and season chosen last is applied — a new choice cancels the request in flight. */
+  private request = latestRequest(({ memberId, season }: { memberId: string; season: number }) =>
+    forkJoin({ account: this.api.getAccount(), results: this.api.getAccountResults(season, memberId) }));
 
   constructor() {
     this.request.outcome$.pipe(takeUntilDestroyed()).subscribe(outcome => {
@@ -188,28 +189,43 @@ export class MemberStatsComponent implements OnInit {
         else this.loadError.set(err.error?.error ?? 'Nie udało się wczytać wyników.');
         return;
       }
-      const member = outcome.data.account.clubItems.clubMembers.find(m => m.memberId === this.memberId) ?? null;
+      const member = outcome.data.account.clubItems.clubMembers.find(m => m.memberId === outcome.key.memberId) ?? null;
       if (!member) { this.notFound.set(true); return; }
       this.member.set(member);
       this.results.set(outcome.data.results);
       this.loaded.set(true);
     });
-  }
 
-  ngOnInit() { this.load(); }
+    // After outcome$ is subscribed: the route emits synchronously and latestRequest does not replay
+    combineLatest([this.route.paramMap, this.route.queryParamMap]).pipe(
+      map(([params, query]) => ({ memberId: params.get('memberId') ?? '', season: parseSeason(query.get('rok')) })),
+      distinctUntilChanged((a, b) => a.memberId === b.memberId && a.season === b.season),
+      takeUntilDestroyed(),
+    ).subscribe(key => {
+      if (key.memberId !== this.memberId()) {
+        // Another member: nothing of the previous one may stay on screen
+        this.member.set(null);
+        this.results.set([]);
+        this.chosenEvent.set('');
+      }
+      this.memberId.set(key.memberId);
+      this.season.set(key.season);
+      this.load();
+    });
+  }
 
   label(r: MemberResult): string { return eventLabel(r.distance, r.stroke); }
 
   changeSeason(year: number) {
     if (year === this.season()) return;
-    this.season.set(year);
+    // The query param subscription loads the season
     this.router.navigate([], { relativeTo: this.route, queryParams: { rok: year }, replaceUrl: true });
-    this.load();
   }
 
   private load() {
     this.loaded.set(false);
+    this.notFound.set(false);
     this.loadError.set(null);
-    this.request.load(this.season());
+    this.request.load({ memberId: this.memberId(), season: this.season() });
   }
 }
