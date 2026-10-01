@@ -24,12 +24,12 @@ check('fmt long',       swim_time_format(3723450), '62:03.45');
 
 $p = lenex_parse_full(file_get_contents(__DIR__ . '/fixtures/sample.lef'));
 check('ok', $p['ok'], true);
-check('meet', $p['meet'], ['name' => 'Mityng Testowy 2026', 'city' => 'Kraków', 'poolLength' => 25, 'date' => '2026-03-14']);
+check('meet', $p['meet'], ['name' => 'Mityng Testowy 2026', 'city' => 'Kraków', 'date' => '2026-03-14']);
 check('events by eventid (no relay, no unknown stroke)', $p['events'], [
-    '101' => ['eventNr' => 1, 'distance' => 100,  'stroke' => 'dowolny',    'date' => '2026-03-14'],
-    '102' => ['eventNr' => 2, 'distance' => 50,   'stroke' => 'grzbietowy', 'date' => '2026-03-14'],
-    '104' => ['eventNr' => 4, 'distance' => 200,  'stroke' => 'zmienny',    'date' => '2026-03-15'],
-    '106' => ['eventNr' => 6, 'distance' => 1500, 'stroke' => 'dowolny',    'date' => '2026-03-15'],
+    '101' => ['eventNr' => 1, 'distance' => 100,  'stroke' => 'dowolny',    'date' => '2026-03-14', 'poolLength' => 25],
+    '102' => ['eventNr' => 2, 'distance' => 50,   'stroke' => 'grzbietowy', 'date' => '2026-03-14', 'poolLength' => 25],
+    '104' => ['eventNr' => 4, 'distance' => 200,  'stroke' => 'zmienny',    'date' => '2026-03-15', 'poolLength' => 25],
+    '106' => ['eventNr' => 6, 'distance' => 1500, 'stroke' => 'dowolny',    'date' => '2026-03-15', 'poolLength' => 25],
 ]);
 check('athlete count', count($p['athletes']), 3);
 $was = $p['athletes'][0];
@@ -45,7 +45,21 @@ check('lukasik results (NT skipped)', $p['athletes'][1]['results'], [
 check('nowak without birthdate', $p['athletes'][2]['birthYear'], null);
 
 $lcm = lenex_parse_full(str_replace('course="SCM"', 'course="LCM"', file_get_contents(__DIR__ . '/fixtures/sample.lef')));
-check('LCM → 50', $lcm['meet']['poolLength'], 50);
+check('LCM → 50', array_unique(array_column($lcm['events'], 'poolLength')), [50]);
+
+// Pool length per event: SESSION course overrides MEET course; a course that is not 25/50 m
+// (yards, 33 m, OPEN) or missing everywhere → the session's events are skipped, never stored as 25 m
+$courses = fn(string $meetCourse, array $sessionCourses) => '<LENEX version="3.0"><MEETS><MEET name="M" city="C"' . $meetCourse . '><SESSIONS>'
+    . implode('', array_map(fn($i, $c) => '<SESSION number="' . ($i + 1) . '" date="2026-03-14"' . $c . '><EVENTS><EVENT eventid="' . ($i + 1) . '" number="' . ($i + 1) . '">'
+        . '<SWIMSTYLE distance="100" stroke="FREE" relaycount="1"/></EVENT></EVENTS></SESSION>', array_keys($sessionCourses), $sessionCourses))
+    . '</SESSIONS><CLUBS><CLUB><ATHLETES><ATHLETE athleteid="1" lastname="A" firstname="B" birthdate="2014-01-01" gender="F"/></ATHLETES></CLUB></CLUBS></MEET></MEETS></LENEX>';
+$pools = fn(array $p) => array_map(fn($e) => $e['poolLength'], $p['events']);
+check('session course overrides meet', $pools(lenex_parse_full($courses(' course="SCM"', ['', ' course="LCM"', ' course="scm"']))), [1 => 25, 2 => 50, 3 => 25]);
+check('LCM meet, SCM session', $pools(lenex_parse_full($courses(' course="LCM"', ['', ' course="SCM"']))), [1 => 50, 2 => 25]);
+check('yards / 33 m / OPEN sessions skipped', $pools(lenex_parse_full($courses(' course="SCM"', [' course="SCY"', ' course="SCM33"', ' course="OPEN"', '']))), [4 => 25]);
+check('non-metric meet, metric session', $pools(lenex_parse_full($courses(' course="SCY"', ['', ' course="LCM"']))), [2 => 50]);
+check('no course anywhere → no events', $pools(lenex_parse_full($courses('', ['']))), []);
+check('lenex_pool_length', array_map('lenex_pool_length', ['LCM', 'SCM', ' lcm ', 'SCY', 'SCM16', 'OPEN', '']), [50, 25, 50, null, null, null, null]);
 
 // Two events with the same number (e.g. numbering restarted in session 2) stay separate — eventid identifies them
 $dupNr = '<LENEX version="3.0"><MEETS><MEET name="M" city="C" course="SCM"><SESSIONS>'
@@ -56,8 +70,8 @@ $dupNr = '<LENEX version="3.0"><MEETS><MEET name="M" city="C" course="SCM"><SESS
        . '</RESULTS></ATHLETE></ATHLETES></CLUB></CLUBS></MEET></MEETS></LENEX>';
 $dup = lenex_parse_full($dupNr);
 check('same number: both events kept', $dup['events'], [
-    '10' => ['eventNr' => 1, 'distance' => 100, 'stroke' => 'dowolny',   'date' => '2026-03-14'],
-    '20' => ['eventNr' => 1, 'distance' => 50,  'stroke' => 'motylkowy', 'date' => '2026-03-15'],
+    '10' => ['eventNr' => 1, 'distance' => 100, 'stroke' => 'dowolny',   'date' => '2026-03-14', 'poolLength' => 25],
+    '20' => ['eventNr' => 1, 'distance' => 50,  'stroke' => 'motylkowy', 'date' => '2026-03-15', 'poolLength' => 25],
 ]);
 check('same number: results point at their own event', array_map(fn($r) => [$r['eventId'], $r['time']], $dup['athletes'][0]['results']),
     [['10', '1:05.32'], ['20', '31.00']]);
