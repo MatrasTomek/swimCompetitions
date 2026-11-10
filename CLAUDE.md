@@ -34,7 +34,7 @@ There is no test framework. Pure logic is covered by small test scripts; the res
 
 ```bash
 # PHP — CLI assertion scripts (scripts/tests/, helper _assert.php, LENEX fixture in fixtures/)
-php scripts/tests/test_member_match.php && php scripts/tests/test_lenex_parse_full.php && php scripts/tests/test_results_rows.php
+php scripts/tests/test_member_match.php && php scripts/tests/test_lenex_parse_full.php && php scripts/tests/test_results_rows.php && php scripts/tests/test_startlist_entry.php
 # PHP — server-side downloads (starts a local `php -S`, needs ext-zip — run in the dev api container)
 docker compose -f dev/docker-compose.yml exec api php scripts/tests/test_contest_http_get.php
 

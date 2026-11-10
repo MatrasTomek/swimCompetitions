@@ -6,6 +6,7 @@ import { Button } from 'primeng/button';
 import { Message } from 'primeng/message';
 import { Card } from 'primeng/card';
 import { Toast } from 'primeng/toast';
+import { Dialog } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { HeaderComponent } from '../../shared/header/header.component';
 import { SearchInputComponent } from '../../shared/search-input/search-input.component';
@@ -13,6 +14,7 @@ import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LocalCompetitionsService } from '../../core/services/local-competitions.service';
 import { Competition, LtContest, LtCacheStatus } from '../../core/models';
+import { isDrawingClub } from './drawing-club';
 
 const FORM_STORAGE_KEY = 'swim_import_form';
 
@@ -30,7 +32,7 @@ interface ImportFormState {
 
 @Component({
   selector: 'app-import',
-  imports: [FormsModule, RouterLink, InputText, Button, Message, Card, Toast, HeaderComponent, SearchInputComponent],
+  imports: [FormsModule, RouterLink, InputText, Button, Message, Card, Toast, Dialog, HeaderComponent, SearchInputComponent],
   providers: [MessageService],
   template: `
     <app-header />
@@ -152,6 +154,17 @@ interface ImportFormState {
       </p-card>
     </div>
     <p-toast />
+
+    <p-dialog header="Dodatkowe losowanie" [(visible)]="drawingVisible" [modal]="true" [dismissableMask]="true"
+      [style]="{width:'420px'}" [breakpoints]="{'640px':'95vw'}">
+      <p class="drawing-text">
+        Bulwa Mać, organizator nie przewidział takiej sytuacji, więc zostało wprowadzone dodatkowe losowanie.
+        Zadzwonimy do Państwa i poinformujemy o wynikach.
+      </p>
+      <div class="dialog-actions">
+        <p-button label="Zamknij" (onClick)="drawingVisible = false" />
+      </div>
+    </p-dialog>
   `,
   styles: [`
     .back           { display: inline-block; margin-bottom: 1rem; color: var(--swim-muted); text-decoration: none; font-size: .85rem; }
@@ -188,6 +201,9 @@ interface ImportFormState {
     .cat-badge      { font-size: .66rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 6px; border-radius: 3px; background: #111; flex-shrink: 0; }
     .search-hint    { color: #555; font-size: .82rem; }
     .link-btn       { background: none; border: none; color: #f0a800; cursor: pointer; padding: 0; font-size: .82rem; text-decoration: underline; }
+
+    .drawing-text   { margin: 0 0 1rem; line-height: 1.5; }
+    .dialog-actions { display: flex; justify-content: flex-end; }
 
     .manual-url         { font-size: .8rem; }
     .manual-url summary { cursor: pointer; color: var(--swim-muted); margin-bottom: .4rem; }
@@ -229,6 +245,8 @@ export class ImportComponent implements OnInit, OnDestroy {
   // ── Import state ─────────────────────────────────────────────────────
   loading = signal(false);
   error   = signal<string | null>(null);
+  /** "Additional drawing" notice shown instead of importing for BOSiR (`isDrawingClub()`). */
+  drawingVisible = false;
 
   ngOnInit() {
     this.restoreForm();
@@ -334,6 +352,7 @@ export class ImportComponent implements OnInit, OnDestroy {
       return;
     }
     if (!klub) { this.error.set('Wpisz nazwę klubu.'); return; }
+    if (isDrawingClub(klub)) { this.error.set(null); this.drawingVisible = true; return; }
 
     this.loading.set(true);
     this.error.set(null);

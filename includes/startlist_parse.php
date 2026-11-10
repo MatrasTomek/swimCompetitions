@@ -300,14 +300,28 @@ function sl_ascii(string $s): string {
     return mb_strtolower(strtr($s, $map), 'UTF-8');
 }
 
+/**
+ * Club filter: every distinctive word of the filter must appear in the club name (case and Polish
+ * diacritics ignored). Legal-form words (UKS, Stowarzyszenie, …) are skipped, so "Olimpijczyk Proszówki"
+ * finds "Stowarzyszenie Olimpijczyk Proszówki" — but "Stowarzyszenie Olimpijczyk Proszówki" no longer
+ * finds "Stowarzyszenie OLIMPIJCZYK KRAKÓW" (two of three words used to be enough).
+ */
 function sl_club_matches(string $filter, string $club): bool {
+    static $generic = ['uks', 'mks', 'muks', 'ks', 'aks', 'kp', 'ksp', 'sks', 'mkp', 'ukp', 'klub', 'sportowy',
+                       'plywacki', 'stowarzyszenie', 'uczniowski', 'miejski', 'towarzystwo'];
     $f = sl_ascii($filter);
     $c = sl_ascii($club);
-    $tokens = array_values(array_filter(explode(' ', $f), fn($t) => strlen($t) >= 2));
-    if (count($tokens) < 2) return str_contains($c, $f);
-    $matched = 0;
-    foreach ($tokens as $t) { if (str_contains($c, $t)) $matched++; }
-    return $matched >= 2;
+    $tokens = array_values(array_filter(
+        array_map(fn($t) => trim($t, " \t\"'.,„”"), preg_split('/\s+/', $f)),
+        fn($t) => strlen($t) >= 2
+    ));
+    $distinct = array_values(array_filter($tokens, fn($t) => !in_array($t, $generic, true)));
+    if ($distinct) $tokens = $distinct;
+    if (!$tokens) return str_contains($c, trim($f));
+    foreach ($tokens as $t) {
+        if (!str_contains($c, $t)) return false;
+    }
+    return true;
 }
 
 /**
@@ -330,9 +344,10 @@ function sl_parse_entry_line(string $line, array $event, array $heat, string $cl
     // Rest of line after lane
     $rest = substr($line, (int)strpos($line, $lm[0]) + strlen($lm[0]));
 
-    // Name: Unicode letters (upper or lower, incl. Polish), hyphens, followed by ≥2 spaces
-    if (!preg_match('/^([\p{L}][\p{L}\-\s]+?)\s{2,}/u', $rest, $nm)) return null;
-    $raw_name = trim($nm[1]);
+    // Name: Unicode letters (upper or lower, incl. Polish), hyphens, apostrophes, followed by ≥2 spaces.
+    // Some lists print "SURNAME, Name" — the comma is dropped ("DEJANA, Laura" → "DEJANA Laura").
+    if (!preg_match('/^([\p{L}][\p{L}\-\s,\'’]+?)\s{2,}/u', $rest, $nm)) return null;
+    $raw_name = trim(preg_replace('/\s*,\s*/u', ' ', $nm[1]));
     if (strlen($raw_name) < 3) return null;
 
     $after_name = substr($rest, strlen($nm[0]));
