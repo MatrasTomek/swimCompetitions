@@ -28,11 +28,12 @@ function handle_startlist(string $sub, string $method): void {
 
         $contest_url = trim($body['contest_url'] ?? '');
         $klub        = trim($body['klub']        ?? '');
+        $basen       = is_string($body['basen'] ?? null) ? $body['basen'] : '25m'; // only for a direct PDF link
 
-        if ($contest_url === '') { echo json_encode(['error' => 'Podaj URL zawodów.']); return; }
+        if ($contest_url === '') { echo json_encode(['error' => 'Podaj link do listy startowej.']); return; }
         if ($klub        === '') { echo json_encode(['error' => 'Podaj nazwę klubu.']); return; }
 
-        $result = build_startlist_from_pdf($contest_url, $klub);
+        $result = build_startlist_from_pdf($contest_url, $klub, $basen);
 
         if (!$result['ok']) {
             $out = ['error' => $result['error']];

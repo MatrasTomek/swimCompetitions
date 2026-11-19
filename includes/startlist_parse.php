@@ -49,8 +49,27 @@ function resolve_contest_page(string $contest_url): array {
 }
 
 /**
+ * A direct start list PDF link on livetiming.pl or a subdomain (start lists live on live.livetiming.pl,
+ * e.g. https://live.livetiming.pl/zak/2026/11_21_oswiecim/startowa.pdf) → the URL without its #fragment,
+ * or null. https only, no userinfo/port — this URL is downloaded server-side (SSRF guard; the caller also
+ * checks is_allowed_contest_host()).
+ */
+function sl_startlist_pdf_url(string $url): ?string {
+    $url = trim($url);
+    if (!preg_match('~^https://(?:[a-z0-9-]+\.)*livetiming\.pl/[^\s?#@]*\.pdf(?:\?[^\s#]*)?(?:#.*)?$~i', $url)) {
+        return null;
+    }
+    return preg_replace('/#.*$/', '', $url);
+}
+
+/** Pool length sent with a direct PDF link ('25m'/'50m'); the PDF itself doesn't say, so anything else is 25m. */
+function sl_pool_param(?string $basen): string {
+    return $basen === '50m' ? '50m' : '25m';
+}
+
+/**
  * Contest UUID from a livetiming.pl contest page URL ("https://livetiming.pl/contest/{uuid}"), or null
- * for anything else — the start list is imported only from the contest page, never from a pasted PDF link.
+ * for anything else (a direct PDF link is recognised by sl_startlist_pdf_url()).
  */
 function sl_contest_uuid(string $url): ?string {
     if (!preg_match('~^https?://(?:www\.)?livetiming\.pl/contest/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/?(?:[?#].*)?$~i',
@@ -799,18 +818,23 @@ function parse_startlist_text_vertical(string $text, string $club_filter, string
 
 /**
  * Main entry point: resolves PDF URL, downloads, extracts text, parses, and returns result.
- * Only a livetiming.pl contest page is accepted (no direct PDF links): name, city, date and pool length
- * come from it (so the name matches the contest search); the PDF header is only a fallback.
+ * Accepts a livetiming.pl contest page — name, city, date and pool length come from it (so the name matches
+ * the contest search; the PDF header is only a fallback) — or a direct start list PDF link on livetiming.pl,
+ * where name/city/date come from the PDF header and the pool length from $basen.
  */
-function build_startlist_from_pdf(string $contest_url, string $club): array {
+function build_startlist_from_pdf(string $contest_url, string $club, string $basen = '25m'): array {
     $uuid = sl_contest_uuid($contest_url);
-    if ($uuid === null) {
-        return ['ok' => false, 'error' => 'Nieprawidłowy adres zawodów — podaj stronę zawodów z livetiming.pl (https://livetiming.pl/contest/…).'];
+    if ($uuid !== null) {
+        $page    = resolve_contest_page('https://livetiming.pl/contest/' . $uuid);
+        $pdf_url = $page['pdf_url'];
+        $basen   = $page['basen'] ?: '25m';
+    } elseif (($direct = sl_startlist_pdf_url($contest_url)) !== null) {
+        $page    = ['nazwa' => '', 'miejsce' => '', 'data' => ''];
+        $pdf_url = $direct;
+        $basen   = sl_pool_param($basen);
+    } else {
+        return ['ok' => false, 'error' => 'Nieprawidłowy adres — podaj link do listy startowej w PDF z livetiming.pl (https://live.livetiming.pl/…/startowa.pdf) albo do strony zawodów (https://livetiming.pl/contest/…).'];
     }
-
-    $page    = resolve_contest_page('https://livetiming.pl/contest/' . $uuid);
-    $pdf_url = $page['pdf_url'];
-    $basen   = $page['basen'] ?: '25m';
 
     if ($pdf_url === '') {
         return [
@@ -823,8 +847,19 @@ function build_startlist_from_pdf(string $contest_url, string $club): array {
         return ['ok' => false, 'error' => 'Lista startowa jest poza livetiming.pl — nie można jej pobrać.', 'pdf_url' => $pdf_url];
     }
 
-    $pdf_data = pdf_download($pdf_url);
-    if ($pdf_data === false || strlen((string)$pdf_data) < 100) {
+    // Redirects re-checked against livetiming.pl, size capped (contest_http_get())
+    $dl = contest_http_get($pdf_url, STARTLIST_PDF_MAX_BYTES);
+    if (!$dl['ok']) {
+        $error = match ($dl['status']) {
+            403     => 'livetiming.pl odmówił pobrania listy startowej (HTTP 403) — serwer jest blokowany.',
+            404     => 'Nie ma takiego pliku na livetiming.pl (HTTP 404). Sprawdź link do listy startowej.',
+            default => 'Nie można pobrać listy startowej (PDF). Sprawdź czy lista jest już dostępna.',
+        };
+        error_log('startlist: ' . $dl['error']);
+        return ['ok' => false, 'error' => $error, 'pdf_url' => $pdf_url];
+    }
+    $pdf_data = $dl['body'];
+    if (strlen($pdf_data) < 100) {
         return [
             'ok'      => false,
             'error'   => 'Nie można pobrać listy startowej (PDF). Sprawdź czy lista jest już dostępna.',
