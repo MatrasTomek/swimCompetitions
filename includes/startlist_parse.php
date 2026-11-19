@@ -874,7 +874,30 @@ function build_startlist_from_pdf(string $contest_url, string $club, string $bas
         ];
     }
 
-    $text = pdf_extract_text((string)$pdf_data);
+    return build_startlist_from_pdf_data((string)$pdf_data, $club, $basen, $page, $pdf_url);
+}
+
+/**
+ * Builds a start list from a PDF file uploaded by the visitor (no download — works when livetiming.pl
+ * blocks the hosting). Name/city/date come from the PDF header, pool length from $basen (25m/50m).
+ */
+function build_startlist_from_pdf_file(string $pdf_data, string $club, string $basen = '25m'): array {
+    if (strlen($pdf_data) < 100 || substr($pdf_data, 0, 5) !== '%PDF-') {
+        return ['ok' => false, 'error' => 'To nie jest plik PDF. Wgraj listę startową w formacie PDF.'];
+    }
+    return build_startlist_from_pdf_data(
+        $pdf_data, $club, sl_pool_param($basen),
+        ['nazwa' => '', 'miejsce' => '', 'data' => ''], null
+    );
+}
+
+/**
+ * Shared tail of the start list import: PDF text → competition structure, club filter, stats.
+ * $page fills name/city/date a contest page gave (all '' for a direct PDF link or upload);
+ * $pdf_url is echoed back for the download paths, null for an upload.
+ */
+function build_startlist_from_pdf_data(string $pdf_data, string $club, string $basen, array $page, ?string $pdf_url): array {
+    $text = pdf_extract_text($pdf_data);
     if (strlen(trim($text)) < 50) {
         return [
             'ok'       => false,
@@ -886,7 +909,7 @@ function build_startlist_from_pdf(string $contest_url, string $club, string $bas
 
     $zawody = parse_startlist_text($text, $club, $basen);
     foreach (['nazwa', 'miejsce', 'data'] as $field) {
-        if ($page[$field] !== '') $zawody[$field] = $page[$field];
+        if (($page[$field] ?? '') !== '') $zawody[$field] = $page[$field];
     }
     $starts = array_sum(array_map(fn($b) => count($b['starty']), $zawody['bloki']));
     if ($starts === 0) {
