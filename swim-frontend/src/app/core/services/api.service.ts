@@ -75,6 +75,15 @@ export class ApiService {
     });
   }
 
+  /** Upload a start list PDF from the visitor's computer (no server-side download — works when livetiming.pl blocks the host). */
+  previewStartlistFile(file: File, klub: string, basen: '25m' | '50m') {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('klub', klub);
+    form.append('basen', basen);
+    return this.http.post<StartlistPreviewResponse>(`${this.base}/startlist/preview`, form);
+  }
+
   // ── Results ─────────────────────────────────────────────────────────
   fetchResults(contestUrl: string, jsonFile: string) {
     return this.http.post<ResultFetchResponse>(`${this.base}/results/fetch`, {
