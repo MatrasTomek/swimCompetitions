@@ -7,16 +7,6 @@
  */
 require_once __DIR__ . '/pdf_layout.php';
 
-function pdf_download(string $url) {
-    $ctx = stream_context_create([
-        'http' => [
-            'header'  => "User-Agent: Mozilla/5.0 SwimResults/1.0\r\n",
-            'timeout' => 15,
-        ],
-    ]);
-    return @file_get_contents($url, false, $ctx);
-}
-
 function pdf_extract_text(string $pdf_data): string {
     // Method 1: pdftotext (poppler-utils)
     if (is_callable('shell_exec')) {
