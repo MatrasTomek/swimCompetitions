@@ -65,10 +65,13 @@ export class ApiService {
   }
 
   // ── Start list import ───────────────────────────────────────────────
-  /** Pool length (`zawody.basen`) is read server-side from the livetiming.pl contest page. */
-  previewStartlist(contestUrl: string, klub: string) {
+  /**
+   * `contestUrl` is a livetiming.pl contest page (pool length read server-side from it) or a direct
+   * start list PDF link — then `basen` says the pool length, which the PDF doesn't.
+   */
+  previewStartlist(contestUrl: string, klub: string, basen?: '25m' | '50m') {
     return this.http.post<StartlistPreviewResponse>(`${this.base}/startlist/preview`, {
-      contest_url: contestUrl, klub
+      contest_url: contestUrl, klub, ...(basen ? { basen } : {})
     });
   }
 
