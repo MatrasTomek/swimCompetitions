@@ -6,6 +6,7 @@ import { Button } from 'primeng/button';
 import { Message } from 'primeng/message';
 import { Card } from 'primeng/card';
 import { Toast } from 'primeng/toast';
+import { Dialog } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { HeaderComponent } from '../../shared/header/header.component';
 import { SearchInputComponent } from '../../shared/search-input/search-input.component';
@@ -13,24 +14,23 @@ import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { LocalCompetitionsService } from '../../core/services/local-competitions.service';
 import { Competition, LtContest, LtCacheStatus } from '../../core/models';
+import { isDrawingClub } from './drawing-club';
+import { startlistLinkKind } from './startlist-link';
 
 const FORM_STORAGE_KEY = 'swim_import_form';
-
-/** Start lists are imported only from a livetiming.pl contest page (mirrors `sl_contest_uuid()` on the server). */
-const CONTEST_URL_RE =
-  /^https?:\/\/(www\.)?livetiming\.pl\/contest\/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\/?([?#].*)?$/i;
 
 /** Import form fields remembered in this browser session. */
 interface ImportFormState {
   searchQuery: string;
   contest: LtContest | null;
   manualUrl: string;
+  basen?: '25m' | '50m';
   klub: string;
 }
 
 @Component({
   selector: 'app-import',
-  imports: [FormsModule, RouterLink, InputText, Button, Message, Card, Toast, HeaderComponent, SearchInputComponent],
+  imports: [FormsModule, RouterLink, InputText, Button, Message, Card, Toast, Dialog, HeaderComponent, SearchInputComponent],
   providers: [MessageService],
   template: `
     <app-header />
@@ -75,13 +75,12 @@ interface ImportFormState {
             </div>
           </div>
 
-          @if (!connected()) {
-            @if (cacheStatus() || cacheError()) {
-              <small class="hint">Połącz się z livetiming.pl, aby wyszukać zawody i pobrać listę startową.</small>
-            }
-          } @else {
+          @if (!connected() && (cacheStatus() || cacheError())) {
+            <small class="hint">Wyszukiwarka zawodów działa po połączeniu z livetiming.pl — bez niej wklej link do listy startowej (PDF).</small>
+          }
 
           <!-- 2. Competition -->
+          @if (connected()) {
           <div class="field">
             <label for="search-input">Zawody — nazwa lub miasto *</label>
             @if (contest(); as c) {
@@ -123,13 +122,50 @@ interface ImportFormState {
                 <div class="search-hint">Nie znaleziono. Spróbuj innej frazy lub połącz się ponownie z livetiming.pl.</div>
               }
 
-              <details class="manual-url" [open]="!!manualUrl">
-                <summary>Masz link do strony zawodów na livetiming.pl? Wklej go</summary>
-                <input pInputText [(ngModel)]="manualUrl" (ngModelChange)="saveForm()"
-                  placeholder="https://livetiming.pl/contest/..." class="w-full" />
-              </details>
             }
           </div>
+          }
+
+          @if (!contest()) {
+            <!-- 2a. Upload a PDF from the computer — works even when livetiming.pl blocks the server -->
+            <div class="field">
+              <label for="file-input">Wgraj listę startową (PDF) z dysku *</label>
+              @if (pdfFile()) {
+                <div class="result-card selected">
+                  <div class="result-info"><div class="result-name">{{ pdfFile()!.name }}</div></div>
+                  <button type="button" class="link-btn" (click)="clearFile()">zmień</button>
+                </div>
+              } @else {
+                <input id="file-input" type="file" accept="application/pdf,.pdf" class="file-input"
+                  (change)="onFileChange($event)" />
+                <small class="hint">Pobierz listę startową z livetiming.pl w przeglądarce i wgraj plik tutaj.</small>
+              }
+            </div>
+
+            @if (!pdfFile()) {
+              <!-- 2b. …or a link (contest page or a direct PDF link on livetiming.pl) -->
+              <div class="field">
+                <label for="link-input">albo wklej link do listy startowej</label>
+                <input id="link-input" pInputText [(ngModel)]="manualUrl" (ngModelChange)="saveForm()"
+                  placeholder="https://live.livetiming.pl/…/startowa.pdf" class="w-full" />
+                <small class="hint">Link do pliku PDF z livetiming.pl albo do strony zawodów (https://livetiming.pl/contest/…).</small>
+              </div>
+            }
+
+            @if (pdfFile() || linkKind() === 'pdf') {
+              <div class="field">
+                <span class="field-label" id="basen-label">Basen *</span>
+                <div class="pool" role="radiogroup" aria-labelledby="basen-label">
+                  @for (b of POOLS; track b) {
+                    <label class="pool-opt">
+                      <input type="radio" name="basen" [value]="b" [(ngModel)]="basen" (ngModelChange)="saveForm()" />
+                      {{ b }}
+                    </label>
+                  }
+                </div>
+              </div>
+            }
+          }
 
           <!-- 3. Club -->
           <div class="field">
@@ -147,11 +183,21 @@ interface ImportFormState {
           <small class="hint">
             Lista zostanie zapisana tylko w tej przeglądarce — nie trafia na serwer i nie jest publikowana na stronie.
           </small>
-          }
         </div>
       </p-card>
     </div>
     <p-toast />
+
+    <p-dialog header="Dodatkowe losowanie" [(visible)]="drawingVisible" [modal]="true" [dismissableMask]="true"
+      [style]="{width:'420px'}" [breakpoints]="{'640px':'95vw'}">
+      <p class="drawing-text">
+        Bulwa Mać, organizator nie przewidział takiej sytuacji, więc zostało wprowadzone dodatkowe losowanie.
+        Zadzwonimy do Państwa i poinformujemy o wynikach.
+      </p>
+      <div class="dialog-actions">
+        <p-button label="Zamknij" (onClick)="drawingVisible = false" />
+      </div>
+    </p-dialog>
   `,
   styles: [`
     .back           { display: inline-block; margin-bottom: 1rem; color: var(--swim-muted); text-decoration: none; font-size: .85rem; }
@@ -189,8 +235,15 @@ interface ImportFormState {
     .search-hint    { color: #555; font-size: .82rem; }
     .link-btn       { background: none; border: none; color: #f0a800; cursor: pointer; padding: 0; font-size: .82rem; text-decoration: underline; }
 
-    .manual-url         { font-size: .8rem; }
-    .manual-url summary { cursor: pointer; color: var(--swim-muted); margin-bottom: .4rem; }
+    .drawing-text   { margin: 0 0 1rem; line-height: 1.5; }
+    .dialog-actions { display: flex; justify-content: flex-end; }
+
+    .field-label { font-size: .85rem; color: var(--swim-muted); }
+    .pool        { display: flex; gap: 1.25rem; }
+    .pool-opt    { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; color: #e8e8e8; font-size: .9rem; }
+    .file-input  { color: #e8e8e8; font-size: .85rem; }
+    .file-input::file-selector-button { background: #161616; color: #f0a800; border: 1px solid #f0a800; border-radius: 5px; padding: .4rem .8rem; margin-right: .75rem; cursor: pointer; font-size: .82rem; }
+    .file-input::file-selector-button:hover { background: #1e1e1e; }
   `]
 })
 export class ImportComponent implements OnInit, OnDestroy {
@@ -204,7 +257,20 @@ export class ImportComponent implements OnInit, OnDestroy {
   searchQuery = '';
   contest     = signal<LtContest | null>(null);
   manualUrl   = '';
+  basen: '25m' | '50m' = '25m';
   klub        = '';
+  /** Uploaded PDF — not persisted (a File can't go in sessionStorage); takes precedence over the link. */
+  pdfFile     = signal<File | null>(null);
+  readonly POOLS = ['25m', '50m'] as const;
+  /** Re-read from the field on every check — manualUrl is a plain property bound with ngModel. */
+  linkKind() { return startlistLinkKind(this.manualUrl); }
+
+  onFileChange(ev: Event) {
+    const input = ev.target as HTMLInputElement;
+    this.pdfFile.set(input.files?.[0] ?? null);
+    this.error.set(null);
+  }
+  clearFile() { this.pdfFile.set(null); }
 
   // ── Search state ─────────────────────────────────────────────────────
   searchResults = signal<LtContest[]>([]);
@@ -229,6 +295,8 @@ export class ImportComponent implements OnInit, OnDestroy {
   // ── Import state ─────────────────────────────────────────────────────
   loading = signal(false);
   error   = signal<string | null>(null);
+  /** "Additional drawing" notice shown instead of importing for BOSiR (`isDrawingClub()`). */
+  drawingVisible = false;
 
   ngOnInit() {
     this.restoreForm();
@@ -249,6 +317,7 @@ export class ImportComponent implements OnInit, OnDestroy {
       searchQuery: this.searchQuery,
       contest:     this.contest(),
       manualUrl:   this.manualUrl,
+      basen:       this.basen,
       klub:        this.klub,
     };
     try {
@@ -265,6 +334,7 @@ export class ImportComponent implements OnInit, OnDestroy {
       this.searchQuery = s.searchQuery ?? '';
       this.contest.set(s.contest?.uuid ? s.contest : null);
       this.manualUrl   = s.manualUrl ?? '';
+      this.basen       = s.basen === '50m' ? '50m' : '25m';
       this.klub        = s.klub ?? '';
     } catch {
       // Corrupt or unavailable storage — start with an empty form.
@@ -326,21 +396,33 @@ export class ImportComponent implements OnInit, OnDestroy {
   }
 
   doImport() {
-    const url  = this.contestUrl;
     const klub = this.klub.trim();
-    if (!url)  { this.error.set('Wybierz zawody z listy lub wklej link.'); return; }
-    if (!CONTEST_URL_RE.test(url)) {
-      this.error.set('Wklej link do strony zawodów z livetiming.pl (https://livetiming.pl/contest/…), nie do pliku PDF.');
-      return;
+    const file = this.pdfFile();
+
+    // A pasted link / chosen contest is only required when no file is uploaded.
+    const url  = file ? '' : this.contestUrl;
+    const kind = file ? null : startlistLinkKind(url);
+    if (!file) {
+      if (!url)  { this.error.set('Wgraj plik PDF, wklej link do listy startowej lub wybierz zawody z listy.'); return; }
+      if (!kind) {
+        this.error.set('Wklej link do listy startowej w PDF z livetiming.pl (https://live.livetiming.pl/…/startowa.pdf) albo do strony zawodów (https://livetiming.pl/contest/…).');
+        return;
+      }
     }
     if (!klub) { this.error.set('Wpisz nazwę klubu.'); return; }
+    if (isDrawingClub(klub)) { this.error.set(null); this.drawingVisible = true; return; }
 
     this.loading.set(true);
     this.error.set(null);
-    this.api.previewStartlist(url, klub).subscribe({
+    // A contest page lets a club account fetch results later; an uploaded file or a PDF link does not.
+    const contestUrl = kind === 'contest' ? url : undefined;
+    const request = file
+      ? this.api.previewStartlistFile(file, klub, this.basen)
+      : this.api.previewStartlist(url, klub, kind === 'pdf' ? this.basen : undefined);
+    request.subscribe({
       next: res => {
         if (!res.ok) { this.fail(res.error ?? 'Błąd parsowania.'); return; }
-        const item = this.local.add(this.withContestFallbacks(res.zawody), url);
+        const item = this.local.add(this.withContestFallbacks(res.zawody), contestUrl);
         this.router.navigate(['/moje', item.id, 'lista']);
       },
       error: err => this.fail(err.error?.error ?? 'Błąd połączenia.'),

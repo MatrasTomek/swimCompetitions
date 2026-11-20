@@ -97,6 +97,7 @@ if (!defined('ALLOWED_CONTEST_HOST_SUFFIX')) { // tests point it at a local serv
 }
 // Size limits of server-side downloads (contest_http_get()); a larger response is rejected, not truncated
 define('CONTEST_PAGE_MAX_BYTES', 3 * 1024 * 1024);   // livetiming.pl contest page (HTML)
+define('STARTLIST_PDF_MAX_BYTES', 20 * 1024 * 1024); // start list PDF
 define('LENEX_MAX_BYTES',        5 * 1024 * 1024);   // results.lxf (ZIP)
 define('LENEX_XML_MAX_BYTES',    20 * 1024 * 1024);  // .lef unpacked from the ZIP (ZIP bomb guard; parsing needs a multiple of it in RAM)
 

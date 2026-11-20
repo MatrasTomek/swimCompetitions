@@ -4,7 +4,7 @@
  * Cache file: livetiming_cache.json in the project root.
  */
 
-define('LT_CACHE_FILE',    __DIR__ . '/../livetiming_cache.json');
+if (!defined('LT_CACHE_FILE')) define('LT_CACHE_FILE', __DIR__ . '/../livetiming_cache.json'); // tests override it
 define('LT_CACHE_TTL',     86400);   // 24 h
 define('LT_SCRAPE_TIMEOUT', 10);
 
@@ -33,14 +33,15 @@ function ltcache_load(): array {
 }
 
 /**
- * A cache built in a previous year (or before the year limit existed) must be rebuilt.
+ * A cache built in a previous year (or before the year limit existed) must be rebuilt,
+ * and so must an empty one: older code wrote an empty list when livetiming.pl was unreachable.
  */
 function ltcache_is_fresh(): bool {
     clearstatcache(true, LT_CACHE_FILE); // another request may have just rebuilt it
     if (!file_exists(LT_CACHE_FILE)) return false;
     if (time() - filemtime(LT_CACHE_FILE) >= LT_CACHE_TTL) return false;
     $data = json_decode(file_get_contents(LT_CACHE_FILE), true);
-    return (int)($data['year'] ?? 0) === (int)date('Y');
+    return (int)($data['year'] ?? 0) === (int)date('Y') && !empty($data['competitions']);
 }
 
 /**
@@ -56,7 +57,12 @@ function ltcache_scrape_page(string $category, int $page): array {
         ],
     ]);
     $html = @file_get_contents($url, false, $ctx);
-    if ($html === false || strlen($html) < 500) return [];
+    if ($html === false || strlen($html) < 500) {
+        // Logged so the hosting's error log says why (allow_url_fopen off, DNS, TLS, blocked IP…)
+        $why = $html === false ? (error_get_last()['message'] ?? 'unknown error') : 'response too short';
+        error_log("livetiming cache: cannot read $url: $why");
+        return [];
+    }
 
     $competitions = [];
 
@@ -108,9 +114,11 @@ function ltcache_is_last_page(string $category, int $page): bool {
  *
  * @param int $max_pages_per_category  Max pages to scrape per category (0 = unlimited)
  * @param bool $force  Skip TTL check and always refresh
- * @return array {ok, count, duration, skipped}
+ * @param callable|null $scrape  fn(string $category, int $page): array — tests inject it; default ltcache_scrape_page()
+ * @return array {ok, count, duration, skipped[, error]}
  */
-function ltcache_refresh(int $max_pages_per_category = 30, bool $force = false): array {
+function ltcache_refresh(int $max_pages_per_category = 30, bool $force = false, ?callable $scrape = null): array {
+    $scrape ??= 'ltcache_scrape_page';
     if (!$force && ltcache_is_fresh()) {
         $age = time() - filemtime(LT_CACHE_FILE);
         return ['ok' => true, 'skipped' => true, 'reason' => 'Cache is fresh (' . round($age / 3600, 1) . 'h old)'];
@@ -123,7 +131,7 @@ function ltcache_refresh(int $max_pages_per_category = 30, bool $force = false):
 
     foreach ($categories as $cat) {
         for ($page = 1; $max_pages_per_category === 0 || $page <= $max_pages_per_category; $page++) {
-            $entries = ltcache_scrape_page($cat, $page);
+            $entries = $scrape($cat, $page);
             if (empty($entries)) break; // no more results on this page → stop
 
             // Listings are sorted newest first: once a page has nothing from the
@@ -137,6 +145,18 @@ function ltcache_refresh(int $max_pages_per_category = 30, bool $force = false):
                 $all[] = $e;
             }
         }
+    }
+
+    // Nothing at all means livetiming.pl was unreachable (or its markup changed), not a season
+    // without contests — keep the previous cache instead of an empty one that would count as fresh.
+    if (empty($all)) {
+        return [
+            'ok'       => false,
+            'skipped'  => false,
+            'count'    => 0,
+            'duration' => round(microtime(true) - $start, 1),
+            'error'    => 'Nie udało się pobrać listy zawodów z livetiming.pl.',
+        ];
     }
 
     $cache = [
