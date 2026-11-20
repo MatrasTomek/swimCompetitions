@@ -127,6 +127,54 @@ check('rate limited 429', [$status, $body['error']], [429, 'Zbyt wiele pobrań w
 [$status] = results_import_contest(['userId' => 'u-other'] + $user, CONTEST, $fetchOk);
 check('other account not limited', $status, 200);
 
+// Results not published yet (409) do not use up the limit…
+@unlink(ACCOUNT_RESULTS_RATE_FILE);
+for ($i = 0; $i < ACCOUNT_RESULTS_FETCH_MAX; $i++) results_import_contest($user, CONTEST, $fetchNo);
+for ($i = 0; $i < ACCOUNT_RESULTS_FETCH_MAX; $i++) results_import_contest($user, CONTEST, $fetchXmlOf($entriesOnly));
+[$status] = results_import_contest($user, CONTEST, $fetchOk);
+check('409s do not use up the limit', $status, 200);
+// …but have their own, looser one, which blocks every fetch of the account once used up
+for ($i = 2 * ACCOUNT_RESULTS_FETCH_MAX; $i < ACCOUNT_RESULTS_PENDING_MAX; $i++) results_import_contest($user, CONTEST, $fetchNo);
+[$status, $body] = results_import_contest($user, CONTEST, $fetchOk);
+check('pending limit used up → 429', [$status, $body['error']], [429, 'Zbyt wiele pobrań wyników. Spróbuj ponownie za kilka minut.']);
+[$status] = results_import_contest(['userId' => 'u-other'] + $user, CONTEST, $fetchNo);
+check('other account: 409, not limited', $status, 409);
+
+// Concurrent requests: the slot is reserved before the download, so a request started meanwhile cannot take it
+@unlink(ACCOUNT_RESULTS_RATE_FILE);
+for ($i = 1; $i < ACCOUNT_RESULTS_PENDING_MAX; $i++) results_import_contest($user, CONTEST, $fetchNo);
+$nested = null;
+$fetchNoWithConcurrent = function (string $uuid) use ($user, $fetchNo, &$nested): array {
+    $nested = results_import_contest($user, CONTEST, $fetchNo)[0];
+    return $fetchNo($uuid);
+};
+[$status] = results_import_contest($user, CONTEST, $fetchNoWithConcurrent);
+check('last pending slot: request 409, concurrent one 429', [$status, $nested], [409, 429]);
+// a fetch that is not a 409 gives the pending slot back
+@unlink(ACCOUNT_RESULTS_RATE_FILE);
+for ($i = 1; $i < ACCOUNT_RESULTS_PENDING_MAX; $i++) results_import_contest($user, CONTEST, $fetchNo);
+[$status] = results_import_contest($user, CONTEST, $fetchOk);
+check('200 with the last pending slot', $status, 200);
+[$status] = results_import_contest($user, CONTEST, $fetchNo);
+check('200 gave the pending slot back', $status, 409);
+
+// Overlapping requests give back their own slots: an older download ending with 200 after a newer 409
+// must release its own pending slot, not the newer request's (which would leave the older timestamp behind)
+@unlink(ACCOUNT_RESULTS_RATE_FILE);
+$fetchOkWithConcurrent409 = function (string $uuid) use ($user, $fetchNo, $fetchOk, &$nested): array {
+    $nested = results_import_contest($user, CONTEST, $fetchNo)[0];
+    return $fetchOk($uuid);
+};
+[$status] = results_import_contest($user, CONTEST, $fetchOkWithConcurrent409);
+$slots = json_decode(file_get_contents(ACCOUNT_RESULTS_RATE_FILE), true);
+check('overlapping 200 + 409: statuses, one slot each', [$status, $nested, count($slots['u:u-import']), count($slots['p:u-import'])], [200, 409, 1, 1]);
+check('overlapping 200 + 409: each request kept its own slot', $slots['u:u-import'][0]['id'] !== $slots['p:u-import'][0]['id'], true);
+
+// Rate files written before reservation tokens (bare timestamps) still count
+file_put_contents(ACCOUNT_RESULTS_RATE_FILE, json_encode(['u:u-import' => array_fill(0, ACCOUNT_RESULTS_FETCH_MAX, time())]));
+[$status] = results_import_contest($user, CONTEST, $fetchOk);
+check('legacy timestamps counted', $status, 429);
+
 // ── A member or the account removed while the LENEX file is being downloaded leaves no orphaned results ──
 @unlink(ACCOUNT_RESULTS_RATE_FILE);
 $removeMemberMidDownload = function (string $uuid) use ($xml): array { member_delete('u-import', 'm-luk'); return ['ok' => true, 'xml' => $xml]; };

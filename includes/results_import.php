@@ -62,21 +62,44 @@ function results_import_contest(array $user, string $contestUrl, ?callable $fetc
         // `code` lets the SPA link to „Moi zawodnicy” without matching the message text
         return [400, ['error' => 'Najpierw dodaj zawodników w „Moi zawodnicy”.', 'code' => 'no_members']];
     }
-    if (ip_rate_limited(ACCOUNT_RESULTS_RATE_FILE, ACCOUNT_RESULTS_FETCH_MAX, ACCOUNT_RESULTS_FETCH_WINDOW, 'u:' . $user['userId'])) {
+    // A fetch answered 409 (results not published yet) gives its hit back, so waiting for results does not use up
+    // the limit — but such fetches still download a file, so they have their own, looser limit ('p:' key).
+    // A slot in both is reserved before the download (concurrent requests cannot overshoot either limit);
+    // the one that does not apply to the answer is given back afterwards
+    $limitKey   = 'u:' . $user['userId'];
+    $pendingKey = 'p:' . $user['userId'];
+    $token = rate_limit_reserve(ACCOUNT_RESULTS_RATE_FILE, ACCOUNT_RESULTS_FETCH_WINDOW,
+                                [$limitKey => ACCOUNT_RESULTS_FETCH_MAX, $pendingKey => ACCOUNT_RESULTS_PENDING_MAX]);
+    if ($token === null) {
         return [429, ['error' => 'Zbyt wiele pobrań wyników. Spróbuj ponownie za kilka minut.']];
     }
+    $notPublished = false;
+    try {
+        [$status, $body] = results_import_downloaded($user, $uuid, $fetchXml);
+        $notPublished = $status === 409;
+        return [$status, $body];
+    } finally {
+        // also on an exception: only a 409 keeps the pending slot
+        rate_limit_refund(ACCOUNT_RESULTS_RATE_FILE, $notPublished ? $limitKey : $pendingKey, $token);
+    }
+}
+
+/** results_import_contest() after validation and the rate limit: download, match, store. */
+function results_import_downloaded(array $user, string $uuid, ?callable $fetchXml): array {
+    $notPublished = function (string $reason) use ($uuid): array {
+        error_log('results_import_contest ' . $uuid . ': ' . $reason);
+        return [409, ['error' => 'Wyniki nie są jeszcze dostępne na livetiming.pl.']];
+    };
 
     $download = ($fetchXml ?? 'results_download_contest_xml')($uuid);
     $parsed   = $download['ok'] ? lenex_parse_full($download['xml']) : $download;
     if (!$parsed['ok']) {
-        error_log('results_import_contest ' . $uuid . ': ' . $parsed['error']);
-        return [409, ['error' => 'Wyniki nie są jeszcze dostępne na livetiming.pl.']];
+        return $notPublished($parsed['error']);
     }
 
     // An entry list or invitation (athletes, but no results yet) must not wipe the stored results
     if (!array_filter($parsed['athletes'], fn($a) => $a['results'])) {
-        error_log('results_import_contest ' . $uuid . ': LENEX without any results');
-        return [409, ['error' => 'Wyniki nie są jeszcze dostępne na livetiming.pl.']];
+        return $notPublished('LENEX without any results');
     }
 
     // The download may take a while: store results for the members the account has now, not when the request

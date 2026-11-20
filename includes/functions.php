@@ -235,7 +235,17 @@ function contact_rate_limited(string $ip): bool {
  * requests within the last $window seconds.
  */
 function ip_rate_limited(string $file, int $max, int $window, string $ip): bool {
-    return (bool)with_file_lock($file . '.lock', function () use ($file, $max, $window, $ip) {
+    return rate_limit_reserve($file, $window, [$ip => $max]) === null;
+}
+
+/**
+ * Sliding-window limiter over several keys at once ($limits: key => max requests per $window seconds).
+ * Under one lock: when every key is below its max, records the request for all of them and returns its
+ * reservation token; otherwise records nothing and returns null. A slot that should not count is given
+ * back with rate_limit_refund() and that token, so overlapping requests never release each other's slots.
+ */
+function rate_limit_reserve(string $file, int $window, array $limits): ?string {
+    return with_file_lock($file . '.lock', function () use ($file, $window, $limits) {
         $data = [];
         if (file_exists($file)) {
             $data = json_decode(file_get_contents($file), true);
@@ -245,15 +255,37 @@ function ip_rate_limited(string $file, int $max, int $window, string $ip): bool 
         $cutoff = $now - $window;
 
         foreach ($data as $k => $hits) {
-            $data[$k] = array_values(array_filter((array)$hits, fn($t) => $t > $cutoff));
+            $data[$k] = array_values(array_filter((array)$hits, fn($e) => rate_limit_entry_time($e) > $cutoff));
             if (!$data[$k]) unset($data[$k]);
         }
 
-        $limited = count($data[$ip] ?? []) >= $max;
-        if (!$limited) $data[$ip][] = $now;
+        foreach ($limits as $key => $max) {
+            if (count($data[$key] ?? []) >= $max) {
+                write_json_atomic($file, $data);
+                return null;
+            }
+        }
+        $token = bin2hex(random_bytes(8));
+        foreach (array_keys($limits) as $key) $data[$key][] = ['t' => $now, 'id' => $token];
 
         write_json_atomic($file, $data);
-        return $limited;
+        return $token;
+    });
+}
+
+/** Entry time: ['t' => …, 'id' => …], or a bare timestamp in files written before reservation tokens. */
+function rate_limit_entry_time($entry): int {
+    return (int)(is_array($entry) ? ($entry['t'] ?? 0) : $entry);
+}
+
+/** Gives back the slot of $key that rate_limit_reserve() recorded under $token (a request that should not count). */
+function rate_limit_refund(string $file, string $key, string $token): void {
+    with_file_lock($file . '.lock', function () use ($file, $key, $token) {
+        $data = file_exists($file) ? json_decode(file_get_contents($file), true) : null;
+        if (!is_array($data) || empty($data[$key])) return;
+        $data[$key] = array_values(array_filter((array)$data[$key], fn($e) => !is_array($e) || ($e['id'] ?? null) !== $token));
+        if (!$data[$key]) unset($data[$key]);
+        write_json_atomic($file, $data);
     });
 }
 
